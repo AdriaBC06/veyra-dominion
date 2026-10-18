@@ -380,6 +380,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - Rates are listed in the Circle screen, and the rolls are tested for distribution.
 - **Codex:** seen enemies, Arts, Familiars and Memories.
 - **Save file:** `$XDG_DATA_HOME/veyra-dominion/save.txt` (Linux) or `%APPDATA%\veyra-dominion\save.txt` (Windows). It has a version field and is written atomically (tmp + rename). Settings go in a separate `settings.txt`.
+  - `save.rs` (V6): `Settings` (lang, scale mode, fullscreen, windowed size, master/music/sfx volumes) and `SaveData` (runs, total kills, best time; meta fields join in V20+). `to_text` / `from_text` are pure and tested; unknown keys and bad values keep the default, so older and newer files load. `version=` is written but ignored until a key changes meaning (then add a migration in `from_text`). macOS uses `~/Library/Application Support`.
+  - Settings are written on every F9/F10/F11 toggle and on quit (`prevent_quit` + `is_quit_requested`); the windowed size is final only at quit. `window_conf` reads the settings for the initial size/fullscreen. A run is recorded in `SaveData` when it is replaced (restart/title) or the app quits, if `game.time > 0`. Write failures are only printed, never fatal.
 
 ### 7.10 Audio design (own chip synth)
 
@@ -521,7 +523,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V5 Mouse + keyboard UI layer
 - **S3 — Text & data**
   - [x] V4 English + Spanish localisation
-  - [ ] V6 Save and settings files
+  - [x] V6 Save and settings files
 - **S4 — Menus**
   - [ ] V7 Scenes, settings and credits
   - [ ] **CP4 Foundations**
@@ -587,3 +589,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S2 (2026-10-19)** — V2 + V5 done. V2: `screen.rs` (`Layout` pure + tested, `Screen` owns the target); logical width 480–864, F10 scale mode, F11 fullscreen; spawn ring and relocate radius derive from the view (`Game::set_view`), hash window now 24×24. Decided to drop the UI scale setting (see 7.3). V5: `ui.rs` focus model + widgets; level-up cards are clickable/hoverable.
   - Gotcha: `Layout` offsets can come out as -1 from float error (360 × 2.1333 > 768); they are clamped at 0.
   - `ui.rs` has a module-level `allow(dead_code)` until V7 uses Slider/Toggle/Tabs/ListView; remove it then. "Move toward cursor" setting moved to V7. Windowed size is remembered only in memory until V6. Next: S3.
+- **S3 (2026-10-19)** — V4 + V6 done. V4: `i18n.rs` (see 7.1), F9 switches EN/ES; debug overlay stays English. V6: `save.rs` (see 7.9); settings now persist language, scale mode, fullscreen and window size.
+  - Checked by launching with `XDG_DATA_HOME` pointing at a temp dir holding a Spanish `settings.txt`: title in Spanish, window 960×540. Screenshots of the real window work with `spectacle -b -n -a -o <png>` (Wayland/KDE).
+  - Gotcha: `Key::ALL` is `cfg(test)` only (used by the completeness test); new strings just go in the `keys!` table. Volumes in `Settings` are stored but inert until V9.
+  - Leaving fullscreen with F11 stores the fullscreen size as windowed for that frame; quitting rewrites it correctly. Next: S4.

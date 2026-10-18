@@ -62,15 +62,28 @@ pub struct Screen {
 }
 
 impl Screen {
-    pub fn new() -> Self {
-        let mode = ScaleMode::PixelPerfect;
+    /// `windowed` is the size to restore when leaving fullscreen (from the settings).
+    pub fn new(mode: ScaleMode, fullscreen: bool, windowed: Vec2) -> Self {
         let layout = Layout::new(window_size(), mode);
         Self {
             target: make_target(layout.view),
             layout,
             mode,
-            fullscreen: false,
-            windowed: window_size(),
+            fullscreen,
+            windowed,
+        }
+    }
+
+    pub fn fullscreen(&self) -> bool {
+        self.fullscreen
+    }
+
+    /// Current window size, or the remembered one while in fullscreen.
+    pub fn windowed_size(&self) -> Vec2 {
+        if self.fullscreen {
+            self.windowed
+        } else {
+            window_size()
         }
     }
 

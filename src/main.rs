@@ -4,6 +4,7 @@ mod enemies;
 mod game;
 mod hud;
 mod i18n;
+mod save;
 mod screen;
 mod spatial;
 mod ui;
@@ -14,14 +15,17 @@ use config::*;
 use game::{Game, InputState, SimEvent};
 use i18n::{tr, trf, Key};
 use macroquad::prelude::*;
+use save::{SaveData, Settings};
 use screen::Screen;
 use std::f32::consts::TAU;
 
 fn window_conf() -> Conf {
+    let settings = Settings::load();
     Conf {
         window_title: GAME_TITLE.to_owned(),
-        window_width: WINDOW_W,
-        window_height: WINDOW_H,
+        window_width: settings.window.0 as i32,
+        window_height: settings.window.1 as i32,
+        fullscreen: settings.fullscreen,
         window_resizable: true,
         ..Default::default()
     }
@@ -75,6 +79,24 @@ fn draw_ground(origin: Vec2, view: Vec2) {
                 false,
             );
         }
+    }
+}
+
+/// Copies the screen state into the settings and writes them.
+fn store_settings(settings: &mut Settings, screen: &Screen) {
+    let windowed = screen.windowed_size();
+    settings.lang = i18n::lang();
+    settings.scale_mode = screen.mode;
+    settings.fullscreen = screen.fullscreen();
+    settings.window = (windowed.x as u32, windowed.y as u32);
+    settings.store();
+}
+
+/// Adds a finished (or abandoned) run to the lifetime stats.
+fn end_run(game: &Game, save: &mut SaveData) {
+    if game.time > 0.0 {
+        save.record_run(game.time, game.kills);
+        save.store();
     }
 }
 
@@ -184,7 +206,16 @@ fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
 #[macroquad::main(window_conf)]
 async fn main() {
     assets::init();
-    let mut screen = Screen::new();
+    let mut settings = Settings::load();
+    i18n::set_lang(settings.lang);
+    let (w, h) = settings.window;
+    let mut screen = Screen::new(
+        settings.scale_mode,
+        settings.fullscreen,
+        vec2(w as f32, h as f32),
+    );
+    let mut save = SaveData::load();
+    prevent_quit();
 
     let mut game = Game::new();
     let mut state = AppState::Title;
@@ -194,12 +225,18 @@ async fn main() {
     let mut update_ms = 0.0f32;
 
     loop {
+        if is_quit_requested() {
+            end_run(&game, &mut save);
+            store_settings(&mut settings, &screen);
+            break;
+        }
         let restart = match state {
             AppState::Title => is_key_pressed(KeyCode::Enter),
             AppState::GameOver | AppState::Victory => is_key_pressed(KeyCode::R),
             _ => false,
         };
         if restart {
+            end_run(&game, &mut save);
             game = Game::new();
             accumulator = 0.0;
             state = AppState::Playing;
@@ -208,6 +245,7 @@ async fn main() {
             AppState::GameOver | AppState::Paused | AppState::Victory
         ) && is_key_pressed(KeyCode::T)
         {
+            end_run(&game, &mut save);
             game = Game::new();
             state = AppState::Title;
         }
@@ -215,14 +253,21 @@ async fn main() {
         if is_key_pressed(KeyCode::F3) {
             debug = !debug;
         }
+        let mut settings_changed = false;
         if is_key_pressed(KeyCode::F9) {
             i18n::set_lang(i18n::lang().next());
+            settings_changed = true;
         }
         if is_key_pressed(KeyCode::F10) {
             screen.toggle_mode();
+            settings_changed = true;
         }
         if is_key_pressed(KeyCode::F11) {
             screen.toggle_fullscreen();
+            settings_changed = true;
+        }
+        if settings_changed {
+            store_settings(&mut settings, &screen);
         }
         screen.update();
         let view = screen.view();

@@ -14,6 +14,18 @@ pub enum Lang {
 impl Lang {
     pub const ALL: [Lang; 2] = [Lang::En, Lang::Es];
 
+    /// Code used in the settings file.
+    pub fn code(self) -> &'static str {
+        match self {
+            Lang::En => "en",
+            Lang::Es => "es",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<Lang> {
+        Lang::ALL.into_iter().find(|l| l.code() == code)
+    }
+
     pub fn next(self) -> Lang {
         match self {
             Lang::En => Lang::Es,
@@ -136,5 +148,8 @@ mod tests {
         assert_eq!(trf(Key::LevelUpLevel, &[&2, &5]), "Nv 2 / 5");
         set_lang(Lang::En);
         assert_eq!(trf(Key::TitleTagline, &[&"5:00"]), "Survive 5:00");
+        for lang in Lang::ALL {
+            assert_eq!(Lang::from_code(lang.code()), Some(lang));
+        }
     }
 }
