@@ -4,6 +4,7 @@ mod game;
 mod hud;
 mod spatial;
 mod sprites;
+mod upgrades;
 
 use config::*;
 use game::{Game, InputState, SimEvent};
@@ -107,6 +108,7 @@ fn draw_ground(origin: Vec2) {
 enum AppState {
     Title,
     Playing,
+    LevelUp,
     GameOver,
 }
 
@@ -212,12 +214,13 @@ async fn main() {
     let mut game = Game::new();
     let mut state = AppState::Title;
     let mut accumulator = 0.0f32;
+    let mut selected = 0usize;
 
     loop {
         let restart = match state {
             AppState::Title => is_key_pressed(KeyCode::Enter),
             AppState::GameOver => is_key_pressed(KeyCode::R),
-            AppState::Playing => false,
+            AppState::Playing | AppState::LevelUp => false,
         };
         if restart {
             game = Game::new();
@@ -235,14 +238,45 @@ async fn main() {
             while accumulator >= TICK_DT && ticks < MAX_TICKS_PER_FRAME {
                 accumulator -= TICK_DT;
                 ticks += 1;
-                if game.tick(&input) == SimEvent::PlayerDied {
-                    state = AppState::GameOver;
-                    accumulator = 0.0;
-                    break;
+                match game.tick(&input) {
+                    SimEvent::None => {}
+                    SimEvent::LevelUp => {
+                        state = AppState::LevelUp;
+                        selected = 0;
+                        break;
+                    }
+                    SimEvent::PlayerDied => {
+                        state = AppState::GameOver;
+                        accumulator = 0.0;
+                        break;
+                    }
                 }
             }
             if ticks == MAX_TICKS_PER_FRAME {
                 accumulator = 0.0;
+            }
+        }
+
+        if state == AppState::LevelUp {
+            let count = game.choices.iter().flatten().count().max(1);
+            if is_key_pressed(KeyCode::Left) {
+                selected = (selected + count - 1) % count;
+            }
+            if is_key_pressed(KeyCode::Right) {
+                selected = (selected + 1) % count;
+            }
+            let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3];
+            let pick = keys
+                .iter()
+                .position(|&k| is_key_pressed(k))
+                .filter(|&slot| slot < count)
+                .or(is_key_pressed(KeyCode::Enter).then_some(selected));
+            if let Some(slot) = pick {
+                game.choose_upgrade(slot);
+                selected = 0;
+                if game.pending_levels == 0 {
+                    state = AppState::Playing;
+                }
             }
         }
 
@@ -264,6 +298,10 @@ async fn main() {
                 hud::draw_center_screen(GAME_TITLE, &["Survive 5:00", "", "Enter to rise"])
             }
             AppState::Playing => hud::draw_hud(&game),
+            AppState::LevelUp => {
+                hud::draw_hud(&game);
+                hud::draw_level_up(&game, selected);
+            }
             AppState::GameOver => {
                 let stats = format!(
                     "Survived {}   Kills {}",

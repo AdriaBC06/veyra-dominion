@@ -4,6 +4,7 @@ use crate::config::*;
 use crate::enemies::Enemies;
 use crate::spatial::SpatialHash;
 use crate::sprites::{SpriteId, FLASH_FRAME_OFFSET};
+use crate::upgrades::{PlayerStats, Upgrades};
 use macroquad::math::Vec2;
 use macroquad::rand::gen_range;
 use std::f32::consts::TAU;
@@ -18,6 +19,8 @@ pub struct InputState {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SimEvent {
     None,
+    /// `pending_levels > 0` and `choices` are ready; call `choose_upgrade`.
+    LevelUp,
     PlayerDied,
 }
 
@@ -71,6 +74,10 @@ pub struct Game {
     pub xp: u32,
     /// Level-ups earned but not yet spent on an upgrade.
     pub pending_levels: u32,
+    pub upgrades: Upgrades,
+    pub stats: PlayerStats,
+    /// Upgrade indices offered on the level-up screen.
+    pub choices: [Option<usize>; 3],
     /// Seconds since the killing blow, while the death animation plays.
     pub dying: Option<f32>,
     hash: SpatialHash,
@@ -100,6 +107,9 @@ impl Game {
             level: 1,
             xp: 0,
             pending_levels: 0,
+            upgrades: Upgrades::default(),
+            stats: Upgrades::default().stats(),
+            choices: [None; 3],
             dying: None,
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
             spawn_acc: 0.0,
@@ -136,8 +146,30 @@ impl Game {
             if *t >= DEATH_TIME {
                 return SimEvent::PlayerDied;
             }
+        } else if self.pending_levels > 0 {
+            if self.choices == [None; 3] {
+                self.upgrades.roll_choices(&mut self.choices);
+            }
+            if self.choices[0].is_some() {
+                return SimEvent::LevelUp;
+            }
+            self.pending_levels = 0; // everything is capped
         }
         SimEvent::None
+    }
+
+    /// Takes the upgrade in `slot` of `choices`; rerolls if more levels are pending.
+    pub fn choose_upgrade(&mut self, slot: usize) {
+        let Some(idx) = self.choices.get(slot).copied().flatten() else {
+            return;
+        };
+        self.upgrades.apply(idx, &mut self.player);
+        self.stats = self.upgrades.stats();
+        self.pending_levels = self.pending_levels.saturating_sub(1);
+        self.choices = [None; 3];
+        if self.pending_levels > 0 {
+            self.upgrades.roll_choices(&mut self.choices);
+        }
     }
 
     /// The strongest touching enemy hurts Veyra, then she is briefly invulnerable.
@@ -194,13 +226,20 @@ impl Game {
         }
         let from = self.player.pos;
         if let Some(target) = self.hash.nearest(from, FIRE_RANGE) {
-            let dir = (self.enemies.pos(target) - from).normalize_or(Vec2::X);
-            self.projectiles.push(Projectile {
-                pos: from,
-                vel: dir * PROJ_SPEED,
-                life: PROJ_LIFETIME,
-            });
-            self.fire_cd = FIRE_INTERVAL;
+            let aim = (self.enemies.pos(target) - from).normalize_or(Vec2::X);
+            let n = self.stats.projectiles;
+            for k in 0..n {
+                if self.projectiles.len() >= MAX_PROJECTILES {
+                    break;
+                }
+                let angle = (k as f32 - (n - 1) as f32 * 0.5) * PROJ_SPREAD;
+                self.projectiles.push(Projectile {
+                    pos: from,
+                    vel: Vec2::from_angle(angle).rotate(aim) * PROJ_SPEED,
+                    life: PROJ_LIFETIME,
+                });
+            }
+            self.fire_cd = self.stats.fire_interval;
         }
     }
 
@@ -208,6 +247,7 @@ impl Game {
     /// `remove_dead_enemies`, so hash indices stay valid for the whole pass.
     fn update_projectiles(&mut self) {
         let enemies = &mut self.enemies;
+        let damage = self.stats.damage;
         let mut k = self.projectiles.len();
         while k > 0 {
             k -= 1;
@@ -226,7 +266,7 @@ impl Game {
                     }
                 });
             if let Some(j) = hit {
-                enemies.hp[j] -= FIRE_DAMAGE;
+                enemies.hp[j] -= damage;
                 enemies.flash[j] = HIT_FLASH_TIME;
             }
             if hit.is_some() || pr.life <= 0.0 {
@@ -275,6 +315,7 @@ impl Game {
     /// Pulls nearby souls toward Veyra and absorbs the ones that reach her.
     fn update_souls(&mut self) {
         let target = self.player.pos;
+        let pickup = self.stats.pickup_radius;
         let mut gained = 0;
         self.souls.retain_mut(|s| {
             let off = target - s.pos;
@@ -283,7 +324,7 @@ impl Game {
                 gained += s.xp;
                 return false;
             }
-            if d2 <= PICKUP_RADIUS * PICKUP_RADIUS {
+            if d2 <= pickup * pickup {
                 let step = SOUL_MAGNET_SPEED * TICK_DT;
                 s.pos = if d2 <= step * step {
                     target
@@ -351,7 +392,7 @@ impl Game {
         let p = &mut self.player;
         let dir = input.move_dir.normalize_or_zero();
         let blend = 1.0 - (-PLAYER_ACCEL * TICK_DT).exp();
-        p.vel = p.vel.lerp(dir * PLAYER_SPEED, blend);
+        p.vel = p.vel.lerp(dir * self.stats.speed, blend);
         p.prev_pos = p.pos;
         p.pos += p.vel * TICK_DT;
         if p.vel.x.abs() > IMPULSE_SPEED * 0.5 {
@@ -480,6 +521,21 @@ mod tests {
         }
         assert_eq!(g.xp, 5);
         assert_eq!(g.souls.len(), 1);
+    }
+
+    #[test]
+    fn level_up_offers_choices_until_spent() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.gain_xp(xp_to_next(1) + xp_to_next(2));
+        assert_eq!(g.tick(&InputState::default()), SimEvent::LevelUp);
+        g.choose_upgrade(0);
+        assert_eq!(g.pending_levels, 1);
+        assert!(g.choices[0].is_some());
+        g.choose_upgrade(2);
+        assert_eq!(g.pending_levels, 0);
+        assert_eq!(g.upgrades.levels.iter().sum::<u8>(), 2);
+        assert_eq!(g.tick(&InputState::default()), SimEvent::None);
     }
 
     #[test]

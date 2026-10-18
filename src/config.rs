@@ -76,6 +76,76 @@ pub const fn xp_to_next(level: u32) -> u32 {
     8 + 6 * level
 }
 
+// --- Upgrades -------------------------------------------------------------
+/// Spread between Hellflare fireballs when EmberLegion adds more of them.
+pub const PROJ_SPREAD: f32 = 0.16;
+/// Health restored when BloodPact is taken (clamped to the new maximum).
+pub const BLOOD_PACT_HEAL: f32 = 30.0;
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum UpgradeKind {
+    Fury,
+    Frenzy,
+    EmberLegion,
+    LightWings,
+    BloodPact,
+    SoulPull,
+}
+
+/// `step` is the per-level bonus, see `Upgrades::stats`.
+pub struct UpgradeDef {
+    pub kind: UpgradeKind,
+    pub name: &'static str,
+    pub desc: &'static str,
+    pub max_level: u8,
+    pub step: f32,
+}
+
+pub const UPGRADES: [UpgradeDef; 6] = [
+    UpgradeDef {
+        kind: UpgradeKind::Fury,
+        name: "Fury",
+        desc: "+25% fireball damage",
+        max_level: 5,
+        step: 0.25,
+    },
+    UpgradeDef {
+        kind: UpgradeKind::Frenzy,
+        name: "Frenzy",
+        desc: "+15% fire rate",
+        max_level: 5,
+        step: 0.15,
+    },
+    UpgradeDef {
+        kind: UpgradeKind::EmberLegion,
+        name: "Ember Legion",
+        desc: "+1 fireball per volley",
+        max_level: 4,
+        step: 1.0,
+    },
+    UpgradeDef {
+        kind: UpgradeKind::LightWings,
+        name: "Light Wings",
+        desc: "+10% move speed",
+        max_level: 5,
+        step: 0.10,
+    },
+    UpgradeDef {
+        kind: UpgradeKind::BloodPact,
+        name: "Blood Pact",
+        desc: "+20 max HP, heal 30",
+        max_level: 5,
+        step: 20.0,
+    },
+    UpgradeDef {
+        kind: UpgradeKind::SoulPull,
+        name: "Soul Pull",
+        desc: "+40% soul pickup radius",
+        max_level: 5,
+        step: 0.40,
+    },
+];
+
 // --- Enemies & spawning ---------------------------------------------------
 pub const MAX_ENEMIES: usize = 2500;
 /// Enemies spawn on this ring around the player, just outside the visible frame.
