@@ -265,5 +265,5 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T12 HUD, pause, debug
 - [x] T13 Victory + endless
 - [x] T14 Stress test
-- [ ] T15 Clippy, docs, release
+- [x] T15 Clippy, docs, release
 - [ ] **CP3 Full loop**
