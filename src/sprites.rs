@@ -211,6 +211,16 @@ fn ground_pixel(variant: usize, x: u32, y: u32) -> Color {
     Color::from_rgba(r, g, b, 255)
 }
 
+/// Ground tile variant for a world tile: mostly grass, occasional dirt patches.
+pub fn ground_variant(ix: i32, iy: i32) -> usize {
+    let h = hash(ix as u32, iy as u32, 0x51ed);
+    if h % 100 < 12 {
+        4 + (h >> 8) as usize % 2
+    } else {
+        (h >> 8) as usize % 4
+    }
+}
+
 /// Builds the atlas texture. Must run once after the window exists.
 pub fn init() {
     let mut packer = Packer {
