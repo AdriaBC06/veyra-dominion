@@ -69,9 +69,9 @@ impl Enemies {
             };
             let mut push = Vec2::ZERO;
             let mut n = 0;
-            hash.query_radius(p, SEPARATION_RADIUS, |j, q| {
-                if j == i || n >= SEPARATION_MAX_NEIGHBOURS {
-                    return;
+            hash.try_query_radius(p, SEPARATION_RADIUS, |j, q| {
+                if j == i {
+                    return true;
                 }
                 let d = p - q;
                 let len = d.length();
@@ -83,6 +83,7 @@ impl Enemies {
                 };
                 push += dir * (1.0 - len / SEPARATION_RADIUS);
                 n += 1;
+                n < SEPARATION_MAX_NEIGHBOURS
             });
             self.set_pos(i, p + (desired + push * SEPARATION_PUSH) * dt);
             self.flash[i] = (self.flash[i] - dt).max(0.0);

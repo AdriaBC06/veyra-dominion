@@ -81,16 +81,36 @@ impl SpatialHash {
     }
 
     fn for_cell(&self, cx: i32, cy: i32, mut f: impl FnMut(usize, Vec2)) {
+        self.try_for_cell(cx, cy, |i, q| {
+            f(i, q);
+            true
+        });
+    }
+
+    /// Like `for_cell`, stopping (and returning false) as soon as `f` returns false.
+    fn try_for_cell(&self, cx: i32, cy: i32, mut f: impl FnMut(usize, Vec2) -> bool) -> bool {
         if let Some(c) = self.cell_index(cx, cy) {
             let (a, b) = (self.cell_start[c] as usize, self.cell_start[c + 1] as usize);
             for s in a..b {
-                f(self.entries[s] as usize, self.points[s]);
+                if !f(self.entries[s] as usize, self.points[s]) {
+                    return false;
+                }
             }
         }
+        true
     }
 
     /// Calls `f(index, position)` for every point within `r` of `p`.
     pub fn query_radius(&self, p: Vec2, r: f32, mut f: impl FnMut(usize, Vec2)) {
+        self.try_query_radius(p, r, |i, q| {
+            f(i, q);
+            true
+        });
+    }
+
+    /// Like `query_radius`, but stops as soon as `f` returns false. Lets dense hordes
+    /// bail out after a few neighbours instead of scanning crowded cells.
+    pub fn try_query_radius(&self, p: Vec2, r: f32, mut f: impl FnMut(usize, Vec2) -> bool) {
         let (x0, y0) = self.cell_coords(p - Vec2::splat(r));
         let (x1, y1) = self.cell_coords(p + Vec2::splat(r));
         let (x0, y0) = (x0.max(0), y0.max(0));
@@ -98,11 +118,10 @@ impl SpatialHash {
         let r2 = r * r;
         for cy in y0..=y1 {
             for cx in x0..=x1 {
-                self.for_cell(cx, cy, |i, q| {
-                    if q.distance_squared(p) <= r2 {
-                        f(i, q);
-                    }
-                });
+                let go_on = self.try_for_cell(cx, cy, |i, q| q.distance_squared(p) > r2 || f(i, q));
+                if !go_on {
+                    return;
+                }
             }
         }
     }

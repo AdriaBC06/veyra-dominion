@@ -676,6 +676,45 @@ mod tests {
     }
 
     #[test]
+    fn stress_at_enemy_cap() {
+        macroquad::rand::srand(7);
+        let mut g = Game::new();
+        g.time = VICTORY_TIME;
+        g.player.hp = f32::INFINITY;
+        while g.enemies.len() < MAX_ENEMIES {
+            let p = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(50.0, SPAWN_RING_RADIUS);
+            g.enemies.spawn(gen_range(0, ENEMY_DEFS.len()), p, 1.0);
+        }
+        let mut input = InputState::default();
+        let mut peak = 0;
+        let ticks = 20_000;
+        let started = std::time::Instant::now();
+        for i in 0..ticks {
+            if i % 30 == 0 {
+                input.move_dir = vec2(gen_range(-1.0, 1.0), gen_range(-1.0, 1.0));
+            }
+            if g.tick(&input) == SimEvent::LevelUp {
+                g.choose_upgrade(0);
+                g.player.hp = f32::INFINITY; // BloodPact clamps hp to max_hp
+            }
+            assert!(g.dying.is_none());
+            assert!(g.enemies.len() <= MAX_ENEMIES);
+            assert!(g.projectiles.len() <= MAX_PROJECTILES);
+            assert!(g.souls.len() <= MAX_SOULS);
+            assert!(g.fades.len() <= MAX_FADES);
+            peak = peak.max(g.enemies.len());
+        }
+        let mean_ms = started.elapsed().as_secs_f64() * 1000.0 / ticks as f64;
+        println!(
+            "stress: mean tick {mean_ms:.3} ms, peak enemies {peak}, kills {}",
+            g.kills
+        );
+        assert_eq!(peak, MAX_ENEMIES);
+        assert!(g.kills > 0 && g.upgrades.levels.iter().sum::<u8>() > 0);
+        assert!(mean_ms < 16.0, "mean tick {mean_ms:.3} ms");
+    }
+
+    #[test]
     fn souls_merge_when_full() {
         let mut g = Game::new();
         for i in 0..MAX_SOULS {
