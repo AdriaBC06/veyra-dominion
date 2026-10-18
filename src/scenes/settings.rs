@@ -123,6 +123,8 @@ impl SettingsScene {
             self.tab = tabs.active;
             self.reset_armed = false;
             self.reset_done = false;
+            // `items` still holds the old tab's rows; lay out the new ones next frame.
+            return None;
         }
 
         for (k, &row) in self.rows().iter().enumerate() {
