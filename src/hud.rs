@@ -23,20 +23,69 @@ pub fn format_time(t: f32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
-/// Minimal readout until the full HUD lands (T12).
+const HP_COLOR: Color = Color::new(0.78, 0.16, 0.22, 1.0);
+const XP_COLOR: Color = Color::new(0.45, 0.72, 0.95, 1.0);
+const BAR_BG: Color = Color::new(0.0, 0.0, 0.0, 0.55);
+
+fn draw_bar(x: f32, y: f32, w: f32, h: f32, frac: f32, color: Color) {
+    draw_rectangle(x, y, w, h, BAR_BG);
+    draw_rectangle(x, y, (w * frac.clamp(0.0, 1.0)).round(), h, color);
+}
+
+/// XP bar across the top, HP bar under it, timer centred, level and kills on the right.
 pub fn draw_hud(game: &Game) {
     let p = &game.player;
-    let text = format!(
-        "HP {}/{}   LV {} ({}/{})   KILLS {}   {}",
-        p.hp.ceil(),
-        p.max_hp,
-        game.level,
-        game.xp,
-        xp_to_next(game.level),
-        game.kills,
-        format_time(game.time)
+    draw_bar(
+        0.0,
+        0.0,
+        LOGICAL_W,
+        4.0,
+        game.xp as f32 / xp_to_next(game.level) as f32,
+        XP_COLOR,
     );
-    draw_text(&text, 6.0, 14.0, 16.0, WHITE);
+    draw_bar(6.0, 9.0, 100.0, 8.0, p.hp / p.max_hp, HP_COLOR);
+    draw_rectangle_lines(6.0, 9.0, 100.0, 8.0, 1.0, BLACK);
+    let hp = format!("{}/{}", p.hp.ceil(), p.max_hp);
+    draw_text(&hp, 112.0, 17.0, 16.0, WHITE);
+    draw_text_centered(&format_time(game.time), 22.0, 24, WHITE);
+    let right = format!("LV {}   KILLS {}", game.level, game.kills);
+    let dims = measure_text(&right, None, 16, 1.0);
+    draw_text(
+        &right,
+        (LOGICAL_W - dims.width - 6.0).round(),
+        17.0,
+        16.0,
+        WHITE,
+    );
+}
+
+/// F3 overlay: frame timing and entity counts.
+pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
+    let mut lines = vec![
+        format!("FPS {fps}   update {update_ms:.2} ms"),
+        format!("enemies {}/{MAX_ENEMIES}", game.enemies.len()),
+    ];
+    for (k, def) in ENEMY_DEFS.iter().enumerate() {
+        let n = game
+            .enemies
+            .kind
+            .iter()
+            .filter(|&&kind| kind as usize == k)
+            .count();
+        lines.push(format!("  {} {n}", def.name));
+    }
+    lines.push(format!(
+        "proj {}  souls {}  fades {}",
+        game.projectiles.len(),
+        game.souls.len(),
+        game.fades.len()
+    ));
+    lines.push(format!("spawn {:.1}/s", Game::spawn_rate(game.time)));
+    let h = lines.len() as f32 * 12.0 + 6.0;
+    draw_rectangle(4.0, 26.0, 200.0, h, Color::new(0.0, 0.0, 0.0, 0.6));
+    for (i, line) in lines.iter().enumerate() {
+        draw_text(line, 8.0, 38.0 + i as f32 * 12.0, 14.0, LIME);
+    }
 }
 
 /// Dims the frame and shows a title with lines of text below it.

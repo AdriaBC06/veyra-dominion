@@ -178,6 +178,7 @@ pub enum Behavior {
 }
 
 pub struct EnemyDef {
+    pub name: &'static str,
     pub sprite: SpriteId,
     pub hp: f32,
     pub speed: f32,
@@ -198,6 +199,7 @@ pub const KNIGHT: usize = 2;
 
 pub const ENEMY_DEFS: [EnemyDef; 3] = [
     EnemyDef {
+        name: "Rat",
         sprite: SpriteId::Rat,
         hp: 6.0,
         speed: 75.0,
@@ -210,6 +212,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         behavior: Behavior::Chase,
     },
     EnemyDef {
+        name: "Villager",
         sprite: SpriteId::Villager,
         hp: 14.0,
         speed: 55.0,
@@ -222,6 +225,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         behavior: Behavior::Chase,
     },
     EnemyDef {
+        name: "Knight",
         sprite: SpriteId::Knight,
         hp: 45.0,
         speed: 42.0,

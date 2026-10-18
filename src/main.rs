@@ -108,6 +108,7 @@ fn draw_ground(origin: Vec2) {
 enum AppState {
     Title,
     Playing,
+    Paused,
     LevelUp,
     GameOver,
 }
@@ -215,23 +216,42 @@ async fn main() {
     let mut state = AppState::Title;
     let mut accumulator = 0.0f32;
     let mut selected = 0usize;
+    let mut debug = false;
+    let mut update_ms = 0.0f32;
 
     loop {
         let restart = match state {
             AppState::Title => is_key_pressed(KeyCode::Enter),
             AppState::GameOver => is_key_pressed(KeyCode::R),
-            AppState::Playing | AppState::LevelUp => false,
+            _ => false,
         };
         if restart {
             game = Game::new();
             accumulator = 0.0;
             state = AppState::Playing;
-        } else if state == AppState::GameOver && is_key_pressed(KeyCode::T) {
+        } else if matches!(state, AppState::GameOver | AppState::Paused)
+            && is_key_pressed(KeyCode::T)
+        {
             game = Game::new();
             state = AppState::Title;
         }
 
+        if is_key_pressed(KeyCode::F3) {
+            debug = !debug;
+        }
+        match state {
+            AppState::Playing if is_key_pressed(KeyCode::Escape) => state = AppState::Paused,
+            AppState::Paused
+                if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::Enter) =>
+            {
+                state = AppState::Playing;
+                accumulator = 0.0;
+            }
+            _ => {}
+        }
+
         if state == AppState::Playing {
+            let started = get_time();
             let input = read_input();
             accumulator += get_frame_time().min(MAX_FRAME_DT);
             let mut ticks = 0;
@@ -255,6 +275,7 @@ async fn main() {
             if ticks == MAX_TICKS_PER_FRAME {
                 accumulator = 0.0;
             }
+            update_ms = ((get_time() - started) * 1000.0) as f32;
         }
 
         if state == AppState::LevelUp {
@@ -298,6 +319,10 @@ async fn main() {
                 hud::draw_center_screen(GAME_TITLE, &["Survive 5:00", "", "Enter to rise"])
             }
             AppState::Playing => hud::draw_hud(&game),
+            AppState::Paused => {
+                hud::draw_hud(&game);
+                hud::draw_center_screen("Paused", &["Esc resume   T title"]);
+            }
             AppState::LevelUp => {
                 hud::draw_hud(&game);
                 hud::draw_level_up(&game, selected);
@@ -310,6 +335,10 @@ async fn main() {
                 );
                 hud::draw_center_screen("Banished", &[&stats, "", "R restart   T title"]);
             }
+        }
+
+        if debug {
+            hud::draw_debug(&game, get_fps(), update_ms);
         }
 
         present(&target);

@@ -262,7 +262,7 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T9 Souls + XP
 - [x] T10 Upgrades
 - [x] T11 Wave director
-- [ ] T12 HUD, pause, debug
+- [x] T12 HUD, pause, debug
 - [ ] T13 Victory + endless
 - [ ] T14 Stress test
 - [ ] T15 Clippy, docs, release
