@@ -219,7 +219,7 @@ Each task = one commit (+ `git push`), `cargo check` before commit, Progress che
 |---|---|
 | Render-target camera y-flip quirk in macroquad 0.4 | Isolate in one `world_camera()` fn; verify orientation at CP1 |
 | Blurry text when scaling | Draw HUD into the 640×360 target, Nearest blit, integer scale when window allows |
-| Debug build too slow at 2,500 enemies | dev opt-level 1 + deps 3; grid counting sort; soft separation limited to K neighbours; stress test measures it |
+| Debug build too slow at 2,500 enemies | dev opt-level 1 + deps 3; grid counting sort; soft separation stops scanning after K neighbours (`try_query_radius`, 9.4 → ~0.6 ms/tick at cap); stress test measures it |
 | `macroquad::rand` is global → nondeterministic parallel tests | Tests assert invariants, not exact sequences; seed with `srand` per test |
 | Unbounded world breaks the grid | Grid window centred on player; enemies beyond `RELOCATE_RADIUS` are moved back to the ring |
 | Spiral of death on slow frames | Clamp frame dt and max ticks per frame |
@@ -266,4 +266,4 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T13 Victory + endless
 - [x] T14 Stress test
 - [x] T15 Clippy, docs, release
-- [ ] **CP3 Full loop**
+- [x] **CP3 Full loop**
