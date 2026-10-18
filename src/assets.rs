@@ -222,6 +222,9 @@ fn build() -> (Image, Vec<Rect>, [(usize, usize); SPRITE_COUNT]) {
     (packer.image, rects, ranges)
 }
 
+/// Non-ASCII letters rasterised at init; `i18n` tests check every string against it.
+pub const EXTRA_GLYPHS: &str = "áéíóúüñÁÉÍÓÚÜÑ¿¡";
+
 /// Builds the atlas texture. Must run once after the window exists.
 pub fn init() {
     let (image, rects, ranges) = build();
@@ -242,7 +245,7 @@ pub fn init() {
         small: load(SMALL_TTF),
     };
     // Rasterise printable ASCII plus Spanish letters up front to avoid first-use hitches.
-    let chars: Vec<char> = (' '..='~').chain("áéíóúüñÁÉÍÓÚÜÑ¿¡".chars()).collect();
+    let chars: Vec<char> = (' '..='~').chain(EXTRA_GLYPHS.chars()).collect();
     for style in TextStyle::ALL {
         let (face, size) = style.spec();
         fonts.get(face).populate_font_cache(&chars, size);

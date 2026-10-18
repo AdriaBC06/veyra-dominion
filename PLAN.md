@@ -250,7 +250,7 @@ The MVP (sections 1–6) is done. V2 turns it into a sellable game. Same workflo
 | Audio | Own chip synthesizer + own compositions as tracker data. No third-party audio, 100% owned, commercial-safe. |
 | Art | Sprite sheets move to PNG files in `assets/`, embedded with `include_bytes!` (still a single executable). Editable in Aseprite/LibreSprite. The matrices were exported once to PNG (V1, via a throwaway test, so no `tools/` script remains); new art is drawn directly in the PNGs. Format: one horizontal strip per sprite, frames of equal width; a new sprite needs a `SpriteId` and a `SHEETS` row in `assets.rs`. |
 | Veyra redesign | **Blocked until the user sends reference images.** Larger, reclining while levitating, suggestive but clothed (no nudity; Steam "suggestive" tier at most). |
-| Language | English + Spanish from the start; every string goes through `i18n`. |
+| Language | English + Spanish from the start; every string goes through `i18n`. `i18n.rs` (V4): `keys!` macro defines `Key` + the `[en, es]` table; `tr(key)` / `trf(key, &[args])` (`{}` slots, filled in order); global language in an atomic, **F9** switches it until the Settings screen (V7). Tests check no empty string, equal slot counts and that every char is ASCII or in `assets::EXTRA_GLYPHS` (add new letters there). The F3 debug overlay and enemy debug names stay English (developer tool). Upgrade names are translated as they are now; the Sin renames happen in V17. |
 | Monetisation | Chests ("Summoning Circles") are bought **only with in-game currency earned by playing**. Never sell them or the currency for real money (loot box laws in BE/NL and others, Steam disclosure). Drop rates are shown in-game. |
 | Fonts | Only OFL fonts (embedding in a commercial game is allowed; ship the licence text and credit). **Chosen by the user (2026-10-19, after V3):** **Jacquard 24** for titles (gothic with more detail; crisp only at 43 px), **Jersey 15** for body text (crisp only at 27 px) and **Press Start 2P** at 8 px for dense text such as the debug overlay. Rejected: Jacquarda Bastarda 9 (title too crude), Silkscreen 8 and Micro 5 (hard to read), Pixelify Sans (never crisp in macroquad). TTFs + `OFL-*.txt` live in `assets/fonts/`, credited in the README. All text goes through `assets::draw_ui_text` / `measure_ui_text` with a `TextStyle` (Title 43, Body 27, Small 8); never call `draw_text` with a raw size. Body text is big for 360p, so wide layouts stack vertically (the level-up cards are now a vertical list; ↑/↓ also move the selection).
 | Dependencies | Still only `macroquad`, now with `features = ["audio"]`. Saves use a hand-written `key=value` text format (no serde). |
@@ -520,7 +520,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V2 Adaptive resolution
   - [x] V5 Mouse + keyboard UI layer
 - **S3 — Text & data**
-  - [ ] V4 English + Spanish localisation
+  - [x] V4 English + Spanish localisation
   - [ ] V6 Save and settings files
 - **S4 — Menus**
   - [ ] V7 Scenes, settings and credits

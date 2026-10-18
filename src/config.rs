@@ -1,6 +1,7 @@
 //! All tunable numbers and data tables live here.
 
 use crate::assets::SpriteId;
+use crate::i18n::Key;
 
 pub const GAME_TITLE: &str = "Veyra: Dominion";
 
@@ -99,8 +100,8 @@ pub enum UpgradeKind {
 /// `step` is the per-level bonus, see `Upgrades::stats`.
 pub struct UpgradeDef {
     pub kind: UpgradeKind,
-    pub name: &'static str,
-    pub desc: &'static str,
+    pub name: Key,
+    pub desc: Key,
     pub max_level: u8,
     pub step: f32,
 }
@@ -108,43 +109,43 @@ pub struct UpgradeDef {
 pub const UPGRADES: [UpgradeDef; 6] = [
     UpgradeDef {
         kind: UpgradeKind::Fury,
-        name: "Fury",
-        desc: "+25% fireball damage",
+        name: Key::UpFury,
+        desc: Key::UpFuryDesc,
         max_level: 5,
         step: 0.25,
     },
     UpgradeDef {
         kind: UpgradeKind::Frenzy,
-        name: "Frenzy",
-        desc: "+15% fire rate",
+        name: Key::UpFrenzy,
+        desc: Key::UpFrenzyDesc,
         max_level: 5,
         step: 0.15,
     },
     UpgradeDef {
         kind: UpgradeKind::EmberLegion,
-        name: "Ember Legion",
-        desc: "+1 fireball per volley",
+        name: Key::UpEmberLegion,
+        desc: Key::UpEmberLegionDesc,
         max_level: 4,
         step: 1.0,
     },
     UpgradeDef {
         kind: UpgradeKind::LightWings,
-        name: "Light Wings",
-        desc: "+10% move speed",
+        name: Key::UpLightWings,
+        desc: Key::UpLightWingsDesc,
         max_level: 5,
         step: 0.10,
     },
     UpgradeDef {
         kind: UpgradeKind::BloodPact,
-        name: "Blood Pact",
-        desc: "+20 max HP, heal 30",
+        name: Key::UpBloodPact,
+        desc: Key::UpBloodPactDesc,
         max_level: 5,
         step: 20.0,
     },
     UpgradeDef {
         kind: UpgradeKind::SoulPull,
-        name: "Soul Pull",
-        desc: "+40% soul pickup radius",
+        name: Key::UpSoulPull,
+        desc: Key::UpSoulPullDesc,
         max_level: 5,
         step: 0.40,
     },

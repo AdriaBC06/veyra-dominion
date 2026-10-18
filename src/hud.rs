@@ -3,6 +3,7 @@
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
 use crate::config::*;
 use crate::game::Game;
+use crate::i18n::{tr, trf, Key};
 use crate::ui::Focus;
 use macroquad::prelude::*;
 
@@ -66,7 +67,7 @@ pub fn draw_hud(game: &Game, view: Vec2) {
     let hp = format!("{}/{}", p.hp.ceil(), p.max_hp);
     draw_ui_text(&hp, 112.0, 21.0, TextStyle::Body, WHITE);
     draw_text_centered(view, &format_time(game.time), 21.0, TextStyle::Body, WHITE);
-    let right = format!("LV {}   KILLS {}", game.level, game.kills);
+    let right = trf(Key::HudRight, &[&game.level, &game.kills]);
     let dims = measure_ui_text(&right, TextStyle::Body);
     let x = Anchor::Right.x(view, dims.width, 6.0);
     draw_ui_text(&right, x, 21.0, TextStyle::Body, WHITE);
@@ -130,7 +131,13 @@ pub fn level_up_cards(view: Vec2) -> [Rect; 3] {
 /// Level-up screen: up to three stacked upgrade cards, the highlighted one outlined.
 pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
     draw_dim(view);
-    draw_text_centered(view, "Dominion grows", 78.0, TextStyle::Title, TITLE_COLOR);
+    draw_text_centered(
+        view,
+        tr(Key::LevelUpTitle),
+        78.0,
+        TextStyle::Title,
+        TITLE_COLOR,
+    );
     let cards = level_up_cards(view);
     for (slot, choice) in game.choices.iter().enumerate() {
         let Some(idx) = *choice else { continue };
@@ -145,15 +152,18 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
         draw_rectangle_lines(x, y, w, h, 2.0, border);
         let num = (slot + 1).to_string();
         draw_ui_text(&num, x + 10.0, y + 22.0, TextStyle::Body, GRAY);
-        draw_ui_text(def.name, x + 28.0, y + 22.0, TextStyle::Body, WHITE);
-        let lv = format!("Lv {} / {}", game.upgrades.levels[idx], def.max_level);
+        draw_ui_text(tr(def.name), x + 28.0, y + 22.0, TextStyle::Body, WHITE);
+        let lv = trf(
+            Key::LevelUpLevel,
+            &[&game.upgrades.levels[idx], &def.max_level],
+        );
         let lv_w = measure_ui_text(&lv, TextStyle::Body).width;
         draw_ui_text(&lv, x + w - lv_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
-        draw_ui_text(def.desc, x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
+        draw_ui_text(tr(def.desc), x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
     }
     draw_text_centered(
         view,
-        "Click, 1/2/3 or arrows + Enter",
+        tr(Key::LevelUpHelp),
         CARDS_Y + 3.0 * (CARD_H + CARD_GAP) + 22.0,
         TextStyle::Body,
         WHITE,

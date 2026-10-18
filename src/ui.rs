@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
+use crate::i18n::{tr, Key};
 use crate::screen::Layout;
 use macroquad::prelude::*;
 
@@ -212,7 +213,7 @@ impl Toggle<'_> {
         draw_frame(self.rect, highlighted);
         let y = baseline(self.rect);
         draw_ui_text(self.label, self.rect.x + 10.0, y, TextStyle::Body, WHITE);
-        let value = if self.on { "On" } else { "Off" };
+        let value = tr(if self.on { Key::On } else { Key::Off });
         let w = measure_ui_text(value, TextStyle::Body).width;
         let color = if self.on { ACCENT } else { LIGHTGRAY };
         draw_ui_text(

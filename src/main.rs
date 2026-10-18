@@ -3,6 +3,7 @@ mod config;
 mod enemies;
 mod game;
 mod hud;
+mod i18n;
 mod screen;
 mod spatial;
 mod ui;
@@ -11,6 +12,7 @@ mod upgrades;
 use assets::{sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
 use config::*;
 use game::{Game, InputState, SimEvent};
+use i18n::{tr, trf, Key};
 use macroquad::prelude::*;
 use screen::Screen;
 use std::f32::consts::TAU;
@@ -213,6 +215,9 @@ async fn main() {
         if is_key_pressed(KeyCode::F3) {
             debug = !debug;
         }
+        if is_key_pressed(KeyCode::F9) {
+            i18n::set_lang(i18n::lang().next());
+        }
         if is_key_pressed(KeyCode::F10) {
             screen.toggle_mode();
         }
@@ -308,32 +313,36 @@ async fn main() {
         set_camera(&screen.camera(Vec2::ZERO));
         match state {
             AppState::Title => {
-                hud::draw_center_screen(view, GAME_TITLE, &["Survive 5:00", "", "Enter to rise"])
+                let tagline = trf(Key::TitleTagline, &[&hud::format_time(VICTORY_TIME)]);
+                hud::draw_center_screen(view, GAME_TITLE, &[&tagline, "", tr(Key::TitlePrompt)])
             }
             AppState::Playing => hud::draw_hud(&game, view),
             AppState::Paused => {
                 hud::draw_hud(&game, view);
-                hud::draw_center_screen(view, "Paused", &["Esc resume   T title"]);
+                hud::draw_center_screen(view, tr(Key::Paused), &[tr(Key::PausedHelp)]);
             }
             AppState::LevelUp => {
                 hud::draw_hud(&game, view);
                 hud::draw_level_up(&game, view, &focus);
             }
             AppState::Victory => {
-                let stats = format!("Kills {}   Level {}", game.kills, game.level);
+                let stats = trf(Key::VictoryStats, &[&game.kills, &game.level]);
                 hud::draw_center_screen(
                     view,
-                    "The village burns",
-                    &[&stats, "", "E endless   R restart   T title"],
+                    tr(Key::VictoryTitle),
+                    &[&stats, "", tr(Key::VictoryHelp)],
                 );
             }
             AppState::GameOver => {
-                let stats = format!(
-                    "Survived {}   Kills {}",
-                    hud::format_time(game.time),
-                    game.kills
+                let stats = trf(
+                    Key::GameOverStats,
+                    &[&hud::format_time(game.time), &game.kills],
                 );
-                hud::draw_center_screen(view, "Banished", &[&stats, "", "R restart   T title"]);
+                hud::draw_center_screen(
+                    view,
+                    tr(Key::GameOverTitle),
+                    &[&stats, "", tr(Key::GameOverHelp)],
+                );
             }
         }
 
