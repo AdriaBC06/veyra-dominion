@@ -397,6 +397,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - 1 noise voice (long/short LFSR, for drums)
   - 1 4-bit **wavetable** voice (Game Boy wave channel style, for organ and choir colours in the Abbey and Celestial maps)
 - Per-instrument macros (volume/arp/pitch/duty envelopes, as in FamiTracker) plus a light SNES-style echo.
+- **Implemented (V8):** `audio/synth.rs` + `audio/wav.rs` use only `std` (the `render_audio` example includes them with `#[path]`, since the crate has no lib target). `Synth::new(sample_rate, Vec<Instrument>)`, `note_on(channel, midi_note, inst_index, velocity)`, `note_off` (jumps macros to their release point; with no volume release point it cuts), `note_cut`, `render(&mut [f32])`, `set_echo(Echo)`. Mono 44.1 kHz f32, `wav::encode` → 16-bit PCM. Macros tick at 60 Hz per voice from its note-on: volume 0–15, arp semitones, pitch in 1/16 semitone (absolute), duty = `DUTIES` index (noise: 0 long / 1 short LFSR); a macro holds its last value unless `loop_from` is inside the current part (sustain `0..release`, release `release..`). Instruments also have vibrato (depth, rate, delay), sweep (semitones/s) and a 32×4-bit wavetable. Triangle is 4-bit stepped, noise clock = note Hz × 16. Output stage: echo with damped feedback (3 kHz) → DC blocker → 12 kHz low-pass → clamp.
 - Each track is pre-rendered to WAV bytes at load and played with macroquad's audio (`load_sound_from_bytes`, looped). If dynamic layering is needed later, the plan is to switch to a real-time callback.
 
 **Tracks (`assets/music/*.vtrk`).** Plain-text tracker patterns, reviewable in git. Each track has its own identity, so they don't all sound alike:
@@ -533,7 +534,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V7 Scenes, settings and credits
   - [x] **CP4 Foundations**
 - **S5 — Synth**
-  - [ ] V8 Chip synthesizer core
+  - [x] V8 Chip synthesizer core
 - **S6 — SFX**
   - [ ] V9 Sound effects and mixer
 - **S7 — First music** *(user approval)*
@@ -603,3 +604,6 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Fixed a V5 bug: `f32::signum(0.0)` is 1.0, so `UiInput.wheel` reported "up" every frame; it now checks for 0 first.
   - Screens were checked with a temporary `VEYRA_SHOT` env hack in `App::new` (start in a given scene/tab) + `spectacle`; not committed. Follow-up: author is "Adrià Bonnin Catalán" (`à`/`À` added to `EXTRA_GLYPHS`); the on-screen licence texts were dropped as too long, see 7.5.
   - `ui::ListView` still has a local `allow(dead_code)` until the Altar/Codex lists (V20+). Next: S5 (V8 chip synth).
+- **S5 (2026-10-19)** — V8 done: chip synth core (see 7.10 "Implemented"), 14 tests. `cargo run --release --example render_audio` writes 8 test WAVs to `target/audio/` (duties, scale, triangle bass, drums, wave organ, macros, echo, all voices); peaks 0.15–0.9, no clipping.
+  - `audio/mod.rs` has a module-level `allow(dead_code)` until V9 wires sound into the game; remove it then. macroquad's `audio` feature isn't enabled yet either (V9).
+  - Mix gains per channel are in `CHANNEL_GAIN` (synth.rs); five voices at full volume plus echo stay ≤ 1, but V9/V10 may want to rebalance once real tracks exist. Next: S6 (V9 SFX + mixer).
