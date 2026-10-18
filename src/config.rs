@@ -241,6 +241,8 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
 
 /// Run length for victory, in seconds.
 pub const VICTORY_TIME: f32 = 300.0;
+/// In endless mode, enemy HP grows by this fraction per minute past VICTORY_TIME.
+pub const ENDLESS_HP_GROWTH_PER_MIN: f32 = 0.5;
 
 pub enum EventKind {
     /// Enemy kind (index into `ENEMY_DEFS`) starts spawning.

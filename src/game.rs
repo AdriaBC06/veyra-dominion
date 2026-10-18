@@ -22,6 +22,8 @@ pub enum SimEvent {
     /// `pending_levels > 0` and `choices` are ready; call `choose_upgrade`.
     LevelUp,
     PlayerDied,
+    /// Survived until VICTORY_TIME; `start_endless` keeps the run going.
+    Victory,
 }
 
 pub struct Player {
@@ -63,6 +65,8 @@ pub struct Fade {
 
 pub struct Game {
     pub time: f32,
+    /// Playing on after victory, with ever tougher enemies.
+    pub endless: bool,
     pub player: Player,
     pub enemies: Enemies,
     pub projectiles: Vec<Projectile>,
@@ -91,6 +95,7 @@ impl Game {
     pub fn new() -> Self {
         Self {
             time: 0.0,
+            endless: false,
             player: Player {
                 pos: Vec2::ZERO,
                 prev_pos: Vec2::ZERO,
@@ -124,8 +129,10 @@ impl Game {
     /// Advances the simulation by one fixed step.
     pub fn tick(&mut self, input: &InputState) -> SimEvent {
         self.time += TICK_DT;
-        self.run_events();
         let alive = self.dying.is_none();
+        if self.run_events() && alive {
+            return SimEvent::Victory;
+        }
         let idle = InputState::default();
         self.move_player(if alive { input } else { &idle });
         let center = self.player.pos;
@@ -365,7 +372,9 @@ impl Game {
         SPAWN_RATE_START + (SPAWN_RATE_END - SPAWN_RATE_START) * k
     }
 
-    fn run_events(&mut self) {
+    /// Fires due timeline events; returns true when the victory beat is reached.
+    fn run_events(&mut self) -> bool {
+        let mut victory = false;
         while let Some(ev) = EVENTS.get(self.next_event) {
             if ev.time > self.time {
                 break;
@@ -373,9 +382,22 @@ impl Game {
             self.next_event += 1;
             match ev.kind {
                 EventKind::Unlock(kind) => self.unlocked[kind] = true,
-                EventKind::Victory => {} // handled in T13
+                EventKind::Victory => victory = !self.endless,
             }
         }
+        victory
+    }
+
+    pub fn start_endless(&mut self) {
+        self.endless = true;
+    }
+
+    /// Enemy HP multiplier: 1 during the run, growing after victory in endless mode.
+    fn hp_scale(&self) -> f32 {
+        if !self.endless {
+            return 1.0;
+        }
+        1.0 + ENDLESS_HP_GROWTH_PER_MIN * (self.time - VICTORY_TIME).max(0.0) / 60.0
     }
 
     fn spawn_weight(&self, kind: usize) -> f32 {
@@ -420,13 +442,14 @@ impl Game {
             let size = gen_range(lo as u32, hi as u32 + 1);
             self.spawn_acc -= size as f32;
             let center = self.ring_point(gen_range(0.0, TAU));
+            let hp_scale = self.hp_scale();
             for _ in 0..size {
                 if self.enemies.len() >= MAX_ENEMIES {
                     return;
                 }
                 let off =
                     Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, SPAWN_GROUP_SPREAD);
-                self.enemies.spawn(kind, center + off, 1.0);
+                self.enemies.spawn(kind, center + off, hp_scale);
             }
         }
     }
@@ -635,6 +658,21 @@ mod tests {
             assert!(g.enemies.len() <= MAX_ENEMIES);
         }
         assert_eq!(g.enemies.len(), MAX_ENEMIES);
+    }
+
+    #[test]
+    fn victory_at_five_minutes_then_endless_scales_hp() {
+        let mut g = Game::new();
+        g.time = VICTORY_TIME - TICK_DT * 0.5;
+        g.player.hp = f32::INFINITY;
+        g.run_events();
+        assert_eq!(g.tick(&InputState::default()), SimEvent::Victory);
+        g.start_endless();
+        for _ in 0..60 {
+            assert_ne!(g.tick(&InputState::default()), SimEvent::Victory);
+        }
+        g.time = VICTORY_TIME + 120.0;
+        assert_eq!(g.hp_scale(), 1.0 + 2.0 * ENDLESS_HP_GROWTH_PER_MIN);
     }
 
     #[test]

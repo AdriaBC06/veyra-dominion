@@ -111,6 +111,7 @@ enum AppState {
     Paused,
     LevelUp,
     GameOver,
+    Victory,
 }
 
 fn draw_shadow(pos: Vec2, half_w: f32, half_h: f32, opacity: f32) {
@@ -222,15 +223,17 @@ async fn main() {
     loop {
         let restart = match state {
             AppState::Title => is_key_pressed(KeyCode::Enter),
-            AppState::GameOver => is_key_pressed(KeyCode::R),
+            AppState::GameOver | AppState::Victory => is_key_pressed(KeyCode::R),
             _ => false,
         };
         if restart {
             game = Game::new();
             accumulator = 0.0;
             state = AppState::Playing;
-        } else if matches!(state, AppState::GameOver | AppState::Paused)
-            && is_key_pressed(KeyCode::T)
+        } else if matches!(
+            state,
+            AppState::GameOver | AppState::Paused | AppState::Victory
+        ) && is_key_pressed(KeyCode::T)
         {
             game = Game::new();
             state = AppState::Title;
@@ -244,6 +247,11 @@ async fn main() {
             AppState::Paused
                 if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::Enter) =>
             {
+                state = AppState::Playing;
+                accumulator = 0.0;
+            }
+            AppState::Victory if is_key_pressed(KeyCode::E) => {
+                game.start_endless();
                 state = AppState::Playing;
                 accumulator = 0.0;
             }
@@ -267,6 +275,11 @@ async fn main() {
                     }
                     SimEvent::PlayerDied => {
                         state = AppState::GameOver;
+                        accumulator = 0.0;
+                        break;
+                    }
+                    SimEvent::Victory => {
+                        state = AppState::Victory;
                         accumulator = 0.0;
                         break;
                     }
@@ -326,6 +339,13 @@ async fn main() {
             AppState::LevelUp => {
                 hud::draw_hud(&game);
                 hud::draw_level_up(&game, selected);
+            }
+            AppState::Victory => {
+                let stats = format!("Kills {}   Level {}", game.kills, game.level);
+                hud::draw_center_screen(
+                    "The village burns",
+                    &[&stats, "", "E endless   R restart   T title"],
+                );
             }
             AppState::GameOver => {
                 let stats = format!(
