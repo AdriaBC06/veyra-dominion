@@ -18,14 +18,13 @@ On Arch Linux you need `libx11 libxi mesa alsa-lib libxcursor libxrandr`.
 | Key | Action |
 |---|---|
 | WASD / arrows | Move |
-| Esc | Pause / resume |
-| Enter | Start / confirm |
+| Hold left click | Move toward the cursor (enable it in Settings → Game) |
+| Esc | Pause / resume, back in menus |
+| Enter / Space or mouse click | Confirm in menus |
 | 1 / 2 / 3, ↑ / ↓ + Enter, or mouse click | Pick upgrade |
-| R | Restart (game over / victory) |
-| E | Endless mode (after victory) |
-| T | Back to title (pause / game over / victory) |
 | F3 | Debug overlay |
 | F10 | Toggle pixel-perfect / fill scaling |
+| F9 | Switch language (English / Spanish) |
 | F11 | Toggle fullscreen |
 
 Veyra fires Hellflare on her own at the nearest enemy; you only steer.

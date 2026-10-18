@@ -1,8 +1,6 @@
 //! Shared UI layer: one focus model driven by mouse (hover selects, click confirms,
 //! wheel scrolls) and keyboard (arrows/WASD + Enter/Esc). Logic is separate from
 //! drawing so it can be tested headless with hand-made `UiInput`s.
-// Slider, Toggle, Tabs and ListView are first used by the Settings scene (V7).
-#![allow(dead_code)]
 
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
 use crate::i18n::{tr, Key};
@@ -11,6 +9,9 @@ use macroquad::prelude::*;
 
 pub const ACCENT: Color = Color::new(0.88, 0.19, 0.29, 1.0);
 const PANEL: Color = Color::new(0.08, 0.04, 0.1, 0.95);
+pub const BUTTON_W: f32 = 220.0;
+pub const BUTTON_H: f32 = 28.0;
+pub const BUTTON_GAP: f32 = 6.0;
 
 /// One frame of UI input, already in logical frame coordinates.
 #[derive(Clone, Copy, Default, Debug)]
@@ -31,11 +32,13 @@ pub struct UiInput {
 impl UiInput {
     pub fn read(layout: Layout) -> Self {
         let pressed = |keys: &[KeyCode]| keys.iter().any(|&k| is_key_pressed(k));
+        let wheel = mouse_wheel().1;
         Self {
             mouse: layout.to_logical(mouse_position().into()),
             mouse_down: is_mouse_button_down(MouseButton::Left),
             clicked: is_mouse_button_pressed(MouseButton::Left),
-            wheel: mouse_wheel().1.signum(),
+            // `signum` of 0.0 is 1.0, so a still wheel must be checked first.
+            wheel: if wheel == 0.0 { 0.0 } else { wheel.signum() },
             up: pressed(&[KeyCode::Up, KeyCode::W]),
             down: pressed(&[KeyCode::Down, KeyCode::S]),
             left: pressed(&[KeyCode::Left, KeyCode::A]),
@@ -193,6 +196,36 @@ impl Button<'_> {
     }
 }
 
+/// A centred column of `n` buttons starting at `top`.
+pub fn button_column(view: Vec2, top: f32, n: usize) -> Vec<Rect> {
+    let x = ((view.x - BUTTON_W) * 0.5).round();
+    (0..n)
+        .map(|i| {
+            Rect::new(
+                x,
+                top + i as f32 * (BUTTON_H + BUTTON_GAP),
+                BUTTON_W,
+                BUTTON_H,
+            )
+        })
+        .collect()
+}
+
+pub fn draw_buttons(rects: &[Rect], labels: &[&str], focus: &Focus) {
+    for (i, (&rect, label)) in rects.iter().zip(labels).enumerate() {
+        Button { rect, label }.draw(focus.is_highlighted(i));
+    }
+}
+
+/// Label on the left, value on the right.
+fn draw_labeled(rect: Rect, label: &str, value: &str, color: Color, highlighted: bool) {
+    draw_frame(rect, highlighted);
+    let y = baseline(rect);
+    draw_ui_text(label, rect.x + 10.0, y, TextStyle::Body, WHITE);
+    let w = measure_ui_text(value, TextStyle::Body).width;
+    draw_ui_text(value, rect.right() - w - 10.0, y, TextStyle::Body, color);
+}
+
 pub struct Toggle<'a> {
     pub rect: Rect,
     pub label: &'a str,
@@ -210,19 +243,31 @@ impl Toggle<'_> {
     }
 
     pub fn draw(&self, highlighted: bool) {
-        draw_frame(self.rect, highlighted);
-        let y = baseline(self.rect);
-        draw_ui_text(self.label, self.rect.x + 10.0, y, TextStyle::Body, WHITE);
         let value = tr(if self.on { Key::On } else { Key::Off });
-        let w = measure_ui_text(value, TextStyle::Body).width;
         let color = if self.on { ACCENT } else { LIGHTGRAY };
-        draw_ui_text(
-            value,
-            self.rect.right() - w - 10.0,
-            y,
-            TextStyle::Body,
-            color,
-        );
+        draw_labeled(self.rect, self.label, value, color, highlighted);
+    }
+}
+
+/// A label with a value picked from a list: confirm/click or right steps forward, left back.
+pub struct Choice<'a> {
+    pub rect: Rect,
+    pub label: &'a str,
+    pub value: &'a str,
+}
+
+impl Choice<'_> {
+    /// Step to apply to the value this frame (0, -1 or +1).
+    pub fn handle(i: usize, action: Action) -> i32 {
+        match action {
+            Action::Confirm(j) if j == i => 1,
+            Action::Adjust(j, d) if j == i => d as i32,
+            _ => 0,
+        }
+    }
+
+    pub fn draw(&self, highlighted: bool) {
+        draw_labeled(self.rect, self.label, self.value, ACCENT, highlighted);
     }
 }
 
@@ -327,6 +372,7 @@ impl Tabs<'_> {
 }
 
 /// Vertical list of equal rows inside `rect`, scrolled by the wheel and kept on focus.
+#[allow(dead_code)] // first used by the long lists of the Altar and Codex (V20+)
 pub struct ListView {
     pub rect: Rect,
     pub row_h: f32,
@@ -336,6 +382,7 @@ pub struct ListView {
     pub scroll: usize,
 }
 
+#[allow(dead_code)]
 impl ListView {
     pub fn visible_rows(&self) -> usize {
         (((self.rect.h + self.gap) / (self.row_h + self.gap)) as usize).max(1)
@@ -466,6 +513,9 @@ mod tests {
         assert!(t.handle(0, Action::Adjust(0, 1.0)));
         assert!(t.on);
         assert!(!t.handle(0, Action::Confirm(1)));
+        assert_eq!(Choice::handle(2, Action::Adjust(2, -1.0)), -1);
+        assert_eq!(Choice::handle(2, Action::Confirm(2)), 1);
+        assert_eq!(Choice::handle(2, Action::Confirm(0)), 0);
         let mut s = Slider {
             rect: Rect::new(0.0, 0.0, 200.0, 20.0),
             label: "",
@@ -499,6 +549,14 @@ mod tests {
         };
         t.handle(0, Action::Confirm(0), &click);
         assert_eq!(t.active, 1);
+    }
+
+    #[test]
+    fn button_column_is_centred_and_stacked() {
+        let r = button_column(vec2(640.0, 360.0), 100.0, 3);
+        assert_eq!(r.len(), 3);
+        assert_eq!(r[0].x + r[0].w * 0.5, 320.0);
+        assert_eq!(r[2].y, 100.0 + 2.0 * (BUTTON_H + BUTTON_GAP));
     }
 
     #[test]

@@ -280,7 +280,7 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 
 - Menus, upgrade choice, Altar, Circles and Settings all work with **mouse** (hover selects, click confirms, wheel scrolls) **and keyboard** (arrows/WASD + Enter/Esc). The last device used decides whether the hover highlight shows.
 - Shared UI layer in `ui.rs`: `Button`, `Slider`, `Toggle`, `Tabs`, `ListView`, with a single focus model. Gamepad hooks stay in the same model, to be added later.
-- Optional setting for in-run movement: "move toward cursor while holding LMB". **Deferred to V7**, where the Settings screen can toggle it.
+- Optional setting for in-run movement: "move toward cursor while holding LMB" (V7, `mouse_move` in `settings.txt`, off by default). Keys win over the mouse; 6 px dead zone around Veyra.
 - `ui.rs` (V5): `UiInput::read(layout)` gives one frame of input in logical coordinates (Enter/Space confirm, Esc back, arrows/WASD). `Focus::update(&input, &rects) -> Action` (`Confirm`, `Adjust(±1)`, `Pointer(frac)` while held, `Back`) is the only focus model; `Focus::highlight()` returns the focused item with the keyboard and only the hovered one with the mouse. A still mouse never takes focus from the keyboard. Widgets (`Button`, `Toggle`, `Slider`, `Tabs`, `ListView`) are logic + draw, each with a `handle(i, action, …)`; logic is unit-tested headless. Screens build their rects with a shared function (e.g. `hud::level_up_cards`) so drawing and hit-testing agree.
 
 ### 7.5 Title menu & scenes
@@ -295,6 +295,11 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
   - Data: **reset progress**, with a two-step confirmation.
 - **Credits:** scrolling, styled list. Includes design/code, art, music & SFX (own), the font licences (OFL text), macroquad (MIT/Apache notice) and "special thanks".
 - Transitions are a short dissolve or ember wipe between scenes.
+- **Built in V7:** `scenes/` holds `App` (owns settings, screen, save, the current `Run` and the `Scene` enum: Title / Run / Settings / Credits). Scenes return a `Nav` (Title, NewRun, ResumeRun, Settings, Credits, Quit) and `App::navigate` applies it; the run is ended (stats recorded) when it is replaced. Outside a run a fresh idle `Run` is the backdrop. Transition = 0.25 s fade from black (the ember wipe can come with V14).
+  - Title menu is Play / Settings / Credits / Quit for now; Altar, Circles, Familiars and map/mode select join with their tasks (V20+, V23).
+  - Pause, game over and victory are button menus (`ui::button_column`); the old R / E / T keys are gone. Esc in the pause menu resumes; Settings opened from pause returns to it.
+  - Settings tabs: Audio (3 sliders, inert until V9), Video (fullscreen, scaling), Game (language, hold-click-to-move), Keys (controls sheet), Data (lifetime stats + reset with a second press to confirm; Esc or moving away disarms). Screen shake, damage numbers and flash intensity join the Video tab in V29 with the features themselves. Settings are written when the screen is left. F9/F10/F11 still work everywhere.
+  - Credits scroll on their own after 2 s (wheel/arrows take over); they list the author (`AUTHOR` in `credits.rs`, currently the git handle "AdriaBC06"), the fonts, macroquad, and then the full OFL text and macroquad's MIT text (`assets/licenses/`) in the small face, word-wrapped to 440 px.
 
 ### 7.6 Art restyle
 
@@ -525,7 +530,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V4 English + Spanish localisation
   - [x] V6 Save and settings files
 - **S4 — Menus**
-  - [ ] V7 Scenes, settings and credits
+  - [x] V7 Scenes, settings and credits
   - [ ] **CP4 Foundations**
 - **S5 — Synth**
   - [ ] V8 Chip synthesizer core

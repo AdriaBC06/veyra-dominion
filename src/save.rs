@@ -28,6 +28,8 @@ pub struct Settings {
     pub master: f32,
     pub music: f32,
     pub sfx: f32,
+    /// Holding the left mouse button moves Veyra toward the cursor.
+    pub mouse_move: bool,
 }
 
 impl Default for Settings {
@@ -40,6 +42,7 @@ impl Default for Settings {
             master: 1.0,
             music: 0.8,
             sfx: 0.8,
+            mouse_move: false,
         }
     }
 }
@@ -103,6 +106,7 @@ impl Settings {
         let _ = writeln!(s, "master_volume={}", self.master);
         let _ = writeln!(s, "music_volume={}", self.music);
         let _ = writeln!(s, "sfx_volume={}", self.sfx);
+        let _ = writeln!(s, "mouse_move={}", self.mouse_move);
         s
     }
 
@@ -124,6 +128,7 @@ impl Settings {
                 "master_volume" => set_volume(&mut s.master, value),
                 "music_volume" => set_volume(&mut s.music, value),
                 "sfx_volume" => set_volume(&mut s.sfx, value),
+                "mouse_move" => set(&mut s.mouse_move, value),
                 _ => {}
             }
         }
@@ -240,6 +245,7 @@ mod tests {
             master: 0.5,
             music: 0.25,
             sfx: 0.0,
+            mouse_move: true,
         };
         assert_eq!(Settings::from_text(&s.to_text()), s);
         let d = Settings::default();

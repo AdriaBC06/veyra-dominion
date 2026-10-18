@@ -22,6 +22,14 @@ impl Lang {
         }
     }
 
+    /// The language's own name, shown in the settings whatever the current language.
+    pub fn name(self) -> &'static str {
+        match self {
+            Lang::En => "English",
+            Lang::Es => "Español",
+        }
+    }
+
     pub fn from_code(code: &str) -> Option<Lang> {
         Lang::ALL.into_iter().find(|l| l.code() == code)
     }
@@ -60,19 +68,62 @@ macro_rules! keys {
 
 keys! {
     TitleTagline => "Survive {}", "Sobrevive {}";
-    TitlePrompt => "Enter to rise", "Enter para alzarte";
     Paused => "Paused", "Pausa";
-    PausedHelp => "Esc resume   T title", "Esc continuar   T título";
     VictoryTitle => "The village burns", "La aldea arde";
     VictoryStats => "Kills {}   Level {}", "Bajas {}   Nivel {}";
-    VictoryHelp => "E endless   R restart   T title", "E sin fin   R reiniciar   T título";
     GameOverTitle => "Banished", "Desterrada";
     GameOverStats => "Survived {}   Kills {}", "Resististe {}   Bajas {}";
-    GameOverHelp => "R restart   T title", "R reiniciar   T título";
     HudRight => "LV {}   KILLS {}", "NV {}   BAJAS {}";
     LevelUpTitle => "Dominion grows", "El dominio crece";
     LevelUpLevel => "Lv {} / {}", "Nv {} / {}";
     LevelUpHelp => "Click, 1/2/3 or arrows + Enter", "Clic, 1/2/3 o flechas + Enter";
+    MenuPlay => "Play", "Jugar";
+    MenuSettings => "Settings", "Ajustes";
+    MenuCredits => "Credits", "Créditos";
+    MenuQuit => "Quit", "Salir";
+    MenuResume => "Resume", "Continuar";
+    MenuTitle => "Title screen", "Menú principal";
+    MenuRestart => "Restart", "Reiniciar";
+    MenuEndless => "Endless", "Sin fin";
+    MenuBack => "Back", "Volver";
+    TabAudio => "Audio", "Audio";
+    TabVideo => "Video", "Vídeo";
+    TabGame => "Game", "Juego";
+    TabControls => "Keys", "Teclas";
+    TabData => "Data", "Datos";
+    SetMaster => "Master volume", "Volumen general";
+    SetMusic => "Music", "Música";
+    SetSfx => "Effects", "Efectos";
+    SetFullscreen => "Fullscreen", "Pantalla completa";
+    SetScale => "Scaling", "Escalado";
+    ScalePixel => "Pixel-perfect", "Píxel exacto";
+    ScaleFill => "Fill", "Llenar";
+    SetLanguage => "Language", "Idioma";
+    SetMouseMove => "Hold click to move", "Mantén clic para moverte";
+    CtlMove => "Move", "Moverse";
+    CtlMoveKeys => "WASD / arrows", "WASD / flechas";
+    CtlMouse => "Move (mouse)", "Moverse (ratón)";
+    CtlMouseKeys => "Hold left click", "Mantén clic izquierdo";
+    CtlPause => "Pause", "Pausa";
+    CtlPick => "Pick upgrade", "Elegir mejora";
+    CtlPickKeys => "1/2/3, click, Enter", "1/2/3, clic, Enter";
+    CtlConfirm => "Confirm / back", "Aceptar / volver";
+    DataRuns => "Runs: {}", "Partidas: {}";
+    DataKills => "Total kills: {}", "Bajas totales: {}";
+    DataBest => "Best time: {}", "Mejor tiempo: {}";
+    ResetProgress => "Reset progress", "Borrar progreso";
+    ResetConfirm => "Sure? Press again", "¿Seguro? Pulsa otra vez";
+    ResetDone => "Progress erased", "Progreso borrado";
+    CreditsDesign => "Design & code", "Diseño y código";
+    CreditsArt => "Art", "Arte";
+    CreditsMusic => "Music & sound", "Música y sonido";
+    CreditsSynth => "Made with our own chip synth", "Hechos con un sintetizador chip propio";
+    CreditsFonts => "Fonts", "Tipografías";
+    CreditsEngine => "Engine", "Motor";
+    CreditsThanks => "Special thanks", "Agradecimientos";
+    CreditsThanksYou => "You, for playing", "A ti, por jugar";
+    CreditsLicences => "Licences", "Licencias";
+    CreditsHelp => "Esc or click to return", "Esc o clic para volver";
     On => "On", "Sí";
     Off => "Off", "No";
     UpFury => "Fury", "Furia";

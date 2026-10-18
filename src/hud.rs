@@ -7,7 +7,7 @@ use crate::i18n::{tr, trf, Key};
 use crate::ui::Focus;
 use macroquad::prelude::*;
 
-const TITLE_COLOR: Color = Color::new(0.88, 0.19, 0.29, 1.0);
+pub const TITLE_COLOR: Color = Color::new(0.88, 0.19, 0.29, 1.0);
 
 /// Horizontal edge of the view a widget is attached to.
 #[derive(Clone, Copy)]
@@ -26,13 +26,13 @@ impl Anchor {
     }
 }
 
-fn draw_text_centered(view: Vec2, text: &str, y: f32, style: TextStyle, color: Color) {
+pub fn draw_text_centered(view: Vec2, text: &str, y: f32, style: TextStyle, color: Color) {
     let dims = measure_ui_text(text, style);
     let x = Anchor::Center.x(view, dims.width, 0.0);
     draw_ui_text(text, x, y, style, color);
 }
 
-fn draw_dim(view: Vec2) {
+pub fn draw_dim(view: Vec2) {
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::new(0.0, 0.0, 0.0, 0.6));
 }
 
@@ -102,16 +102,23 @@ pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
     }
 }
 
+const SCREEN_TITLE_Y: f32 = 96.0;
+
 /// Dims the frame and shows a title with lines of text below it.
 pub fn draw_center_screen(view: Vec2, title: &str, lines: &[&str]) {
     draw_dim(view);
-    let mut y = (view.y * 0.4).round();
+    let mut y = SCREEN_TITLE_Y;
     draw_text_centered(view, title, y, TextStyle::Title, TITLE_COLOR);
     y += 32.0;
     for line in lines {
         draw_text_centered(view, line, y, TextStyle::Body, WHITE);
         y += 18.0;
     }
+}
+
+/// Top of the button column under a centre screen with `lines` lines of text.
+pub fn center_screen_buttons(lines: usize) -> f32 {
+    SCREEN_TITLE_Y + 20.0 + 24.0 * lines as f32
 }
 
 const CARD_W: f32 = 420.0;
