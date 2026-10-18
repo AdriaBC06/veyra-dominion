@@ -531,7 +531,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V6 Save and settings files
 - **S4 — Menus**
   - [x] V7 Scenes, settings and credits
-  - [ ] **CP4 Foundations**
+  - [x] **CP4 Foundations**
 - **S5 — Synth**
   - [ ] V8 Chip synthesizer core
 - **S6 — SFX**
@@ -598,3 +598,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Checked by launching with `XDG_DATA_HOME` pointing at a temp dir holding a Spanish `settings.txt`: title in Spanish, window 960×540. Screenshots of the real window work with `spectacle -b -n -a -o <png>` (Wayland/KDE).
   - Gotcha: `Key::ALL` is `cfg(test)` only (used by the completeness test); new strings just go in the `keys!` table. Volumes in `Settings` are stored but inert until V9.
   - Leaving fullscreen with F11 stores the fullscreen size as windowed for that frame; quitting rewrites it correctly. Next: S4.
+- **S4 (2026-10-19)** — V7 + CP4 done. V7: `scenes/` (`App`, `Nav`; title, run, settings, credits), see 7.5; `main.rs` is now only the window setup and loop. The pause / game over / victory screens are button menus and R/E/T are gone. Hold-click movement setting added (7.4).
+  - CP4: release binary 1.95 MB (1.75 MB stripped), up from 1.14 MB mostly because of the embedded TTFs and licence texts.
+  - Fixed a V5 bug: `f32::signum(0.0)` is 1.0, so `UiInput.wheel` reported "up" every frame; it now checks for 0 first.
+  - Screens were checked with a temporary `VEYRA_SHOT` env hack in `App::new` (start in a given scene/tab) + `spectacle`; not committed. The credits use "AdriaBC06" as the author name; change `AUTHOR` in `credits.rs` if the user wants a real name.
+  - `ui::ListView` still has a local `allow(dead_code)` until the Altar/Codex lists (V20+). Next: S5 (V8 chip synth).
