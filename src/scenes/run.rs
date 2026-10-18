@@ -15,6 +15,12 @@ use std::f32::consts::TAU;
 
 /// Mouse movement ignores a cursor this close to Veyra (logical pixels).
 const MOUSE_DEADZONE: f32 = 6.0;
+/// The heartbeat starts at this HP fraction, and quickens below the second.
+const LOW_HP: f32 = 0.3;
+const CRITICAL_HP: f32 = 0.15;
+/// Seconds between heartbeats while low and critical.
+const HEARTBEAT_SLOW: f32 = 0.9;
+const HEARTBEAT_FAST: f32 = 0.6;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -30,6 +36,8 @@ pub struct Run {
     state: State,
     accumulator: f32,
     focus: Focus,
+    /// Seconds until the next low-HP heartbeat.
+    heartbeat: f32,
     /// Time spent in the simulation last frame, for the debug overlay.
     pub update_ms: f32,
 }
@@ -45,6 +53,7 @@ impl Run {
             state: State::Playing,
             accumulator: 0.0,
             focus: Focus::default(),
+            heartbeat: 0.0,
             update_ms: 0.0,
         }
     }
@@ -68,7 +77,7 @@ impl Run {
     pub fn update(&mut self, input: &UiInput, view: Vec2, mouse_move: bool) -> Option<Nav> {
         match self.state {
             State::Playing if input.back => {
-                audio::cue(Sfx::UiBack);
+                audio::cue(Sfx::Pause);
                 self.set_state(State::Paused);
             }
             State::Playing => self.simulate(input, view, mouse_move),
@@ -118,16 +127,39 @@ impl Run {
         for cue in self.game.cues.drain(..) {
             audio::cue(match cue {
                 Cue::Fire => Sfx::Fire,
-                Cue::Hit => Sfx::Hit,
+                Cue::Hit { armored: false } => Sfx::Hit,
+                Cue::Hit { armored: true } => Sfx::HitArmored,
                 Cue::Kill(Family::Beast) => Sfx::KillBeast,
                 Cue::Kill(Family::Human) => Sfx::KillHuman,
                 Cue::Kill(Family::Armored) => Sfx::KillArmored,
                 Cue::Soul => Sfx::Soul,
                 Cue::Hurt => Sfx::Hurt,
                 Cue::Died => Sfx::Death,
+                Cue::Arrival => Sfx::Horn,
             });
         }
+        self.heartbeat();
         self.update_ms = ((get_time() - started) * 1000.0) as f32;
+    }
+
+    /// Beats while Veyra is low on HP, faster when critical; the first beat
+    /// comes as soon as she drops low.
+    fn heartbeat(&mut self) {
+        let p = &self.game.player;
+        let health = p.hp / p.max_hp;
+        if self.game.dying.is_some() || health > LOW_HP {
+            self.heartbeat = 0.0;
+            return;
+        }
+        self.heartbeat -= get_frame_time().min(MAX_FRAME_DT);
+        if self.heartbeat <= 0.0 {
+            audio::cue(Sfx::Heartbeat);
+            self.heartbeat = if health > CRITICAL_HP {
+                HEARTBEAT_SLOW
+            } else {
+                HEARTBEAT_FAST
+            };
+        }
     }
 
     fn level_up(&mut self, input: &UiInput, view: Vec2) {
@@ -139,14 +171,12 @@ impl Run {
             .iter()
             .position(|&k| is_key_pressed(k))
             .filter(|&slot| slot < count);
-        if by_key.is_some() {
-            audio::cue(Sfx::UiConfirm);
-        }
         let pick = by_key.or(match action {
             Action::Confirm(slot) => Some(slot),
             _ => None,
         });
         if let Some(slot) = pick {
+            audio::recue(Sfx::UiConfirm, Sfx::UpgradePick);
             self.game.choose_upgrade(slot);
             self.focus.index = 0;
             if self.game.pending_levels == 0 {

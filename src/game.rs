@@ -31,15 +31,20 @@ pub enum SimEvent {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Cue {
     Fire,
-    Hit,
+    /// A fireball landed; armour rings differently from flesh.
+    Hit {
+        armored: bool,
+    },
     Kill(Family),
     Soul,
     Hurt,
     Died,
+    /// A new enemy kind joined the waves after the start.
+    Arrival,
 }
 
-/// Distinct cues: 5 plus one kill per family.
-const MAX_CUES: usize = 8;
+/// Every distinct cue fits: 6 plus a second hit kind and one kill per family.
+const MAX_CUES: usize = 10;
 
 pub struct Player {
     pub pos: Vec2,
@@ -300,7 +305,8 @@ impl Game {
     fn update_projectiles(&mut self) {
         let enemies = &mut self.enemies;
         let damage = self.stats.damage;
-        let mut hits = false;
+        // Hit seen this tick on flesh and on armour.
+        let mut hits = [false; 2];
         let mut k = self.projectiles.len();
         while k > 0 {
             k -= 1;
@@ -321,14 +327,15 @@ impl Game {
             if let Some(j) = hit {
                 enemies.hp[j] -= damage;
                 enemies.flash[j] = HIT_FLASH_TIME;
-                hits = true;
+                let family = ENEMY_DEFS[enemies.kind[j] as usize].family;
+                hits[(family == Family::Armored) as usize] = true;
             }
             if hit.is_some() || pr.life <= 0.0 {
                 self.projectiles.swap_remove(k);
             }
         }
-        if hits {
-            self.cue(Cue::Hit);
+        for (armored, _) in [false, true].into_iter().zip(hits).filter(|h| h.1) {
+            self.cue(Cue::Hit { armored });
         }
     }
 
@@ -431,7 +438,12 @@ impl Game {
             }
             self.next_event += 1;
             match ev.kind {
-                EventKind::Unlock(kind) => self.unlocked[kind] = true,
+                EventKind::Unlock(kind) => {
+                    self.unlocked[kind] = true;
+                    if ev.time > 0.0 {
+                        self.cue(Cue::Arrival);
+                    }
+                }
                 EventKind::Victory => victory = !self.endless,
             }
         }
@@ -598,7 +610,8 @@ mod tests {
         }
         assert_eq!(g.kills, 1);
         assert_eq!(g.enemies.len(), 0);
-        for cue in [Cue::Fire, Cue::Hit, Cue::Kill(Family::Beast)] {
+        let hit = Cue::Hit { armored: false };
+        for cue in [Cue::Fire, hit, Cue::Kill(Family::Beast)] {
             assert_eq!(g.cues.iter().filter(|&&c| c == cue).count(), 1, "{cue:?}");
         }
         assert_eq!(g.fades.len(), 1);
@@ -701,6 +714,7 @@ mod tests {
         let mut g = Game::new();
         g.time = 119.0;
         g.run_events();
+        assert!(g.cues.is_empty(), "the opening unlocks are silent");
         assert_eq!(g.spawn_weight(KNIGHT), 0.0);
         assert!(g.spawn_weight(RAT) > 0.0 && g.spawn_weight(VILLAGER) > 0.0);
         for _ in 0..200 {
@@ -709,6 +723,7 @@ mod tests {
         g.time = 121.0;
         g.run_events();
         assert!(g.spawn_weight(KNIGHT) > 0.0);
+        assert_eq!(g.cues, [Cue::Arrival]);
     }
 
     #[test]

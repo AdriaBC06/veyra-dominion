@@ -15,34 +15,48 @@ const JITTER: [f32; 5] = [-0.5, -0.25, 0.0, 0.25, 0.5];
 /// Soul pickups climb a minor pentatonic while the combo lasts.
 pub const COMBO_STEPS: [f32; 8] = [0.0, 3.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0];
 
+/// Mix tiers by peak short-term loudness at full volume (see `render_audio`):
+/// UI and Hellflare sit far back (about -30 dB) because they repeat constantly,
+/// combat in the middle (-25 to -20), events up front (-18 to -14), level-up
+/// being the reference at about -16.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Sfx {
     Fire,
     Hit,
+    HitArmored,
     KillBeast,
     KillHuman,
     KillArmored,
     Soul,
     Hurt,
+    Heartbeat,
     Death,
     LevelUp,
+    UpgradePick,
+    Horn,
+    Pause,
     UiMove,
     UiConfirm,
     UiBack,
 }
 
 impl Sfx {
-    pub const COUNT: usize = 12;
+    pub const COUNT: usize = 17;
     pub const ALL: [Sfx; Sfx::COUNT] = [
         Sfx::Fire,
         Sfx::Hit,
+        Sfx::HitArmored,
         Sfx::KillBeast,
         Sfx::KillHuman,
         Sfx::KillArmored,
         Sfx::Soul,
         Sfx::Hurt,
+        Sfx::Heartbeat,
         Sfx::Death,
         Sfx::LevelUp,
+        Sfx::UpgradePick,
+        Sfx::Horn,
+        Sfx::Pause,
         Sfx::UiMove,
         Sfx::UiConfirm,
         Sfx::UiBack,
@@ -52,13 +66,18 @@ impl Sfx {
         match self {
             Sfx::Fire => "fire",
             Sfx::Hit => "hit",
+            Sfx::HitArmored => "hit_armored",
             Sfx::KillBeast => "kill_beast",
             Sfx::KillHuman => "kill_human",
             Sfx::KillArmored => "kill_armored",
             Sfx::Soul => "soul",
             Sfx::Hurt => "hurt",
+            Sfx::Heartbeat => "heartbeat",
             Sfx::Death => "death",
             Sfx::LevelUp => "level_up",
+            Sfx::UpgradePick => "upgrade_pick",
+            Sfx::Horn => "horn",
+            Sfx::Pause => "pause",
             Sfx::UiMove => "ui_move",
             Sfx::UiConfirm => "ui_confirm",
             Sfx::UiBack => "ui_back",
@@ -68,8 +87,13 @@ impl Sfx {
     /// Pitch offsets in semitones, one pre-rendered variant each.
     pub fn variants(self) -> &'static [f32] {
         match self {
-            Sfx::Fire | Sfx::Hit | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored => &JITTER,
-            Sfx::Hurt => &JITTER[1..4],
+            Sfx::Fire
+            | Sfx::Hit
+            | Sfx::HitArmored
+            | Sfx::KillBeast
+            | Sfx::KillHuman
+            | Sfx::KillArmored => &JITTER,
+            Sfx::Hurt | Sfx::UiMove => &JITTER[1..4],
             Sfx::Soul => &COMBO_STEPS,
             _ => &[0.0],
         }
@@ -78,17 +102,22 @@ impl Sfx {
     /// Rendered length in seconds (the same for every variant).
     pub fn length(self) -> f32 {
         match self {
-            Sfx::Fire => 0.22,
+            Sfx::Fire => 0.2,
             Sfx::Hit => 0.1,
+            Sfx::HitArmored => 0.16,
             Sfx::KillBeast => 0.16,
             Sfx::KillHuman => 0.2,
             Sfx::KillArmored => 0.45,
             Sfx::Soul => 0.18,
-            Sfx::Hurt => 0.28,
+            Sfx::Hurt => 0.4,
+            Sfx::Heartbeat => 0.5,
             Sfx::Death => 1.5,
             Sfx::LevelUp => 1.1,
-            Sfx::UiMove => 0.07,
-            Sfx::UiConfirm | Sfx::UiBack => 0.18,
+            Sfx::UpgradePick => 0.8,
+            Sfx::Horn => 2.4,
+            Sfx::Pause => 0.6,
+            Sfx::UiMove => 0.06,
+            Sfx::UiConfirm | Sfx::UiBack => 0.25,
         }
     }
 
@@ -96,9 +125,9 @@ impl Sfx {
     pub fn cap(self) -> usize {
         match self {
             Sfx::Hit | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored => 4,
-            Sfx::Fire | Sfx::Soul => 3,
+            Sfx::Fire | Sfx::Soul | Sfx::HitArmored => 3,
             Sfx::UiMove | Sfx::UiConfirm | Sfx::UiBack => 2,
-            Sfx::Hurt | Sfx::Death | Sfx::LevelUp => 1,
+            _ => 1,
         }
     }
 
@@ -106,21 +135,33 @@ impl Sfx {
     pub fn gap(self) -> f32 {
         match self {
             Sfx::Hit | Sfx::UiMove => 0.03,
-            Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored | Sfx::Soul => 0.04,
+            Sfx::HitArmored | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored | Sfx::Soul => {
+                0.04
+            }
             Sfx::Fire => 0.05,
             _ => 0.0,
         }
     }
 
-    /// Playback level before the volume settings.
+    /// Playback level before the volume settings, tuned to the tiers above.
     pub fn gain(self) -> f32 {
         match self {
-            Sfx::Fire | Sfx::Soul | Sfx::UiMove => 0.3,
-            Sfx::Hit | Sfx::UiConfirm | Sfx::UiBack => 0.35,
-            Sfx::KillBeast => 0.4,
-            Sfx::KillHuman | Sfx::KillArmored => 0.45,
+            Sfx::Fire => 0.09,
+            Sfx::Hit => 0.22,
+            Sfx::HitArmored => 0.2,
+            Sfx::KillBeast => 0.35,
+            Sfx::KillHuman => 0.32,
+            Sfx::KillArmored => 0.4,
+            Sfx::Soul => 0.22,
+            Sfx::Hurt => 0.8,
+            Sfx::Heartbeat => 0.2,
+            Sfx::Death => 0.6,
             Sfx::LevelUp => 0.55,
-            Sfx::Hurt | Sfx::Death => 0.6,
+            Sfx::UpgradePick => 0.35,
+            Sfx::Horn => 0.5,
+            Sfx::Pause => 0.1,
+            Sfx::UiMove => 0.07,
+            Sfx::UiConfirm | Sfx::UiBack => 0.1,
         }
     }
 }
@@ -172,21 +213,24 @@ fn fade(from: i8, ticks: usize) -> Vec<i8> {
 fn patch(sfx: Sfx) -> Patch {
     let dry = Echo::OFF;
     match sfx {
-        // Dark fireball: a falling thin pulse over a breath of noise.
+        // Dark fireball: a soft rising hiss with a low ember thump under it,
+        // gentle enough to hear every half second.
         Sfx::Fire => Patch {
             instruments: vec![
                 Instrument {
-                    sweep: -36.0,
-                    ..with_duty(env(&[8, 7, 6, 5, 4, 3, 2, 1, 0]), 0)
+                    sweep: 24.0,
+                    ..env(&[3, 5, 6, 5, 4, 3, 2, 1, 1, 0])
                 },
                 Instrument {
-                    sweep: -30.0,
-                    ..env(&[6, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0])
+                    sweep: -40.0,
+                    ..env(&[9, 6, 3, 1, 0])
                 },
+                env(&[3, 2, 1, 0]),
             ],
             notes: vec![
-                note(0.0, Pulse1, 64.0, 0, 1.0),
-                note(0.0, Noise, 70.0, 1, 1.0),
+                note(0.0, Noise, 82.0, 0, 1.0),
+                note(0.0, Triangle, 50.0, 1, 1.0),
+                note(0.02, Wave, 86.0, 2, 1.0),
             ],
             echo: dry,
         },
@@ -201,6 +245,20 @@ fn patch(sfx: Sfx) -> Patch {
             notes: vec![
                 note(0.0, Noise, 96.0, 0, 1.0),
                 note(0.0, Pulse1, 52.0, 1, 1.0),
+            ],
+            echo: dry,
+        },
+        // Steel turning the fireball: two sine partials a tritone apart and a
+        // metallic tick, so armour sounds different from flesh.
+        Sfx::HitArmored => Patch {
+            instruments: vec![
+                env(&[7, 5, 4, 3, 2, 1, 1, 0]),
+                with_duty(env(&[5, 2, 0]), 1),
+            ],
+            notes: vec![
+                note(0.0, Wave, 93.0, 0, 1.0),
+                note(0.0, Noise, 100.0, 1, 1.0),
+                note(0.01, Pulse2, 99.0, 0, 0.35),
             ],
             echo: dry,
         },
@@ -275,22 +333,57 @@ fn patch(sfx: Sfx) -> Patch {
             ],
             echo: dry,
         },
-        Sfx::Hurt => Patch {
+        // Veyra takes a hit, the loudest short sound in the mix so it never gets
+        // lost in a crowd: a dry crack, a low body blow, and her cry, a yelp that
+        // jumps up and falls away with a fast shudder, doubled a minor 2nd
+        // above (the leitmotif's interval, here as pain) so it grates.
+        Sfx::Hurt => {
+            let cry = Instrument {
+                pitch: Macro::new(&[16, 32, 24, 8, -8, -32, -56, -80, -104, -128]),
+                vibrato: Vibrato {
+                    depth: 0.3,
+                    rate_hz: 14.0,
+                    delay: 0.05,
+                },
+                ..env(&[12, 15, 14, 12, 10, 8, 7, 5, 4, 3, 2, 1, 0])
+            };
+            Patch {
+                instruments: vec![
+                    env(&[15, 12, 8, 5, 3, 2, 1, 0]),
+                    Instrument {
+                        sweep: -60.0,
+                        ..env(&[15, 15, 12, 8, 4, 0])
+                    },
+                    cry.clone(),
+                    with_duty(cry, 0),
+                ],
+                notes: vec![
+                    note(0.0, Noise, 90.0, 0, 1.0),
+                    note(0.0, Triangle, 45.0, 1, 1.0),
+                    note(0.01, Pulse1, 72.0, 2, 1.0),
+                    note(0.01, Pulse2, 73.0, 3, 0.6),
+                ],
+                echo: Echo {
+                    delay: 0.08,
+                    feedback: 0.25,
+                    mix: 0.25,
+                },
+            }
+        }
+        // Low HP: a lub-dub on the triangle with a soft thud of noise.
+        Sfx::Heartbeat => Patch {
             instruments: vec![
                 Instrument {
-                    arp: Macro::new(&[0, -2, -4, -6, -8, -10]),
-                    ..env(&[15, 14, 12, 10, 8, 6, 4, 2, 0])
+                    sweep: -40.0,
+                    ..env(&[15, 13, 9, 5, 2, 0])
                 },
-                env(&[14, 10, 7, 4, 2, 0]),
-                Instrument {
-                    sweep: -20.0,
-                    ..env(&[15, 12, 8, 4, 0])
-                },
+                env(&[4, 2, 0]),
             ],
             notes: vec![
-                note(0.0, Pulse1, 58.0, 0, 1.0),
-                note(0.0, Noise, 84.0, 1, 1.0),
-                note(0.0, Triangle, 40.0, 2, 1.0),
+                note(0.0, Triangle, 38.0, 0, 1.0),
+                note(0.0, Noise, 30.0, 1, 1.0),
+                note(0.15, Triangle, 36.0, 0, 0.65),
+                note(0.15, Noise, 30.0, 1, 0.6),
             ],
             echo: dry,
         },
@@ -342,7 +435,8 @@ fn patch(sfx: Sfx) -> Patch {
                     ]
                 })
                 .collect();
-            notes.push(note(0.0, Triangle, 50.0, 2, 1.0));
+            // The bass enters on the final note, under the resolution.
+            notes.push(note(0.38, Triangle, 50.0, 2, 1.0));
             Patch {
                 instruments: vec![lead.clone(), with_duty(lead, 0), env(&fade(15, 50))],
                 notes,
@@ -353,21 +447,115 @@ fn patch(sfx: Sfx) -> Patch {
                 },
             }
         }
+        // Taking an upgrade: the level-up lead rushing up a D major triad, with
+        // a high sine shimmer, like the power settling in.
+        Sfx::UpgradePick => {
+            let mut ring = vec![13, 12, 11, 10, 9, 8, 7, 6];
+            ring.extend(fade(6, 16));
+            let lead = with_duty(env(&ring), 1);
+            let mut notes: Vec<Note> = [74.0, 78.0, 81.0, 86.0]
+                .iter()
+                .enumerate()
+                .map(|(i, &n)| note(i as f32 * 0.04, Pulse1, n, 0, 1.0))
+                .collect();
+            notes.push(note(0.12, Wave, 98.0, 1, 1.0));
+            Patch {
+                instruments: vec![
+                    lead,
+                    Instrument {
+                        vibrato: Vibrato {
+                            depth: 0.15,
+                            rate_hz: 6.0,
+                            delay: 0.1,
+                        },
+                        ..env(&fade(8, 30))
+                    },
+                ],
+                notes,
+                echo: Echo {
+                    delay: 0.12,
+                    feedback: 0.35,
+                    mix: 0.35,
+                },
+            }
+        }
+        // The village war horn when the knights ride in: a brassy 25% pulse that
+        // scoops up from below, a fourth then the root held, parallel fifths
+        // under it and a long distant echo.
+        Sfx::Horn => {
+            let mut swell = vec![5, 7, 9, 11, 12, 13];
+            swell.extend([13; 40]);
+            swell.extend(fade(13, 36));
+            let horn = Instrument {
+                pitch: Macro::new(&[-32, -20, -10, -4, 0]),
+                vibrato: Vibrato {
+                    depth: 0.15,
+                    rate_hz: 5.0,
+                    delay: 0.35,
+                },
+                ..with_duty(env(&swell), 1)
+            };
+            Patch {
+                instruments: vec![horn.clone(), with_duty(horn, 2), env(&fade(12, 90))],
+                notes: vec![
+                    note(0.0, Pulse1, 45.0, 0, 1.0),
+                    note(0.0, Pulse2, 38.0, 1, 0.55),
+                    note(0.0, Triangle, 26.0, 2, 1.0),
+                    note(0.42, Pulse1, 50.0, 0, 1.0),
+                    note(0.42, Pulse2, 43.0, 1, 0.55),
+                ],
+                echo: Echo {
+                    delay: 0.22,
+                    feedback: 0.4,
+                    mix: 0.35,
+                },
+            }
+        }
+        // Pausing quotes the leitmotif's b2 sigh (E flat falling to D) on a soft
+        // sine with a little echo.
+        Sfx::Pause => Patch {
+            instruments: vec![env(&fade(9, 24))],
+            notes: vec![
+                note(0.0, Wave, 75.0, 0, 0.8),
+                note(0.11, Wave, 74.0, 0, 1.0),
+            ],
+            echo: Echo {
+                delay: 0.14,
+                feedback: 0.3,
+                mix: 0.3,
+            },
+        },
+        // UI: round sine voices instead of thin pulses. A move is a tiny pluck
+        // on A; confirm rises D to A, back falls A to D, each with a quiet
+        // octave below on the triangle for warmth.
         Sfx::UiMove => Patch {
-            instruments: vec![with_duty(env(&[8, 5, 2, 0]), 0)],
-            notes: vec![note(0.0, Pulse1, 88.0, 0, 1.0)],
+            instruments: vec![Instrument {
+                pitch: Macro::new(&[4, 0]),
+                ..env(&[6, 3, 1, 0])
+            }],
+            notes: vec![note(0.0, Wave, 81.0, 0, 1.0)],
             echo: dry,
         },
         Sfx::UiConfirm | Sfx::UiBack => {
             let (a, b) = if sfx == Sfx::UiConfirm {
-                (79.0, 86.0)
+                (74.0, 81.0)
             } else {
-                (84.0, 77.0)
+                (81.0, 74.0)
             };
+            let ring = env(&[9, 8, 6, 5, 4, 3, 2, 1, 1, 0]);
             Patch {
-                instruments: vec![with_duty(env(&[11, 9, 7, 5, 3, 1, 0]), 1)],
-                notes: vec![note(0.0, Pulse1, a, 0, 1.0), note(0.05, Pulse1, b, 0, 1.0)],
-                echo: dry,
+                instruments: vec![ring, env(&[5, 3, 2, 1, 0])],
+                notes: vec![
+                    note(0.0, Wave, a, 0, 0.8),
+                    note(0.0, Triangle, a - 12.0, 1, 1.0),
+                    note(0.055, Wave, b, 0, 1.0),
+                    note(0.055, Triangle, b - 12.0, 1, 1.0),
+                ],
+                echo: Echo {
+                    delay: 0.09,
+                    feedback: 0.2,
+                    mix: 0.2,
+                },
             }
         }
     }
@@ -375,7 +563,8 @@ fn patch(sfx: Sfx) -> Patch {
 
 /// Renders `sfx` shifted by `pitch` semitones, normalised to `PEAK`.
 pub fn render(sfx: Sfx, pitch: f32) -> Vec<f32> {
-    let p = patch(sfx);
+    let mut p = patch(sfx);
+    p.notes.sort_by(|a, b| a.at.total_cmp(&b.at));
     let sr = SAMPLE_RATE as f32;
     let mut synth = Synth::new(SAMPLE_RATE, p.instruments);
     synth.set_echo(p.echo);

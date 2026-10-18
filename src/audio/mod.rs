@@ -30,6 +30,13 @@ pub fn cue(sfx: Sfx) {
     });
 }
 
+/// Queues `new` in place of a queued `old`, e.g. a specific confirm sound over
+/// the generic one the focus already cued.
+pub fn recue(old: Sfx, new: Sfx) {
+    QUEUE.with_borrow_mut(|q| q.retain(|&s| s != old));
+    cue(new);
+}
+
 /// Empties the queue and returns it, for tests.
 #[cfg(test)]
 pub fn take_cues() -> Vec<Sfx> {
@@ -91,5 +98,20 @@ impl Audio {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn queue_dedupes_and_recue_swaps() {
+        take_cues();
+        cue(Sfx::UiConfirm);
+        cue(Sfx::UiConfirm);
+        cue(Sfx::Soul);
+        recue(Sfx::UiConfirm, Sfx::UpgradePick);
+        assert_eq!(take_cues(), [Sfx::Soul, Sfx::UpgradePick]);
     }
 }
