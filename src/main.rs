@@ -293,10 +293,10 @@ async fn main() {
 
         if state == AppState::LevelUp {
             let count = game.choices.iter().flatten().count().max(1);
-            if is_key_pressed(KeyCode::Left) {
+            if is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::Up) {
                 selected = (selected + count - 1) % count;
             }
-            if is_key_pressed(KeyCode::Right) {
+            if is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::Down) {
                 selected = (selected + 1) % count;
             }
             let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3];
@@ -328,7 +328,9 @@ async fn main() {
 
         set_camera(&target_camera(&target, Vec2::ZERO));
         match state {
-            AppState::Title => hud::draw_title_screen(&["Survive 5:00", "", "Enter to rise"]),
+            AppState::Title => {
+                hud::draw_center_screen(GAME_TITLE, &["Survive 5:00", "", "Enter to rise"])
+            }
             AppState::Playing => hud::draw_hud(&game),
             AppState::Paused => {
                 hud::draw_hud(&game);

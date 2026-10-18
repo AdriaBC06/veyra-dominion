@@ -41,14 +41,14 @@ pub fn draw_hud(game: &Game) {
     draw_bar(6.0, 9.0, 100.0, 8.0, p.hp / p.max_hp, HP_COLOR);
     draw_rectangle_lines(6.0, 9.0, 100.0, 8.0, 1.0, BLACK);
     let hp = format!("{}/{}", p.hp.ceil(), p.max_hp);
-    draw_ui_text(&hp, 112.0, 16.0, TextStyle::Body, WHITE);
-    draw_text_centered(&format_time(game.time), 22.0, TextStyle::Large, WHITE);
+    draw_ui_text(&hp, 112.0, 21.0, TextStyle::Body, WHITE);
+    draw_text_centered(&format_time(game.time), 21.0, TextStyle::Body, WHITE);
     let right = format!("LV {}   KILLS {}", game.level, game.kills);
     let dims = measure_ui_text(&right, TextStyle::Body);
     draw_ui_text(
         &right,
         LOGICAL_W - dims.width - 6.0,
-        16.0,
+        21.0,
         TextStyle::Body,
         WHITE,
     );
@@ -76,24 +76,15 @@ pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
         game.fades.len()
     ));
     lines.push(format!("spawn {:.1}/s", Game::spawn_rate(game.time)));
-    let h = lines.len() as f32 * 10.0 + 6.0;
-    draw_rectangle(4.0, 26.0, 200.0, h, Color::new(0.0, 0.0, 0.0, 0.6));
+    let h = lines.len() as f32 * 11.0 + 6.0;
+    draw_rectangle(4.0, 28.0, 200.0, h, Color::new(0.0, 0.0, 0.0, 0.6));
     for (i, line) in lines.iter().enumerate() {
-        draw_ui_text(line, 8.0, 38.0 + i as f32 * 10.0, TextStyle::Body, LIME);
+        draw_ui_text(line, 8.0, 40.0 + i as f32 * 11.0, TextStyle::Small, LIME);
     }
 }
 
 /// Dims the frame and shows a title with lines of text below it.
 pub fn draw_center_screen(title: &str, lines: &[&str]) {
-    draw_center_screen_styled(title, TextStyle::Title, lines);
-}
-
-/// Title screen: like `draw_center_screen` with the game title in the logo style.
-pub fn draw_title_screen(lines: &[&str]) {
-    draw_center_screen_styled(GAME_TITLE, TextStyle::Logo, lines);
-}
-
-fn draw_center_screen_styled(title: &str, style: TextStyle, lines: &[&str]) {
     draw_rectangle(
         0.0,
         0.0,
@@ -102,15 +93,15 @@ fn draw_center_screen_styled(title: &str, style: TextStyle, lines: &[&str]) {
         Color::new(0.0, 0.0, 0.0, 0.6),
     );
     let mut y = (LOGICAL_H * 0.4).round();
-    draw_text_centered(title, y, style, TITLE_COLOR);
-    y += 30.0;
+    draw_text_centered(title, y, TextStyle::Title, TITLE_COLOR);
+    y += 32.0;
     for line in lines {
         draw_text_centered(line, y, TextStyle::Body, WHITE);
-        y += 14.0;
+        y += 18.0;
     }
 }
 
-/// Level-up screen: up to three upgrade cards, `selected` highlighted.
+/// Level-up screen: up to three stacked upgrade cards, `selected` highlighted.
 pub fn draw_level_up(game: &Game, selected: usize) {
     draw_rectangle(
         0.0,
@@ -119,27 +110,28 @@ pub fn draw_level_up(game: &Game, selected: usize) {
         LOGICAL_H,
         Color::new(0.0, 0.0, 0.0, 0.6),
     );
-    draw_text_centered("Dominion grows", 70.0, TextStyle::Title, TITLE_COLOR);
-    let (w, h, gap) = (180.0, 110.0, 16.0);
-    let x0 = ((LOGICAL_W - 3.0 * w - 2.0 * gap) * 0.5).round();
-    let y = 110.0;
+    draw_text_centered("Dominion grows", 78.0, TextStyle::Title, TITLE_COLOR);
+    let (w, h, gap) = (420.0, 56.0, 8.0);
+    let x = ((LOGICAL_W - w) * 0.5).round();
+    let y0 = 100.0;
     for (slot, choice) in game.choices.iter().enumerate() {
         let Some(idx) = *choice else { continue };
         let def = &UPGRADES[idx];
-        let x = x0 + slot as f32 * (w + gap);
+        let y = y0 + slot as f32 * (h + gap);
         let border = if slot == selected { TITLE_COLOR } else { GRAY };
         draw_rectangle(x, y, w, h, Color::new(0.08, 0.04, 0.1, 0.95));
         draw_rectangle_lines(x, y, w, h, 2.0, border);
         let num = (slot + 1).to_string();
-        draw_ui_text(&num, x + 8.0, y + 18.0, TextStyle::Body, GRAY);
-        draw_ui_text(def.name, x + 20.0, y + 20.0, TextStyle::Heading, WHITE);
-        draw_ui_text(def.desc, x + 8.0, y + 50.0, TextStyle::Body, LIGHTGRAY);
+        draw_ui_text(&num, x + 10.0, y + 22.0, TextStyle::Body, GRAY);
+        draw_ui_text(def.name, x + 28.0, y + 22.0, TextStyle::Body, WHITE);
         let lv = format!("Lv {} / {}", game.upgrades.levels[idx], def.max_level);
-        draw_ui_text(&lv, x + 8.0, y + h - 10.0, TextStyle::Body, GRAY);
+        let lv_w = measure_ui_text(&lv, TextStyle::Body).width;
+        draw_ui_text(&lv, x + w - lv_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
+        draw_ui_text(def.desc, x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
     }
     draw_text_centered(
         "1/2/3 or arrows + Enter",
-        y + h + 30.0,
+        y0 + 3.0 * (h + gap) + 22.0,
         TextStyle::Body,
         WHITE,
     );

@@ -51,8 +51,8 @@ GPL-3.0. See [LICENSE](LICENSE).
 
 Fonts, embedded in the executable under the SIL Open Font License 1.1 (licence texts in `assets/fonts/`):
 
-- **Jacquarda Bastarda 9** by Sarah Cadigan-Fried (The Soft Type Project Authors)
-- **Silkscreen** by Jason Kottke (The Silkscreen Project Authors)
+- **Jacquard 24** and **Jersey 15** by Sarah Cadigan-Fried (The Soft Type Project Authors)
+- **Press Start 2P** by Cody "CodeMan38" Boisclair (The Press Start 2P Project Authors)
 
 ## En español
 
