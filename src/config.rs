@@ -152,7 +152,12 @@ pub const MAX_ENEMIES: usize = 2500;
 pub const SPAWN_RING_RADIUS: f32 = 400.0;
 /// Enemies farther than this are moved back to the ring in front of the player.
 pub const RELOCATE_RADIUS: f32 = 600.0;
+/// Enemies per second, ramping linearly from start to end over SPAWN_RAMP_SECS.
 pub const SPAWN_RATE_START: f32 = 1.0;
+pub const SPAWN_RATE_END: f32 = 25.0;
+pub const SPAWN_RAMP_SECS: f32 = 300.0;
+/// Members of a spawn group appear scattered this far around the group's ring point.
+pub const SPAWN_GROUP_SPREAD: f32 = 14.0;
 /// Soft separation: neighbours closer than this push each other apart.
 /// Largest `EnemyDef::radius`, used to size collision queries.
 pub const MAX_ENEMY_RADIUS: f32 = 7.0;
@@ -179,11 +184,17 @@ pub struct EnemyDef {
     pub radius: f32,
     pub contact_damage: f32,
     pub soul_xp: u32,
+    /// Spawn weight once unlocked: `weight_start + weight_growth_per_min * minutes`.
+    pub weight_start: f32,
+    pub weight_growth_per_min: f32,
+    /// Inclusive range of enemies spawned together.
+    pub group: (u8, u8),
     pub behavior: Behavior,
 }
 
 pub const RAT: usize = 0;
 pub const VILLAGER: usize = 1;
+pub const KNIGHT: usize = 2;
 
 pub const ENEMY_DEFS: [EnemyDef; 3] = [
     EnemyDef {
@@ -193,6 +204,9 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         radius: 5.0,
         contact_damage: 5.0,
         soul_xp: 1,
+        weight_start: 60.0,
+        weight_growth_per_min: -4.0,
+        group: (2, 4),
         behavior: Behavior::Chase,
     },
     EnemyDef {
@@ -202,6 +216,9 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         radius: 6.0,
         contact_damage: 8.0,
         soul_xp: 2,
+        weight_start: 40.0,
+        weight_growth_per_min: 4.0,
+        group: (1, 2),
         behavior: Behavior::Chase,
     },
     EnemyDef {
@@ -211,6 +228,43 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         radius: 7.0,
         contact_damage: 15.0,
         soul_xp: 5,
+        weight_start: 0.0,
+        weight_growth_per_min: 12.0,
+        group: (1, 1),
         behavior: Behavior::Chase,
+    },
+];
+
+/// Run length for victory, in seconds.
+pub const VICTORY_TIME: f32 = 300.0;
+
+pub enum EventKind {
+    /// Enemy kind (index into `ENEMY_DEFS`) starts spawning.
+    Unlock(usize),
+    Victory,
+}
+
+pub struct Event {
+    pub time: f32,
+    pub kind: EventKind,
+}
+
+/// Timeline beats, sorted by time.
+pub const EVENTS: &[Event] = &[
+    Event {
+        time: 0.0,
+        kind: EventKind::Unlock(RAT),
+    },
+    Event {
+        time: 0.0,
+        kind: EventKind::Unlock(VILLAGER),
+    },
+    Event {
+        time: 120.0,
+        kind: EventKind::Unlock(KNIGHT),
+    },
+    Event {
+        time: VICTORY_TIME,
+        kind: EventKind::Victory,
     },
 ];

@@ -83,6 +83,8 @@ pub struct Game {
     hash: SpatialHash,
     spawn_acc: f32,
     fire_cd: f32,
+    next_event: usize,
+    unlocked: [bool; ENEMY_DEFS.len()],
 }
 
 impl Game {
@@ -114,12 +116,15 @@ impl Game {
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
             spawn_acc: 0.0,
             fire_cd: 0.0,
+            next_event: 0,
+            unlocked: [false; ENEMY_DEFS.len()],
         }
     }
 
     /// Advances the simulation by one fixed step.
     pub fn tick(&mut self, input: &InputState) -> SimEvent {
         self.time += TICK_DT;
+        self.run_events();
         let alive = self.dying.is_none();
         let idle = InputState::default();
         self.move_player(if alive { input } else { &idle });
@@ -354,24 +359,75 @@ impl Game {
         });
     }
 
+    /// Linear ramp from SPAWN_RATE_START to SPAWN_RATE_END, clamped.
+    pub fn spawn_rate(t: f32) -> f32 {
+        let k = (t / SPAWN_RAMP_SECS).clamp(0.0, 1.0);
+        SPAWN_RATE_START + (SPAWN_RATE_END - SPAWN_RATE_START) * k
+    }
+
+    fn run_events(&mut self) {
+        while let Some(ev) = EVENTS.get(self.next_event) {
+            if ev.time > self.time {
+                break;
+            }
+            self.next_event += 1;
+            match ev.kind {
+                EventKind::Unlock(kind) => self.unlocked[kind] = true,
+                EventKind::Victory => {} // handled in T13
+            }
+        }
+    }
+
+    fn spawn_weight(&self, kind: usize) -> f32 {
+        if !self.unlocked[kind] {
+            return 0.0;
+        }
+        let def = &ENEMY_DEFS[kind];
+        (def.weight_start + def.weight_growth_per_min * self.time / 60.0).max(0.0)
+    }
+
+    /// Weighted pick among unlocked kinds.
+    fn roll_kind(&self) -> Option<usize> {
+        let total: f32 = (0..ENEMY_DEFS.len()).map(|k| self.spawn_weight(k)).sum();
+        if total <= 0.0 {
+            return None;
+        }
+        let mut r = gen_range(0.0, total);
+        for k in 0..ENEMY_DEFS.len() {
+            let w = self.spawn_weight(k);
+            if r < w {
+                return Some(k);
+            }
+            r -= w;
+        }
+        (0..ENEMY_DEFS.len())
+            .rev()
+            .find(|&k| self.spawn_weight(k) > 0.0)
+    }
+
     fn ring_point(&self, angle: f32) -> Vec2 {
         self.player.pos + Vec2::from_angle(angle) * SPAWN_RING_RADIUS
     }
 
     fn spawn_enemies(&mut self) {
-        self.spawn_acc += SPAWN_RATE_START * TICK_DT;
+        self.spawn_acc += Self::spawn_rate(self.time) * TICK_DT;
         while self.spawn_acc >= 1.0 {
-            self.spawn_acc -= 1.0;
-            if self.enemies.len() >= MAX_ENEMIES {
-                continue;
-            }
-            let kind = if gen_range(0, 100) < 60 {
-                RAT
-            } else {
-                VILLAGER
+            let Some(kind) = self.roll_kind() else {
+                self.spawn_acc = 0.0;
+                return;
             };
-            let pos = self.ring_point(gen_range(0.0, TAU));
-            self.enemies.spawn(kind, pos, 1.0);
+            let (lo, hi) = ENEMY_DEFS[kind].group;
+            let size = gen_range(lo as u32, hi as u32 + 1);
+            self.spawn_acc -= size as f32;
+            let center = self.ring_point(gen_range(0.0, TAU));
+            for _ in 0..size {
+                if self.enemies.len() >= MAX_ENEMIES {
+                    return;
+                }
+                let off =
+                    Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, SPAWN_GROUP_SPREAD);
+                self.enemies.spawn(kind, center + off, 1.0);
+            }
         }
     }
 
@@ -435,7 +491,10 @@ mod tests {
         g.tick(&InputState::default());
         assert!(g.enemies.len() >= 3);
         for i in 0..g.enemies.len() {
-            assert!(g.enemies.pos(i).distance(g.player.pos) <= SPAWN_RING_RADIUS + 1.0);
+            assert!(
+                g.enemies.pos(i).distance(g.player.pos)
+                    <= SPAWN_RING_RADIUS + SPAWN_GROUP_SPREAD + 1.0
+            );
         }
     }
 
@@ -536,6 +595,46 @@ mod tests {
         assert_eq!(g.pending_levels, 0);
         assert_eq!(g.upgrades.levels.iter().sum::<u8>(), 2);
         assert_eq!(g.tick(&InputState::default()), SimEvent::None);
+    }
+
+    #[test]
+    fn spawn_curve() {
+        assert_eq!(Game::spawn_rate(0.0), 1.0);
+        assert_eq!(Game::spawn_rate(150.0), 13.0);
+        assert_eq!(Game::spawn_rate(300.0), 25.0);
+        assert_eq!(Game::spawn_rate(900.0), 25.0);
+        assert_eq!(Game::spawn_rate(-5.0), 1.0);
+    }
+
+    #[test]
+    fn knights_only_after_two_minutes() {
+        let mut g = Game::new();
+        g.time = 119.0;
+        g.run_events();
+        assert_eq!(g.spawn_weight(KNIGHT), 0.0);
+        assert!(g.spawn_weight(RAT) > 0.0 && g.spawn_weight(VILLAGER) > 0.0);
+        for _ in 0..200 {
+            assert_ne!(g.roll_kind(), Some(KNIGHT));
+        }
+        g.time = 121.0;
+        g.run_events();
+        assert!(g.spawn_weight(KNIGHT) > 0.0);
+    }
+
+    #[test]
+    fn spawning_respects_enemy_cap() {
+        let mut g = Game::new();
+        g.time = 290.0;
+        g.fire_cd = f32::INFINITY;
+        g.player.hp = f32::INFINITY;
+        while g.enemies.len() < MAX_ENEMIES - 3 {
+            g.enemies.spawn(RAT, vec2(SPAWN_RING_RADIUS, 0.0), 1.0);
+        }
+        for _ in 0..120 {
+            g.tick(&InputState::default());
+            assert!(g.enemies.len() <= MAX_ENEMIES);
+        }
+        assert_eq!(g.enemies.len(), MAX_ENEMIES);
     }
 
     #[test]
