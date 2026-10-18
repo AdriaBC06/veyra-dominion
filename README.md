@@ -25,6 +25,8 @@ On Arch Linux you need `libx11 libxi mesa alsa-lib libxcursor libxrandr`.
 | E | Endless mode (after victory) |
 | T | Back to title (pause / game over / victory) |
 | F3 | Debug overlay |
+| F10 | Toggle pixel-perfect / fill scaling |
+| F11 | Toggle fullscreen |
 
 Veyra fires Hellflare on her own at the nearest enemy; you only steer.
 

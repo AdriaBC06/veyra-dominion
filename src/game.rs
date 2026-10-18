@@ -85,6 +85,8 @@ pub struct Game {
     /// Seconds since the killing blow, while the death animation plays.
     pub dying: Option<f32>,
     hash: SpatialHash,
+    /// Spawn ring radius, derived from the view size (see `set_view`).
+    spawn_ring: f32,
     spawn_acc: f32,
     fire_cd: f32,
     next_event: usize,
@@ -119,11 +121,21 @@ impl Game {
             choices: [None; 3],
             dying: None,
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
+            spawn_ring: Self::ring_radius(Vec2::new(DEFAULT_VIEW_W, LOGICAL_H)),
             spawn_acc: 0.0,
             fire_cd: 0.0,
             next_event: 0,
             unlocked: [false; ENEMY_DEFS.len()],
         }
+    }
+
+    /// Keeps spawns just outside a view of `size` logical pixels.
+    pub fn set_view(&mut self, size: Vec2) {
+        self.spawn_ring = Self::ring_radius(size);
+    }
+
+    fn ring_radius(view: Vec2) -> f32 {
+        view.length() * 0.5 + SPAWN_RING_MARGIN
     }
 
     /// Advances the simulation by one fixed step.
@@ -428,7 +440,7 @@ impl Game {
     }
 
     fn ring_point(&self, angle: f32) -> Vec2 {
-        self.player.pos + Vec2::from_angle(angle) * SPAWN_RING_RADIUS
+        self.player.pos + Vec2::from_angle(angle) * self.spawn_ring
     }
 
     fn spawn_enemies(&mut self) {
@@ -457,9 +469,10 @@ impl Game {
     /// Enemies left far behind reappear on the ring ahead of the player.
     fn relocate_far_enemies(&mut self) {
         let center = self.player.pos;
+        let radius = self.spawn_ring + RELOCATE_MARGIN;
         for i in 0..self.enemies.len() {
             let off = self.enemies.pos(i) - center;
-            if off.length_squared() > RELOCATE_RADIUS * RELOCATE_RADIUS {
+            if off.length_squared() > radius * radius {
                 let angle = (-off).to_angle() + gen_range(-0.5, 0.5);
                 let p = self.ring_point(angle);
                 self.enemies.set_pos(i, p);
@@ -516,8 +529,20 @@ mod tests {
         for i in 0..g.enemies.len() {
             assert!(
                 g.enemies.pos(i).distance(g.player.pos)
-                    <= SPAWN_RING_RADIUS + SPAWN_GROUP_SPREAD + 1.0
+                    <= g.spawn_ring + SPAWN_GROUP_SPREAD + 1.0
             );
+        }
+    }
+
+    #[test]
+    fn spawn_ring_and_hash_window_fit_every_view() {
+        let mut g = Game::new();
+        for w in [MIN_LOGICAL_W, DEFAULT_VIEW_W, MAX_LOGICAL_W] {
+            let view = vec2(w, LOGICAL_H);
+            g.set_view(view);
+            assert!(g.spawn_ring > view.length() * 0.5);
+            let reach = 2.0 * (g.spawn_ring + RELOCATE_MARGIN + MAX_ENEMY_RADIUS);
+            assert!(reach <= HASH_CELL * HASH_COLS.min(HASH_ROWS) as f32);
         }
     }
 
@@ -651,7 +676,7 @@ mod tests {
         g.fire_cd = f32::INFINITY;
         g.player.hp = f32::INFINITY;
         while g.enemies.len() < MAX_ENEMIES - 3 {
-            g.enemies.spawn(RAT, vec2(SPAWN_RING_RADIUS, 0.0), 1.0);
+            g.enemies.spawn(RAT, vec2(g.spawn_ring, 0.0), 1.0);
         }
         for _ in 0..120 {
             g.tick(&InputState::default());
@@ -682,7 +707,7 @@ mod tests {
         g.time = VICTORY_TIME;
         g.player.hp = f32::INFINITY;
         while g.enemies.len() < MAX_ENEMIES {
-            let p = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(50.0, SPAWN_RING_RADIUS);
+            let p = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(50.0, g.spawn_ring);
             g.enemies.spawn(gen_range(0, ENEMY_DEFS.len()), p, 1.0);
         }
         let mut input = InputState::default();

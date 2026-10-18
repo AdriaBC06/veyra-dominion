@@ -3,6 +3,7 @@ mod config;
 mod enemies;
 mod game;
 mod hud;
+mod screen;
 mod spatial;
 mod upgrades;
 
@@ -10,6 +11,7 @@ use assets::{sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
 use config::*;
 use game::{Game, InputState, SimEvent};
 use macroquad::prelude::*;
+use screen::Screen;
 use std::f32::consts::TAU;
 
 fn window_conf() -> Conf {
@@ -20,37 +22,6 @@ fn window_conf() -> Conf {
         window_resizable: true,
         ..Default::default()
     }
-}
-
-/// Camera that renders the logical 640x360 frame into the render target.
-/// Render targets are stored flipped, hence the inverted y zoom.
-fn target_camera(target: &RenderTarget, origin: Vec2) -> Camera2D {
-    let mut cam = Camera2D::from_display_rect(Rect::new(origin.x, origin.y, LOGICAL_W, LOGICAL_H));
-    cam.zoom.y = -cam.zoom.y;
-    cam.render_target = Some(target.clone());
-    cam
-}
-
-/// Draws the logical frame centred in the window, integer-scaled when it fits.
-fn present(target: &RenderTarget) {
-    set_default_camera();
-    clear_background(BLACK);
-    let (sw, sh) = (screen_width(), screen_height());
-    let mut scale = (sw / LOGICAL_W).min(sh / LOGICAL_H);
-    if scale >= 1.0 {
-        scale = scale.floor();
-    }
-    let (w, h) = (LOGICAL_W * scale, LOGICAL_H * scale);
-    draw_texture_ex(
-        &target.texture,
-        ((sw - w) * 0.5).floor(),
-        ((sh - h) * 0.5).floor(),
-        WHITE,
-        DrawTextureParams {
-            dest_size: Some(vec2(w, h)),
-            ..Default::default()
-        },
-    );
 }
 
 /// Draws a sprite frame with its top-left corner at `pos`.
@@ -84,13 +55,13 @@ fn read_input() -> InputState {
 }
 
 /// Fills the visible area with procedural ground tiles.
-fn draw_ground(origin: Vec2) {
+fn draw_ground(origin: Vec2, view: Vec2) {
     let tile = GROUND_TILE as f32;
     let (x0, y0) = (
         (origin.x / tile).floor() as i32,
         (origin.y / tile).floor() as i32,
     );
-    let (cols, rows) = ((LOGICAL_W / tile) as i32 + 2, (LOGICAL_H / tile) as i32 + 2);
+    let (cols, rows) = ((view.x / tile) as i32 + 2, (view.y / tile) as i32 + 2);
     for iy in y0..y0 + rows {
         for ix in x0..x0 + cols {
             let v = assets::ground_variant(ix, iy);
@@ -210,8 +181,7 @@ fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
 #[macroquad::main(window_conf)]
 async fn main() {
     assets::init();
-    let target = render_target(LOGICAL_W as u32, LOGICAL_H as u32);
-    target.texture.set_filter(FilterMode::Nearest);
+    let mut screen = Screen::new();
 
     let mut game = Game::new();
     let mut state = AppState::Title;
@@ -242,6 +212,15 @@ async fn main() {
         if is_key_pressed(KeyCode::F3) {
             debug = !debug;
         }
+        if is_key_pressed(KeyCode::F10) {
+            screen.toggle_mode();
+        }
+        if is_key_pressed(KeyCode::F11) {
+            screen.toggle_fullscreen();
+        }
+        screen.update();
+        let view = screen.view();
+        game.set_view(view);
         match state {
             AppState::Playing if is_key_pressed(KeyCode::Escape) => state = AppState::Paused,
             AppState::Paused
@@ -316,33 +295,33 @@ async fn main() {
 
         let alpha = accumulator / TICK_DT;
         let player_pos = game.player.prev_pos.lerp(game.player.pos, alpha);
-        let origin = (player_pos - vec2(LOGICAL_W, LOGICAL_H) * 0.5).round();
-        set_camera(&target_camera(&target, origin));
+        let origin = (player_pos - view * 0.5).round();
+        set_camera(&screen.camera(origin));
         clear_background(BLACK);
-        draw_ground(origin);
+        draw_ground(origin, view);
         draw_souls(&game);
         draw_enemies(&game);
         draw_fades(&game);
         draw_veyra(&game, player_pos.round(), game.time + alpha * TICK_DT);
         draw_projectiles(&game);
 
-        set_camera(&target_camera(&target, Vec2::ZERO));
+        set_camera(&screen.camera(Vec2::ZERO));
         match state {
             AppState::Title => {
-                hud::draw_center_screen(GAME_TITLE, &["Survive 5:00", "", "Enter to rise"])
+                hud::draw_center_screen(view, GAME_TITLE, &["Survive 5:00", "", "Enter to rise"])
             }
-            AppState::Playing => hud::draw_hud(&game),
+            AppState::Playing => hud::draw_hud(&game, view),
             AppState::Paused => {
-                hud::draw_hud(&game);
-                hud::draw_center_screen("Paused", &["Esc resume   T title"]);
+                hud::draw_hud(&game, view);
+                hud::draw_center_screen(view, "Paused", &["Esc resume   T title"]);
             }
             AppState::LevelUp => {
-                hud::draw_hud(&game);
-                hud::draw_level_up(&game, selected);
+                hud::draw_hud(&game, view);
+                hud::draw_level_up(&game, view, selected);
             }
             AppState::Victory => {
                 let stats = format!("Kills {}   Level {}", game.kills, game.level);
-                hud::draw_center_screen(
+                hud::draw_center_screen(view, 
                     "The village burns",
                     &[&stats, "", "E endless   R restart   T title"],
                 );
@@ -353,7 +332,7 @@ async fn main() {
                     hud::format_time(game.time),
                     game.kills
                 );
-                hud::draw_center_screen("Banished", &[&stats, "", "R restart   T title"]);
+                hud::draw_center_screen(view, "Banished", &[&stats, "", "R restart   T title"]);
             }
         }
 
@@ -361,7 +340,7 @@ async fn main() {
             hud::draw_debug(&game, get_fps(), update_ms);
         }
 
-        present(&target);
+        screen.present();
         next_frame().await;
     }
 }

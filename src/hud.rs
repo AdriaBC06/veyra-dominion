@@ -7,9 +7,31 @@ use macroquad::prelude::*;
 
 const TITLE_COLOR: Color = Color::new(0.88, 0.19, 0.29, 1.0);
 
-fn draw_text_centered(text: &str, y: f32, style: TextStyle, color: Color) {
+/// Horizontal edge of the view a widget is attached to.
+#[derive(Clone, Copy)]
+pub enum Anchor {
+    Center,
+    Right,
+}
+
+impl Anchor {
+    /// Left x of a widget `width` wide, `margin` in from the anchored edge.
+    pub fn x(self, view: Vec2, width: f32, margin: f32) -> f32 {
+        match self {
+            Anchor::Center => ((view.x - width) * 0.5).round(),
+            Anchor::Right => (view.x - width - margin).round(),
+        }
+    }
+}
+
+fn draw_text_centered(view: Vec2, text: &str, y: f32, style: TextStyle, color: Color) {
     let dims = measure_ui_text(text, style);
-    draw_ui_text(text, (LOGICAL_W - dims.width) * 0.5, y, style, color);
+    let x = Anchor::Center.x(view, dims.width, 0.0);
+    draw_ui_text(text, x, y, style, color);
+}
+
+fn draw_dim(view: Vec2) {
+    draw_rectangle(0.0, 0.0, view.x, view.y, Color::new(0.0, 0.0, 0.0, 0.6));
 }
 
 /// `m:ss` for a time in seconds.
@@ -28,12 +50,12 @@ fn draw_bar(x: f32, y: f32, w: f32, h: f32, frac: f32, color: Color) {
 }
 
 /// XP bar across the top, HP bar under it, timer centred, level and kills on the right.
-pub fn draw_hud(game: &Game) {
+pub fn draw_hud(game: &Game, view: Vec2) {
     let p = &game.player;
     draw_bar(
         0.0,
         0.0,
-        LOGICAL_W,
+        view.x,
         4.0,
         game.xp as f32 / xp_to_next(game.level) as f32,
         XP_COLOR,
@@ -42,16 +64,11 @@ pub fn draw_hud(game: &Game) {
     draw_rectangle_lines(6.0, 9.0, 100.0, 8.0, 1.0, BLACK);
     let hp = format!("{}/{}", p.hp.ceil(), p.max_hp);
     draw_ui_text(&hp, 112.0, 21.0, TextStyle::Body, WHITE);
-    draw_text_centered(&format_time(game.time), 21.0, TextStyle::Body, WHITE);
+    draw_text_centered(view, &format_time(game.time), 21.0, TextStyle::Body, WHITE);
     let right = format!("LV {}   KILLS {}", game.level, game.kills);
     let dims = measure_ui_text(&right, TextStyle::Body);
-    draw_ui_text(
-        &right,
-        LOGICAL_W - dims.width - 6.0,
-        21.0,
-        TextStyle::Body,
-        WHITE,
-    );
+    let x = Anchor::Right.x(view, dims.width, 6.0);
+    draw_ui_text(&right, x, 21.0, TextStyle::Body, WHITE);
 }
 
 /// F3 overlay: frame timing and entity counts.
@@ -84,35 +101,23 @@ pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
 }
 
 /// Dims the frame and shows a title with lines of text below it.
-pub fn draw_center_screen(title: &str, lines: &[&str]) {
-    draw_rectangle(
-        0.0,
-        0.0,
-        LOGICAL_W,
-        LOGICAL_H,
-        Color::new(0.0, 0.0, 0.0, 0.6),
-    );
-    let mut y = (LOGICAL_H * 0.4).round();
-    draw_text_centered(title, y, TextStyle::Title, TITLE_COLOR);
+pub fn draw_center_screen(view: Vec2, title: &str, lines: &[&str]) {
+    draw_dim(view);
+    let mut y = (view.y * 0.4).round();
+    draw_text_centered(view, title, y, TextStyle::Title, TITLE_COLOR);
     y += 32.0;
     for line in lines {
-        draw_text_centered(line, y, TextStyle::Body, WHITE);
+        draw_text_centered(view, line, y, TextStyle::Body, WHITE);
         y += 18.0;
     }
 }
 
 /// Level-up screen: up to three stacked upgrade cards, `selected` highlighted.
-pub fn draw_level_up(game: &Game, selected: usize) {
-    draw_rectangle(
-        0.0,
-        0.0,
-        LOGICAL_W,
-        LOGICAL_H,
-        Color::new(0.0, 0.0, 0.0, 0.6),
-    );
-    draw_text_centered("Dominion grows", 78.0, TextStyle::Title, TITLE_COLOR);
+pub fn draw_level_up(game: &Game, view: Vec2, selected: usize) {
+    draw_dim(view);
+    draw_text_centered(view, "Dominion grows", 78.0, TextStyle::Title, TITLE_COLOR);
     let (w, h, gap) = (420.0, 56.0, 8.0);
-    let x = ((LOGICAL_W - w) * 0.5).round();
+    let x = Anchor::Center.x(view, w, 0.0);
     let y0 = 100.0;
     for (slot, choice) in game.choices.iter().enumerate() {
         let Some(idx) = *choice else { continue };
@@ -130,6 +135,7 @@ pub fn draw_level_up(game: &Game, selected: usize) {
         draw_ui_text(def.desc, x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
     }
     draw_text_centered(
+        view,
         "1/2/3 or arrows + Enter",
         y0 + 3.0 * (h + gap) + 22.0,
         TextStyle::Body,

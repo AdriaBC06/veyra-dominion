@@ -187,7 +187,7 @@ Frames: VeyraBody 0 = rest, 1 = impulse (flip_x by facing); VeyraWings 0/1; Veyr
 - Hurt: skip drawing every other 0.06 s during i-frames. Death: body fades while smoke puffs (Fades) rise for ~1.2 s, then GameOver.
 
 ### Controls
-WASD / arrows move · Esc pause · Enter start/confirm · 1/2/3 or ←/→ + Enter pick upgrade · R restart · E endless (on victory) · T title · F3 debug.
+WASD / arrows move · Esc pause · Enter start/confirm · 1/2/3 or ←/→ + Enter pick upgrade · R restart · E endless (on victory) · T title · F3 debug · F10 scale mode · F11 fullscreen.
 
 ## 4. Tasks
 
@@ -270,9 +270,11 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 
 - The logical height stays at 360 px. The logical width follows the window aspect ratio, clamped to 480–864 (4:3 up to 21:9), so wide screens see more of the world and lose the black bars.
 - Scale mode setting: **Pixel-perfect** (integer scale plus thin bars) or **Fill** (fractional scale, Nearest filtering).
-- Fullscreen toggle (`set_fullscreen`) plus a remembered windowed size.
-- The UI uses anchors (top-left, top-centre, …) and never fixed 640-based coordinates. A UI scale setting offers ×1 / ×1.5 / ×2 in logical px.
-- The render target is recreated on resize. The spatial grid window and the spawn ring derive from the current view size.
+- Fullscreen toggle (`set_fullscreen`) plus a remembered windowed size (in memory; persisted once `settings.txt` exists, V6).
+- The UI uses anchors (`hud::Anchor`: centre / right edge of the view) and never fixed 640-based coordinates. The height is always 360, so only x needs anchoring.
+- **No UI scale setting (decided in S2):** body text is already 27 px of 360 (crisp only at that size), so ×1.5 / ×2 would overflow the HUD and level-up list and blur the fonts.
+- `screen.rs`: `Layout::new(window, mode)` is a pure function (unit-tested on 16:9, 16:10, 21:9, 4:3 and odd sizes); `Screen` owns the render target, recreates it when the logical width changes, and gives `to_logical` for the mouse. Runtime keys until the Settings screen (V7): **F10** scale mode, **F11** fullscreen.
+- The spawn ring is the view's half-diagonal + `SPAWN_RING_MARGIN`; enemies beyond ring + `RELOCATE_MARGIN` are relocated. The hash window (24×24 cells of 64) is sized for the widest view; a test checks it.
 
 ### 7.4 Input
 
@@ -514,7 +516,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V1 Asset pipeline
   - [x] V3 Fonts
 - **S2 — Screen & input**
-  - [ ] V2 Adaptive resolution
+  - [x] V2 Adaptive resolution
   - [ ] V5 Mouse + keyboard UI layer
 - **S3 — Text & data**
   - [ ] V4 English + Spanish localisation

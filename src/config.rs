@@ -4,9 +4,13 @@ use crate::assets::SpriteId;
 
 pub const GAME_TITLE: &str = "Veyra: Dominion";
 
-/// Fixed logical resolution; the frame is scaled to the window with nearest filtering.
-pub const LOGICAL_W: f32 = 640.0;
+/// Logical height is fixed; the logical width follows the window aspect ratio
+/// (4:3 up to 21:9) and the frame is scaled to the window with nearest filtering.
 pub const LOGICAL_H: f32 = 360.0;
+pub const MIN_LOGICAL_W: f32 = 480.0;
+pub const MAX_LOGICAL_W: f32 = 864.0;
+/// View size used by headless runs (16:9).
+pub const DEFAULT_VIEW_W: f32 = 640.0;
 
 pub const WINDOW_W: i32 = 1280;
 pub const WINDOW_H: i32 = 720;
@@ -148,10 +152,10 @@ pub const UPGRADES: [UpgradeDef; 6] = [
 
 // --- Enemies & spawning ---------------------------------------------------
 pub const MAX_ENEMIES: usize = 2500;
-/// Enemies spawn on this ring around the player, just outside the visible frame.
-pub const SPAWN_RING_RADIUS: f32 = 400.0;
-/// Enemies farther than this are moved back to the ring in front of the player.
-pub const RELOCATE_RADIUS: f32 = 600.0;
+/// Enemies spawn on a ring this far beyond the view's half-diagonal, just off screen.
+pub const SPAWN_RING_MARGIN: f32 = 32.0;
+/// Enemies farther than the spawn ring plus this are moved back to the ring ahead.
+pub const RELOCATE_MARGIN: f32 = 200.0;
 /// Enemies per second, ramping linearly from start to end over SPAWN_RAMP_SECS.
 pub const SPAWN_RATE_START: f32 = 1.0;
 pub const SPAWN_RATE_END: f32 = 25.0;
@@ -168,10 +172,10 @@ pub const SEPARATION_MAX_NEIGHBOURS: u32 = 6;
 pub const ENEMY_ANIM_FPS: f32 = 6.0;
 
 // --- Spatial hash ---------------------------------------------------------
-/// The grid window (cols x rows cells) must cover RELOCATE_RADIUS around the player.
+/// The grid window (cols x rows cells) must cover the relocate radius of the widest view.
 pub const HASH_CELL: f32 = 64.0;
 pub const HASH_COLS: usize = 24;
-pub const HASH_ROWS: usize = 20;
+pub const HASH_ROWS: usize = 24;
 
 pub enum Behavior {
     Chase,
