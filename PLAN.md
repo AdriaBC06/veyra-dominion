@@ -253,7 +253,7 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T4 Levitating player, camera, ground
 - [x] **CP1 Setup**
 - [x] T5 Spatial hash
-- [ ] T6 SoA enemies + spawning
+- [x] T6 SoA enemies + spawning
 - [ ] T7 Hellflare weapon
 - [ ] T8 Damage, death, title, game over
 - [ ] **CP2 Combat**

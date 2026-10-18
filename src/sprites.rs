@@ -10,10 +10,18 @@ pub enum SpriteId {
     VeyraBody,
     VeyraWings,
     VeyraTail,
+    Rat,
+    Villager,
+    Knight,
+    Fireball,
+    Smoke,
     Ground,
 }
 
-const SPRITE_COUNT: usize = 4;
+const SPRITE_COUNT: usize = 9;
+
+/// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
+pub const FLASH_FRAME_OFFSET: usize = 2;
 
 pub const GROUND_TILE: u16 = 32;
 pub const GROUND_VARIANTS: usize = 6;
@@ -42,6 +50,21 @@ fn palette(ch: char) -> Option<Color> {
         'L' => rgb(42, 26, 53),   // sleeves / stockings
         'W' => rgb(107, 42, 110), // wing membrane
         'w' => rgb(46, 22, 56),   // wing bone
+        'g' => rgb(112, 98, 92),  // rat fur
+        'k' => rgb(66, 56, 56),   // fur shadow / boots
+        'n' => rgb(196, 136, 138), // rat nose / tail
+        'e' => rgb(18, 14, 20),   // eyes / visor slit
+        'f' => rgb(220, 178, 138), // human skin
+        'o' => rgb(94, 62, 34),   // villager hair
+        'b' => rgb(124, 86, 52),  // tunic
+        'u' => rgb(72, 72, 92),   // trousers
+        't' => rgb(122, 92, 56),  // wooden shaft
+        'i' => rgb(168, 168, 176), // iron
+        'a' => rgb(172, 178, 190), // armour
+        'A' => rgb(102, 108, 124), // armour shadow
+        'B' => rgb(58, 88, 168),  // plume
+        'M' => rgb(132, 122, 138), // smoke
+        'm' => rgb(88, 80, 96),   // smoke shadow
         _ => panic!("unknown palette char {ch:?}"),
     }
 }
@@ -134,11 +157,140 @@ const TAIL: Frame = &[
     "R.......", "R.......", ".R......", ".R......", "..R...H.", "...R.HH.", "....HHHH", ".....HH.",
 ];
 
-/// Matrix-defined sprites, indexed by `SpriteId as usize`. Ground is procedural.
-const MATRIX_SPRITES: [(SpriteId, &[Frame]); 3] = [
-    (SpriteId::VeyraBody, &[VEYRA_REST, VEYRA_IMPULSE]),
-    (SpriteId::VeyraWings, &[WINGS_UP, WINGS_DOWN]),
-    (SpriteId::VeyraTail, &[TAIL]),
+// Enemies face left; the renderer flips them toward Veyra.
+const RAT_0: Frame = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "..gg............",
+    ".gkgg...........",
+    "ggeggggggg......",
+    "ngggggggggggg...",
+    ".gggggggggggggn.",
+    "..kgggggggggk..n",
+    "...kkkkkkkkk...n",
+    "...g.g...g.g..n.",
+    "................",
+    "................",
+];
+
+const RAT_1: Frame = &[
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "..gg............",
+    ".gkgg...........",
+    "ggeggggggg......",
+    "ngggggggggggg...",
+    ".gggggggggggggn.",
+    "..kgggggggggk.n.",
+    "...kkkkkkkkk..n.",
+    "....g.g...g.g..n",
+    "................",
+    "................",
+];
+
+const VILLAGER_0: Frame = &[
+    "i.i...oooo......",
+    "iii..oooooo.....",
+    ".t...ofeffo.....",
+    ".t...fffff......",
+    ".t....fff.......",
+    ".t..bbbbbbb.....",
+    ".t.bbbbbbbbb....",
+    ".tfbbbbbbbbbf...",
+    ".t..bbbbbbb.f...",
+    ".t..bbbbbbb.....",
+    ".t..uuuuuuu.....",
+    ".t..uuu.uuu.....",
+    ".t..uu...uu.....",
+    ".t..uu...uu.....",
+    ".t.kkk...kkk....",
+    "................",
+];
+
+const VILLAGER_1: Frame = &[
+    "................",
+    "i.i...oooo......",
+    "iii..oooooo.....",
+    ".t...ofeffo.....",
+    ".t...fffff......",
+    ".t....fff.......",
+    ".t..bbbbbbb.....",
+    ".t.bbbbbbbbb....",
+    ".tfbbbbbbbbbf...",
+    ".t..bbbbbbb.f...",
+    ".t..bbbbbbb.....",
+    ".t..uuuuuuu.....",
+    ".t.uu.....uu....",
+    ".t.uu......uu...",
+    ".tkkk......kkk..",
+    "................",
+];
+
+const KNIGHT_0: Frame = &[
+    ".......BB.......",
+    "......BBB.......",
+    ".....aaaaa......",
+    "....aaaaaaa..G..",
+    "....aeeeeAa..i..",
+    "....aaaaaaa..i..",
+    ".....AaaaA...i..",
+    "...aaaaaaaaa.i..",
+    "..aaJaaaaaaaaG..",
+    "..aAaaaaaaaAaGG.",
+    "..a.aaaaaaa.a...",
+    "....AAAAAAA.....",
+    "....aaa.aaa.....",
+    "....aa...aa.....",
+    "....AA...AA.....",
+    "...AAA...AAA....",
+];
+
+const KNIGHT_1: Frame = &[
+    ".......BB.......",
+    "......BBB.......",
+    ".....aaaaa......",
+    "....aaaaaaa.....",
+    "....aeeeeAa..G..",
+    "....aaaaaaa..i..",
+    ".....AaaaA...i..",
+    "...aaaaaaaaa.i..",
+    "..aaJaaaaaaa.i..",
+    "..aAaaaaaaaAaG..",
+    "..a.aaaaaaa.aGG.",
+    "....AAAAAAA.....",
+    "....aaa.aaa.....",
+    "...aa.....aa....",
+    "...AA.....AA....",
+    "..AAA.....AAA...",
+];
+
+const FIREBALL: Frame = &[
+    "..YJJY..", ".JWWWWJ.", "YWDDDDWY", "JWDppDWJ", "JWDppDWJ", "YWDDDDWY", ".JWWWWJ.", "..YJJY..",
+];
+
+const SMOKE: Frame = &[
+    "..mmm...", ".mMMMm..", "mMMMMMm.", "mMMmMMmm", ".mMMMMMm", "..mMMMm.", "...mmm..", "........",
+];
+
+/// Matrix-defined sprites, indexed by `SpriteId as usize`, plus whether they get
+/// hit-flash copies. Ground is procedural.
+const MATRIX_SPRITES: [(SpriteId, &[Frame], bool); 8] = [
+    (SpriteId::VeyraBody, &[VEYRA_REST, VEYRA_IMPULSE], false),
+    (SpriteId::VeyraWings, &[WINGS_UP, WINGS_DOWN], false),
+    (SpriteId::VeyraTail, &[TAIL], false),
+    (SpriteId::Rat, &[RAT_0, RAT_1], true),
+    (SpriteId::Villager, &[VILLAGER_0, VILLAGER_1], true),
+    (SpriteId::Knight, &[KNIGHT_0, KNIGHT_1], true),
+    (SpriteId::Fireball, &[FIREBALL], false),
+    (SpriteId::Smoke, &[SMOKE], false),
 ];
 
 struct Atlas {
@@ -232,13 +384,17 @@ pub fn init() {
     let mut rects = Vec::new();
     let mut ranges = [(0, 0); SPRITE_COUNT];
 
-    for (id, frames) in MATRIX_SPRITES {
-        ranges[id as usize] = (rects.len(), frames.len());
-        for frame in frames {
-            let (w, h) = (frame[0].len() as u16, frame.len() as u16);
-            rects.push(packer.add(w, h, |x, y| {
-                palette(frame[y as usize].as_bytes()[x as usize] as char)
-            }));
+    for (id, frames, flash) in MATRIX_SPRITES {
+        let copies = if flash { 2 } else { 1 };
+        ranges[id as usize] = (rects.len(), frames.len() * copies);
+        for white in [false, true].into_iter().take(copies) {
+            for frame in frames {
+                let (w, h) = (frame[0].len() as u16, frame.len() as u16);
+                rects.push(packer.add(w, h, |x, y| {
+                    let c = palette(frame[y as usize].as_bytes()[x as usize] as char);
+                    if white { c.map(|_| WHITE) } else { c }
+                }));
+            }
         }
     }
 
@@ -269,7 +425,10 @@ mod tests {
 
     #[test]
     fn matrices_are_rectangular_and_use_palette() {
-        for (id, frames) in MATRIX_SPRITES {
+        for (id, frames, flash) in MATRIX_SPRITES {
+            if flash {
+                assert_eq!(frames.len(), FLASH_FRAME_OFFSET, "{id:?} frames");
+            }
             let (w, h) = (frames[0][0].len(), frames[0].len());
             for frame in frames {
                 assert_eq!(frame.len(), h, "{id:?} height");
@@ -286,7 +445,7 @@ mod tests {
     #[test]
     fn sprite_ids_cover_every_slot_once() {
         let mut seen = [false; SPRITE_COUNT];
-        for (id, _) in MATRIX_SPRITES {
+        for (id, _, _) in MATRIX_SPRITES {
             assert!(!seen[id as usize]);
             seen[id as usize] = true;
         }

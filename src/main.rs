@@ -1,13 +1,13 @@
 mod config;
+mod enemies;
 mod game;
-#[allow(dead_code)] // wired up in T6
 mod spatial;
 mod sprites;
 
 use config::*;
 use game::{Game, InputState};
 use macroquad::prelude::*;
-use sprites::{sprite, SpriteId, GROUND_TILE};
+use sprites::{sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
 use std::f32::consts::TAU;
 
 fn window_conf() -> Conf {
@@ -98,19 +98,32 @@ fn draw_ground(origin: Vec2) {
     }
 }
 
+fn draw_shadow(pos: Vec2, half_w: f32, half_h: f32) {
+    draw_ellipse(pos.x, pos.y, half_w, half_h, 0.0, Color::new(0.0, 0.0, 0.0, 0.35));
+}
+
+/// Enemies are drawn with their feet at their position, facing Veyra.
+fn draw_enemies(game: &Game) {
+    let e = &game.enemies;
+    let px = game.player.pos.x;
+    for i in 0..e.len() {
+        let pos = e.pos(i).round();
+        let def = &ENEMY_DEFS[e.kind[i] as usize];
+        let mut frame = (game.time * ENEMY_ANIM_FPS + e.phase[i]) as usize % 2;
+        if e.flash[i] > 0.0 {
+            frame += FLASH_FRAME_OFFSET;
+        }
+        draw_shadow(pos, 5.0, 1.5);
+        draw_sprite(def.sprite, frame, pos - vec2(8.0, 15.0), px > pos.x);
+    }
+}
+
 /// Draws Veyra hovering over `pos` (the point on the ground below her).
 fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
     let p = &game.player;
     let bob = BOB_AMPLITUDE * (TAU * BOB_HZ * t).sin();
     let shrink = 1.0 - SHADOW_SHRINK * bob / BOB_AMPLITUDE;
-    draw_ellipse(
-        pos.x,
-        pos.y,
-        6.0 * shrink,
-        2.0 * shrink,
-        0.0,
-        Color::new(0.0, 0.0, 0.0, 0.35),
-    );
+    draw_shadow(pos, 6.0 * shrink, 2.0 * shrink);
 
     let body = pos - vec2(8.0, 24.0 + HOVER_HEIGHT + bob.round());
     let moving = p.vel.length() > IMPULSE_SPEED;
@@ -160,6 +173,7 @@ async fn main() {
         set_camera(&target_camera(&target, origin));
         clear_background(BLACK);
         draw_ground(origin);
+        draw_enemies(&game);
         draw_veyra(&game, player_pos.round(), game.time + alpha * TICK_DT);
 
         present(&target);

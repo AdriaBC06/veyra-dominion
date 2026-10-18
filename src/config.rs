@@ -1,5 +1,7 @@
 //! All tunable numbers and data tables live here.
 
+use crate::sprites::SpriteId;
+
 pub const GAME_TITLE: &str = "Veyra: Dominion";
 
 /// Fixed logical resolution; the frame is scaled to the window with nearest filtering.
@@ -32,3 +34,58 @@ pub const WING_FPS: f32 = 3.0;
 /// Tail offset per unit of velocity, and how fast it catches up.
 pub const TAIL_LAG_SCALE: f32 = 0.012;
 pub const TAIL_SMOOTHING: f32 = 6.0;
+
+// --- Enemies & spawning ---------------------------------------------------
+pub const MAX_ENEMIES: usize = 2500;
+/// Enemies spawn on this ring around the player, just outside the visible frame.
+pub const SPAWN_RING_RADIUS: f32 = 400.0;
+/// Enemies farther than this are moved back to the ring in front of the player.
+pub const RELOCATE_RADIUS: f32 = 600.0;
+pub const SPAWN_RATE_START: f32 = 1.0;
+/// Soft separation: neighbours closer than this push each other apart.
+pub const SEPARATION_RADIUS: f32 = 12.0;
+pub const SEPARATION_PUSH: f32 = 60.0;
+/// Only this many neighbours contribute to separation (bounds the cost in dense hordes).
+pub const SEPARATION_MAX_NEIGHBOURS: u32 = 6;
+pub const ENEMY_ANIM_FPS: f32 = 6.0;
+
+// --- Spatial hash ---------------------------------------------------------
+/// The grid window (cols x rows cells) must cover RELOCATE_RADIUS around the player.
+pub const HASH_CELL: f32 = 64.0;
+pub const HASH_COLS: usize = 24;
+pub const HASH_ROWS: usize = 20;
+
+pub enum Behavior {
+    Chase,
+}
+
+pub struct EnemyDef {
+    pub sprite: SpriteId,
+    pub hp: f32,
+    pub speed: f32,
+    pub behavior: Behavior,
+}
+
+pub const RAT: usize = 0;
+pub const VILLAGER: usize = 1;
+
+pub const ENEMY_DEFS: [EnemyDef; 3] = [
+    EnemyDef {
+        sprite: SpriteId::Rat,
+        hp: 6.0,
+        speed: 75.0,
+        behavior: Behavior::Chase,
+    },
+    EnemyDef {
+        sprite: SpriteId::Villager,
+        hp: 14.0,
+        speed: 55.0,
+        behavior: Behavior::Chase,
+    },
+    EnemyDef {
+        sprite: SpriteId::Knight,
+        hp: 45.0,
+        speed: 42.0,
+        behavior: Behavior::Chase,
+    },
+];
