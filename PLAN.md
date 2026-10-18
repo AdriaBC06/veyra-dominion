@@ -299,7 +299,7 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
   - Title menu is Play / Settings / Credits / Quit for now; Altar, Circles, Familiars and map/mode select join with their tasks (V20+, V23).
   - Pause, game over and victory are button menus (`ui::button_column`); the old R / E / T keys are gone. Esc in the pause menu resumes; Settings opened from pause returns to it.
   - Settings tabs: Audio (3 sliders, inert until V9), Video (fullscreen, scaling), Game (language, hold-click-to-move), Keys (controls sheet), Data (lifetime stats + reset with a second press to confirm; Esc or moving away disarms). Screen shake, damage numbers and flash intensity join the Video tab in V29 with the features themselves. Settings are written when the screen is left. F9/F10/F11 still work everywhere.
-  - Credits scroll on their own after 2 s (wheel/arrows take over); they list the author (`AUTHOR` in `credits.rs`, currently the git handle "AdriaBC06"), the fonts, macroquad, and then the full OFL text and macroquad's MIT text (`assets/licenses/`) in the small face, word-wrapped to 440 px.
+  - Credits scroll on their own after 2 s (wheel/arrows take over); they list the author (**Adrià Bonnin Catalán**, `AUTHOR` in `credits.rs`), the fonts, macroquad and a line pointing to the licence folder. The full OFL and MIT texts are **not** shown on screen (the user found them made the credits far too long): V30 must ship `assets/fonts/OFL-*.txt` and `assets/licenses/` in a `licences/` folder next to the executable.
 
 ### 7.6 Art restyle
 
@@ -483,7 +483,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 | V28 | Story cards, boss lines, Memories, Codex | All text EN/ES | `feat: story and codex` |
 | **CP9** | **Checkpoint 9 — Content** | | |
 | V29 | Balance pass, juice (hit-stop, shake, damage numbers), accessibility (flash/shake toggles) | Playtest notes in README | `feat: balance and game feel pass` |
-| V30 | Release: Windows + Linux builds, icon, `strip = true`, licences bundle, README/press kit | Builds run on both | `chore: release packaging` |
+| V30 | Release: Windows + Linux builds, icon, `strip = true`, licences bundle (`licences/` folder: OFL texts + macroquad MIT, the credits point to it), README/press kit | Builds run on both | `chore: release packaging` |
 | **CP10** | **Checkpoint 10 — Release candidate** | | |
 
 ### 7.13 V2 risks
@@ -601,5 +601,5 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S4 (2026-10-19)** — V7 + CP4 done. V7: `scenes/` (`App`, `Nav`; title, run, settings, credits), see 7.5; `main.rs` is now only the window setup and loop. The pause / game over / victory screens are button menus and R/E/T are gone. Hold-click movement setting added (7.4).
   - CP4: release binary 1.95 MB (1.75 MB stripped), up from 1.14 MB mostly because of the embedded TTFs and licence texts.
   - Fixed a V5 bug: `f32::signum(0.0)` is 1.0, so `UiInput.wheel` reported "up" every frame; it now checks for 0 first.
-  - Screens were checked with a temporary `VEYRA_SHOT` env hack in `App::new` (start in a given scene/tab) + `spectacle`; not committed. The credits use "AdriaBC06" as the author name; change `AUTHOR` in `credits.rs` if the user wants a real name.
+  - Screens were checked with a temporary `VEYRA_SHOT` env hack in `App::new` (start in a given scene/tab) + `spectacle`; not committed. Follow-up: author is "Adrià Bonnin Catalán" (`à`/`À` added to `EXTRA_GLYPHS`); the on-screen licence texts were dropped as too long, see 7.5.
   - `ui::ListView` still has a local `allow(dead_code)` until the Altar/Codex lists (V20+). Next: S5 (V8 chip synth).

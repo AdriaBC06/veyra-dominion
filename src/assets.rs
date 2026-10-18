@@ -223,7 +223,7 @@ fn build() -> (Image, Vec<Rect>, [(usize, usize); SPRITE_COUNT]) {
 }
 
 /// Non-ASCII letters rasterised at init; `i18n` tests check every string against it.
-pub const EXTRA_GLYPHS: &str = "áéíóúüñÁÉÍÓÚÜÑ¿¡";
+pub const EXTRA_GLYPHS: &str = "áàéíóúüñÁÀÉÍÓÚÜÑ¿¡";
 
 /// Builds the atlas texture. Must run once after the window exists.
 pub fn init() {

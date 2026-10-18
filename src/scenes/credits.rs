@@ -1,5 +1,5 @@
-//! Credits: a slowly scrolling list of names, then the licence texts of the
-//! embedded fonts (OFL) and of macroquad (MIT) in the small face.
+//! Credits: a slowly scrolling list of names. The full licence texts (OFL for the
+//! fonts, MIT for macroquad) ship as files next to the game, not on screen.
 
 use super::Nav;
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
@@ -9,14 +9,7 @@ use crate::i18n::{self, tr, Key, Lang};
 use crate::ui::{self, UiInput};
 use macroquad::prelude::*;
 
-const AUTHOR: &str = "AdriaBC06";
-const OFL_JACQUARD: &str = include_str!("../../assets/fonts/OFL-Jacquard24.txt");
-const OFL_JERSEY: &str = include_str!("../../assets/fonts/OFL-Jersey15.txt");
-const OFL_PRESS_START: &str = include_str!("../../assets/fonts/OFL-PressStart2P.txt");
-const MACROQUAD_MIT: &str = include_str!("../../assets/licenses/macroquad-LICENSE-MIT.txt");
-
-/// Width the licence texts are wrapped to; fits the narrowest view.
-const WRAP_W: f32 = 440.0;
+const AUTHOR: &str = "Adrià Bonnin Catalán";
 const TOP_Y: f32 = 70.0;
 /// Seconds before the list starts scrolling on its own.
 const SCROLL_DELAY: f32 = 2.0;
@@ -29,7 +22,6 @@ enum Kind {
     Title,
     Heading,
     Name,
-    Small,
     Gap,
 }
 
@@ -38,7 +30,6 @@ impl Kind {
         match self {
             Kind::Title => 40.0,
             Kind::Heading | Kind::Name => 20.0,
-            Kind::Small => 11.0,
             Kind::Gap => 14.0,
         }
     }
@@ -91,7 +82,6 @@ impl Credits {
     pub fn draw(&self, view: Vec2) {
         hud::draw_dim(view);
         draw_rectangle(0.0, 0.0, view.x, view.y, Color::new(0.0, 0.0, 0.0, 0.3));
-        let x = Anchor::Center.x(view, WRAP_W, 0.0);
         let mut y = TOP_Y - self.scroll.round();
         for (kind, text) in &self.lines {
             y += kind.height();
@@ -102,14 +92,9 @@ impl Credits {
                 Kind::Title => (TextStyle::Title, hud::TITLE_COLOR),
                 Kind::Heading => (TextStyle::Body, ui::ACCENT),
                 Kind::Name => (TextStyle::Body, WHITE),
-                Kind::Small => (TextStyle::Small, LIGHTGRAY),
                 Kind::Gap => continue,
             };
-            if *kind == Kind::Small {
-                draw_ui_text(text, x, y, style, color);
-            } else {
-                hud::draw_text_centered(view, text, y, style, color);
-            }
+            hud::draw_text_centered(view, text, y, style, color);
         }
         let help = tr(Key::CreditsHelp);
         let w = measure_ui_text(help, TextStyle::Small).width;
@@ -151,79 +136,22 @@ fn build_lines() -> Vec<(Kind, String)> {
         &["macroquad - Fedor Logachev", "MIT / Apache-2.0"],
     );
     section(Key::CreditsThanks, &[tr(Key::CreditsThanksYou)]);
-    lines.push((Kind::Heading, tr(Key::CreditsLicences).to_owned()));
-    lines.push((Kind::Gap, String::new()));
-
-    let measure = |s: &str| measure_ui_text(s, TextStyle::Small).width;
-    let mut licence = |text: &str| {
-        for paragraph in paragraphs(text) {
-            for line in wrap(&paragraph, WRAP_W, measure) {
-                lines.push((Kind::Small, line));
-            }
-            lines.push((Kind::Gap, String::new()));
-        }
-    };
-    // The three OFL files differ only in their first (copyright) line.
-    for ofl in [OFL_JACQUARD, OFL_JERSEY, OFL_PRESS_START] {
-        licence(ofl.lines().next().unwrap_or_default());
-    }
-    licence(OFL_JERSEY.split_once('\n').map_or("", |(_, rest)| rest));
-    licence(MACROQUAD_MIT);
+    section(Key::CreditsLicences, &[tr(Key::CreditsLicenceFiles)]);
     lines
-}
-
-/// Paragraphs of a plain-text file: blank lines separate them, single breaks join.
-fn paragraphs(text: &str) -> Vec<String> {
-    text.split("\n\n")
-        .map(|p| p.split_whitespace().collect::<Vec<_>>().join(" "))
-        .filter(|p| !p.is_empty())
-        .collect()
-}
-
-/// Greedy word wrap to `max_w`, with `measure` giving a string's width.
-fn wrap(text: &str, max_w: f32, measure: impl Fn(&str) -> f32) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut line = String::new();
-    for word in text.split_whitespace() {
-        let candidate = if line.is_empty() {
-            word.to_owned()
-        } else {
-            format!("{line} {word}")
-        };
-        if !line.is_empty() && measure(&candidate) > max_w {
-            out.push(std::mem::replace(&mut line, word.to_owned()));
-        } else {
-            line = candidate;
-        }
-    }
-    if !line.is_empty() {
-        out.push(line);
-    }
-    out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assets::EXTRA_GLYPHS;
 
     #[test]
-    fn wrap_keeps_lines_within_width() {
-        let measure = |s: &str| s.len() as f32;
-        let lines = wrap("aa bbb cc dddddddd e", 6.0, measure);
-        assert_eq!(lines, ["aa bbb", "cc", "dddddddd", "e"]);
-        assert!(wrap("", 6.0, measure).is_empty());
-    }
-
-    #[test]
-    fn paragraphs_join_single_breaks() {
-        let p = paragraphs("one\ntwo\n\n\nthree  four\n");
-        assert_eq!(p, ["one two", "three four"]);
-    }
-
-    #[test]
-    fn licence_texts_are_ascii() {
-        for text in [OFL_JACQUARD, OFL_JERSEY, OFL_PRESS_START, MACROQUAD_MIT] {
-            assert!(text.is_ascii());
+    fn author_is_in_the_font_cache() {
+        for c in AUTHOR.chars() {
+            assert!(
+                (' '..='~').contains(&c) || EXTRA_GLYPHS.contains(c),
+                "{c:?}"
+            );
         }
     }
 }

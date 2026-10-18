@@ -123,6 +123,7 @@ keys! {
     CreditsThanks => "Special thanks", "Agradecimientos";
     CreditsThanksYou => "You, for playing", "A ti, por jugar";
     CreditsLicences => "Licences", "Licencias";
+    CreditsLicenceFiles => "Full texts in the licences folder", "Textos completos en la carpeta de licencias";
     CreditsHelp => "Esc or click to return", "Esc o clic para volver";
     On => "On", "Sí";
     Off => "Off", "No";
