@@ -162,7 +162,10 @@ mod tests {
     fn assert_fits(l: Layout, window: Vec2) {
         let size = l.view * l.scale;
         assert!(l.offset.x >= 0.0 && l.offset.y >= 0.0, "{l:?}");
-        assert!(size.x <= window.x + 0.01 && size.y <= window.y + 0.01, "{l:?}");
+        assert!(
+            size.x <= window.x + 0.01 && size.y <= window.y + 0.01,
+            "{l:?}"
+        );
         assert!((MIN_LOGICAL_W..=MAX_LOGICAL_W).contains(&l.view.x));
         assert_eq!(l.view.y, LOGICAL_H);
     }
@@ -170,7 +173,10 @@ mod tests {
     #[test]
     fn sixteen_nine_fills_exactly() {
         let l = pp(1920.0, 1080.0);
-        assert_eq!((l.view, l.scale, l.offset), (vec2(640.0, 360.0), 3.0, Vec2::ZERO));
+        assert_eq!(
+            (l.view, l.scale, l.offset),
+            (vec2(640.0, 360.0), 3.0, Vec2::ZERO)
+        );
         assert_eq!(fill(1280.0, 720.0).view.x, 640.0);
     }
 

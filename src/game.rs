@@ -528,8 +528,7 @@ mod tests {
         assert!(g.enemies.len() >= 3);
         for i in 0..g.enemies.len() {
             assert!(
-                g.enemies.pos(i).distance(g.player.pos)
-                    <= g.spawn_ring + SPAWN_GROUP_SPREAD + 1.0
+                g.enemies.pos(i).distance(g.player.pos) <= g.spawn_ring + SPAWN_GROUP_SPREAD + 1.0
             );
         }
     }

@@ -3,6 +3,7 @@
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
 use crate::config::*;
 use crate::game::Game;
+use crate::ui::Focus;
 use macroquad::prelude::*;
 
 const TITLE_COLOR: Color = Color::new(0.88, 0.19, 0.29, 1.0);
@@ -112,18 +113,34 @@ pub fn draw_center_screen(view: Vec2, title: &str, lines: &[&str]) {
     }
 }
 
-/// Level-up screen: up to three stacked upgrade cards, `selected` highlighted.
-pub fn draw_level_up(game: &Game, view: Vec2, selected: usize) {
+const CARD_W: f32 = 420.0;
+const CARD_H: f32 = 56.0;
+const CARD_GAP: f32 = 8.0;
+const CARDS_Y: f32 = 100.0;
+
+/// Hit rects of the level-up cards, one per choice slot.
+pub fn level_up_cards(view: Vec2) -> [Rect; 3] {
+    let x = Anchor::Center.x(view, CARD_W, 0.0);
+    std::array::from_fn(|slot| {
+        let y = CARDS_Y + slot as f32 * (CARD_H + CARD_GAP);
+        Rect::new(x, y, CARD_W, CARD_H)
+    })
+}
+
+/// Level-up screen: up to three stacked upgrade cards, the highlighted one outlined.
+pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
     draw_dim(view);
     draw_text_centered(view, "Dominion grows", 78.0, TextStyle::Title, TITLE_COLOR);
-    let (w, h, gap) = (420.0, 56.0, 8.0);
-    let x = Anchor::Center.x(view, w, 0.0);
-    let y0 = 100.0;
+    let cards = level_up_cards(view);
     for (slot, choice) in game.choices.iter().enumerate() {
         let Some(idx) = *choice else { continue };
         let def = &UPGRADES[idx];
-        let y = y0 + slot as f32 * (h + gap);
-        let border = if slot == selected { TITLE_COLOR } else { GRAY };
+        let Rect { x, y, w, h } = cards[slot];
+        let border = if focus.is_highlighted(slot) {
+            TITLE_COLOR
+        } else {
+            GRAY
+        };
         draw_rectangle(x, y, w, h, Color::new(0.08, 0.04, 0.1, 0.95));
         draw_rectangle_lines(x, y, w, h, 2.0, border);
         let num = (slot + 1).to_string();
@@ -136,8 +153,8 @@ pub fn draw_level_up(game: &Game, view: Vec2, selected: usize) {
     }
     draw_text_centered(
         view,
-        "1/2/3 or arrows + Enter",
-        y0 + 3.0 * (h + gap) + 22.0,
+        "Click, 1/2/3 or arrows + Enter",
+        CARDS_Y + 3.0 * (CARD_H + CARD_GAP) + 22.0,
         TextStyle::Body,
         WHITE,
     );

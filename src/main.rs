@@ -5,6 +5,7 @@ mod game;
 mod hud;
 mod screen;
 mod spatial;
+mod ui;
 mod upgrades;
 
 use assets::{sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
@@ -186,7 +187,7 @@ async fn main() {
     let mut game = Game::new();
     let mut state = AppState::Title;
     let mut accumulator = 0.0f32;
-    let mut selected = 0usize;
+    let mut focus = ui::Focus::default();
     let mut debug = false;
     let mut update_ms = 0.0f32;
 
@@ -249,7 +250,7 @@ async fn main() {
                     SimEvent::None => {}
                     SimEvent::LevelUp => {
                         state = AppState::LevelUp;
-                        selected = 0;
+                        focus = ui::Focus::default();
                         break;
                     }
                     SimEvent::PlayerDied => {
@@ -272,21 +273,20 @@ async fn main() {
 
         if state == AppState::LevelUp {
             let count = game.choices.iter().flatten().count().max(1);
-            if is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::Up) {
-                selected = (selected + count - 1) % count;
-            }
-            if is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::Down) {
-                selected = (selected + 1) % count;
-            }
+            let cards = hud::level_up_cards(view);
+            let action = focus.update(&ui::UiInput::read(screen.layout), &cards[..count]);
             let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3];
             let pick = keys
                 .iter()
                 .position(|&k| is_key_pressed(k))
                 .filter(|&slot| slot < count)
-                .or(is_key_pressed(KeyCode::Enter).then_some(selected));
+                .or(match action {
+                    ui::Action::Confirm(slot) => Some(slot),
+                    _ => None,
+                });
             if let Some(slot) = pick {
                 game.choose_upgrade(slot);
-                selected = 0;
+                focus.index = 0;
                 if game.pending_levels == 0 {
                     state = AppState::Playing;
                 }
@@ -317,11 +317,12 @@ async fn main() {
             }
             AppState::LevelUp => {
                 hud::draw_hud(&game, view);
-                hud::draw_level_up(&game, view, selected);
+                hud::draw_level_up(&game, view, &focus);
             }
             AppState::Victory => {
                 let stats = format!("Kills {}   Level {}", game.kills, game.level);
-                hud::draw_center_screen(view, 
+                hud::draw_center_screen(
+                    view,
                     "The village burns",
                     &[&stats, "", "E endless   R restart   T title"],
                 );

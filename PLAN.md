@@ -187,7 +187,7 @@ Frames: VeyraBody 0 = rest, 1 = impulse (flip_x by facing); VeyraWings 0/1; Veyr
 - Hurt: skip drawing every other 0.06 s during i-frames. Death: body fades while smoke puffs (Fades) rise for ~1.2 s, then GameOver.
 
 ### Controls
-WASD / arrows move · Esc pause · Enter start/confirm · 1/2/3 or ←/→ + Enter pick upgrade · R restart · E endless (on victory) · T title · F3 debug · F10 scale mode · F11 fullscreen.
+WASD / arrows move · Esc pause · Enter start/confirm · 1/2/3, ↑/↓/W/S + Enter or mouse click pick upgrade · R restart · E endless (on victory) · T title · F3 debug · F10 scale mode · F11 fullscreen.
 
 ## 4. Tasks
 
@@ -280,7 +280,8 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 
 - Menus, upgrade choice, Altar, Circles and Settings all work with **mouse** (hover selects, click confirms, wheel scrolls) **and keyboard** (arrows/WASD + Enter/Esc). The last device used decides whether the hover highlight shows.
 - Shared UI layer in `ui.rs`: `Button`, `Slider`, `Toggle`, `Tabs`, `ListView`, with a single focus model. Gamepad hooks stay in the same model, to be added later.
-- Optional setting for in-run movement: "move toward cursor while holding LMB".
+- Optional setting for in-run movement: "move toward cursor while holding LMB". **Deferred to V7**, where the Settings screen can toggle it.
+- `ui.rs` (V5): `UiInput::read(layout)` gives one frame of input in logical coordinates (Enter/Space confirm, Esc back, arrows/WASD). `Focus::update(&input, &rects) -> Action` (`Confirm`, `Adjust(±1)`, `Pointer(frac)` while held, `Back`) is the only focus model; `Focus::highlight()` returns the focused item with the keyboard and only the hovered one with the mouse. A still mouse never takes focus from the keyboard. Widgets (`Button`, `Toggle`, `Slider`, `Tabs`, `ListView`) are logic + draw, each with a `handle(i, action, …)`; logic is unit-tested headless. Screens build their rects with a shared function (e.g. `hud::level_up_cards`) so drawing and hit-testing agree.
 
 ### 7.5 Title menu & scenes
 
@@ -517,7 +518,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V3 Fonts
 - **S2 — Screen & input**
   - [x] V2 Adaptive resolution
-  - [ ] V5 Mouse + keyboard UI layer
+  - [x] V5 Mouse + keyboard UI layer
 - **S3 — Text & data**
   - [ ] V4 English + Spanish localisation
   - [ ] V6 Save and settings files
@@ -583,3 +584,6 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Gotcha: macroquad text glyphs are rasterised per size; `assets::init` pre-populates ASCII + Spanish letters for every `TextStyle`, so new styles must be added to `TextStyle::ALL`.
   - Body text is 8 px Silkscreen (small caps look); V2's UI scale setting is the answer if it reads too small on big screens. Next: S2.
 - **S1 follow-up (2026-10-19)** — The user found the fonts unreadable (the title gothic, then the small body text). Swapped to Jacquard 24 / Jersey 15 / Press Start 2P (see 7.1), level-up cards stacked vertically. To check which sizes of a font are crisp, render a test string at every integer size into a render target and count grey (anti-aliased) pixels; only sizes with ~0 grey are usable.
+- **S2 (2026-10-19)** — V2 + V5 done. V2: `screen.rs` (`Layout` pure + tested, `Screen` owns the target); logical width 480–864, F10 scale mode, F11 fullscreen; spawn ring and relocate radius derive from the view (`Game::set_view`), hash window now 24×24. Decided to drop the UI scale setting (see 7.3). V5: `ui.rs` focus model + widgets; level-up cards are clickable/hoverable.
+  - Gotcha: `Layout` offsets can come out as -1 from float error (360 × 2.1333 > 768); they are clamped at 0.
+  - `ui.rs` has a module-level `allow(dead_code)` until V7 uses Slider/Toggle/Tabs/ListView; remove it then. "Move toward cursor" setting moved to V7. Windowed size is remembered only in memory until V6. Next: S3.

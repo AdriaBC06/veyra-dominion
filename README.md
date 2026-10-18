@@ -20,7 +20,7 @@ On Arch Linux you need `libx11 libxi mesa alsa-lib libxcursor libxrandr`.
 | WASD / arrows | Move |
 | Esc | Pause / resume |
 | Enter | Start / confirm |
-| 1 / 2 / 3, or ← / → + Enter | Pick upgrade |
+| 1 / 2 / 3, ↑ / ↓ + Enter, or mouse click | Pick upgrade |
 | R | Restart (game over / victory) |
 | E | Endless mode (after victory) |
 | T | Back to title (pause / game over / victory) |
