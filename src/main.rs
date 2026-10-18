@@ -1,5 +1,7 @@
 mod config;
 mod game;
+#[allow(dead_code)] // wired up in T6
+mod spatial;
 mod sprites;
 
 use config::*;
