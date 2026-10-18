@@ -252,7 +252,7 @@ The MVP (sections 1–6) is done. V2 turns it into a sellable game. Same workflo
 | Veyra redesign | **Blocked until the user sends reference images.** Larger, reclining while levitating, suggestive but clothed (no nudity; Steam "suggestive" tier at most). |
 | Language | English + Spanish from the start; every string goes through `i18n`. |
 | Monetisation | Chests ("Summoning Circles") are bought **only with in-game currency earned by playing**. Never sell them or the currency for real money (loot box laws in BE/NL and others, Steam disclosure). Drop rates are shown in-game. |
-| Fonts | Only OFL fonts (embedding in a commercial game is allowed; ship the licence text and credit). Candidates: **Jacquard 24** / **Jacquarda Bastarda 9** (pixel gothic, titles), **Pixelify Sans** or **Silkscreen** (readable body text). Confirm licence files when downloading. |
+| Fonts | Only OFL fonts (embedding in a commercial game is allowed; ship the licence text and credit). **Chosen in V3:** **Jacquarda Bastarda 9** (gothic, titles; crisp only at 13/26/39 px) and **Silkscreen** (body; crisp at multiples of 8). Rejected: Pixelify Sans (never renders crisp in macroquad's rasteriser at any integer size), Jacquard 24 (crisp only at 43 px; may return for the V14 logo). TTFs + `OFL-*.txt` live in `assets/fonts/`, credited in the README. All text goes through `assets::draw_ui_text` / `measure_ui_text` with a `TextStyle` (Logo 39, Title 26, Heading 13, Large 16, Body 8); never call `draw_text` with a raw size. |
 | Dependencies | Still only `macroquad`, now with `features = ["audio"]`. Saves use a hand-written `key=value` text format (no serde). |
 
 ### 7.2 Theme & nomenclature
@@ -512,7 +512,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 
 - **S1 — Assets & fonts**
   - [x] V1 Asset pipeline
-  - [ ] V3 Fonts
+  - [x] V3 Fonts
 - **S2 — Screen & input**
   - [ ] V2 Adaptive resolution
   - [ ] V5 Mouse + keyboard UI layer
@@ -576,3 +576,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 ## 9. Session log
 
 - **S0 (2026-10-18)** — V2 planned: decisions in 7.1 (own chip synth, PNG assets, EN+ES, earned-only gacha, OFL fonts). The MVP release binary is 1.14 MB (0.97 MB stripped). The user will send Veyra reference images for S9. Next: S1.
+- **S1 (2026-10-18)** — V1 + V3 done. V1: sprites are PNG strips in `assets/sprites/` loaded by `assets.rs` (was `sprites.rs`); the exported atlas was verified byte-identical to the old matrix atlas before the matrices were deleted. V3: Jacquarda Bastarda 9 + Silkscreen, see 7.1 for sizes and why Pixelify was dropped.
+  - Gotcha: `Texture2D::get_texture_data()` on the render target returns the image vertically flipped, and it only contains the UI after the batch is flushed (call it after `present`). Useful for screenshot checks with a temporary frame-counter hack in `main`.
+  - Gotcha: macroquad text glyphs are rasterised per size; `assets::init` pre-populates ASCII + Spanish letters for every `TextStyle`, so new styles must be added to `TextStyle::ALL`.
+  - Body text is 8 px Silkscreen (small caps look); V2's UI scale setting is the answer if it reads too small on big screens. Next: S2.

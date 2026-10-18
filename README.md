@@ -49,6 +49,11 @@ See [PLAN.md](PLAN.md) for architecture, tasks and progress.
 
 GPL-3.0. See [LICENSE](LICENSE).
 
+Fonts, embedded in the executable under the SIL Open Font License 1.1 (licence texts in `assets/fonts/`):
+
+- **Jacquarda Bastarda 9** by Sarah Cadigan-Fried (The Soft Type Project Authors)
+- **Silkscreen** by Jason Kottke (The Silkscreen Project Authors)
+
 ## En español
 
 Survivors-like en Rust + macroquad: Veyra, una súcubo villana, debe sobrevivir 5 minutos arrasando un pueblo. Ejecuta con `cargo run --release`.

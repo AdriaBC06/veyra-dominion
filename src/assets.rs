@@ -1,6 +1,10 @@
 //! Pixel art lives in `assets/sprites/*.png` (one horizontal strip of equal frames per
 //! sprite), embedded with `include_bytes!` and packed into a single nearest-filtered
 //! atlas at startup. `sprite()` is the only accessor.
+//!
+//! Fonts (OFL, licences in `assets/fonts/`) are embedded too. Both are pixel fonts that
+//! only render crisp at their grid multiples, so text goes through `TextStyle`, which
+//! pins each style to one of those sizes.
 
 use macroquad::prelude::*;
 use std::cell::OnceCell;
@@ -72,8 +76,55 @@ struct Atlas {
     ranges: [(usize, usize); SPRITE_COUNT],
 }
 
+/// Gothic display face (Jacquarda Bastarda 9): crisp at multiples of 13 px.
+const GOTHIC_TTF: &[u8] = include_bytes!("../assets/fonts/JacquardaBastarda9-Regular.ttf");
+/// Readable body face (Silkscreen): crisp at multiples of 8 px.
+const BODY_TTF: &[u8] = include_bytes!("../assets/fonts/Silkscreen-Regular.ttf");
+
+/// Every text style the UI uses; each maps to a font and a crisp size.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TextStyle {
+    /// Game title (gothic 39).
+    Logo,
+    /// Screen titles (gothic 26).
+    Title,
+    /// Card and item names (gothic 13).
+    Heading,
+    /// Big numbers such as the timer (body 16).
+    Large,
+    /// Everything else (body 8).
+    Body,
+}
+
+impl TextStyle {
+    const ALL: [TextStyle; 5] = [
+        TextStyle::Logo,
+        TextStyle::Title,
+        TextStyle::Heading,
+        TextStyle::Large,
+        TextStyle::Body,
+    ];
+
+    /// (gothic face?, pixel size).
+    fn spec(self) -> (bool, u16) {
+        match self {
+            TextStyle::Logo => (true, 39),
+            TextStyle::Title => (true, 26),
+            TextStyle::Heading => (true, 13),
+            TextStyle::Large => (false, 16),
+            TextStyle::Body => (false, 8),
+        }
+    }
+}
+
+struct Fonts {
+    gothic: Font,
+    body: Font,
+}
+
 thread_local! {
     static ATLAS: OnceCell<Atlas> = const { OnceCell::new() };
+    static FONTS: OnceCell<Fonts> = const { OnceCell::new() };
 }
 
 /// Simple shelf packer writing frames into the atlas image.
@@ -172,6 +223,53 @@ pub fn init() {
     ATLAS.with(|a| {
         let _ = a.set(Atlas { tex, rects, ranges });
     });
+
+    let load = |bytes| {
+        let mut font = load_ttf_font_from_bytes(bytes).expect("embedded font");
+        font.set_filter(FilterMode::Nearest);
+        font
+    };
+    let fonts = Fonts {
+        gothic: load(GOTHIC_TTF),
+        body: load(BODY_TTF),
+    };
+    // Rasterise printable ASCII plus Spanish letters up front to avoid first-use hitches.
+    let chars: Vec<char> = (' '..='~').chain("áéíóúüñÁÉÍÓÚÜÑ¿¡".chars()).collect();
+    for style in TextStyle::ALL {
+        let (gothic, size) = style.spec();
+        let font = if gothic { &fonts.gothic } else { &fonts.body };
+        font.populate_font_cache(&chars, size);
+    }
+    FONTS.with(|f| {
+        let _ = f.set(fonts);
+    });
+}
+
+fn with_font<R>(style: TextStyle, f: impl FnOnce(&Font, u16) -> R) -> R {
+    FONTS.with(|fonts| {
+        let fonts = fonts.get().expect("assets::init not called");
+        let (gothic, size) = style.spec();
+        f(if gothic { &fonts.gothic } else { &fonts.body }, size)
+    })
+}
+
+/// Draws `text` with its baseline at `y` (snapped to whole pixels to stay crisp).
+pub fn draw_ui_text(text: &str, x: f32, y: f32, style: TextStyle, color: Color) {
+    with_font(style, |font, size| {
+        let params = TextParams {
+            font: Some(font),
+            font_size: size,
+            color,
+            ..Default::default()
+        };
+        draw_text_ex(text, x.round(), y.round(), params);
+    });
+}
+
+pub fn measure_ui_text(text: &str, style: TextStyle) -> TextDimensions {
+    with_font(style, |font, size| {
+        measure_text(text, Some(font), size, 1.0)
+    })
 }
 
 /// Texture and source rect for a sprite frame (frame wraps around).
@@ -220,6 +318,15 @@ mod tests {
         };
         assert_eq!(size(SpriteId::VeyraBody), (16, 24));
         assert_eq!(size(SpriteId::Ground), (GROUND_TILE, GROUND_TILE));
+    }
+
+    #[test]
+    fn text_styles_use_crisp_sizes() {
+        for style in TextStyle::ALL {
+            let (gothic, size) = style.spec();
+            let grid = if gothic { 13 } else { 8 };
+            assert_eq!(size % grid, 0, "{style:?}");
+        }
     }
 
     #[test]
