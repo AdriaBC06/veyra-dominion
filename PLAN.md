@@ -1,7 +1,19 @@
-# Veyra: Dominion — MVP Plan
+# Veyra: Dominion — Plan
 
 Single source of truth for scope, architecture, task order and progress.
-A new session reads only this file plus the files of the current task, and resumes at the first unchecked task in **Progress**.
+The MVP (sections 1–6) is complete; **V2 (section 7) is the active plan**.
+
+## 0. Session protocol
+
+Work happens in short sessions to save account usage. Every session starts with the same prompt and follows these rules:
+
+1. Read **only** this file, then the **Session log** at the end, then only the source files the current session's tasks need. No broad repo exploration.
+2. The current session is the first one in **8. Progress → V2 sessions** that has unchecked tasks. Do only that session's tasks, never the next session's, even if budget remains.
+3. Each task follows this loop: implement → `cargo clippy -- -D warnings` and `cargo test` (trimmed output) → tick the task in Progress → commit (message from the task table in 7.12) → `git push`. One task = one commit. Commit messages carry no tool attribution or Co-Authored-By trailers.
+4. Tasks marked *(user approval)* stop when they are ready to review. Show the result (PNG / WAV path or screenshot), wait for the user's OK, then commit. If there's no OK, leave the task unchecked and note it in the log.
+5. Before ending, append an entry to the **Session log**: date, tasks done, decisions taken, anything left half-done, and gotchas for the next session. Keep it to 3–8 lines and commit it with the last task (or as `docs: session N notes`).
+6. Record any new decision or design change in the relevant section of this file in the same commit. This file must stay enough to resume without the chat history.
+7. At a checkpoint: run `cargo build --release`, put the binary size in the log and tick the checkpoint.
 
 ## 1. Summary & MVP scope
 
@@ -227,25 +239,253 @@ Each task = one commit (+ `git push`), `cargo check` before commit, Progress che
 | Sprite content rating | Clothed leather outfit, no nudity; silhouette conveyed by shape and palette |
 | Context/weekly budget | State lives in PLAN.md + git; one commit per task; checkpoint stops |
 
-## 7. Roadmap v2 (design only — do NOT implement)
+## 7. V2 plan
 
-### Extensibility hooks already in the MVP
-- `EnemyDef.behavior: Behavior` matched in `Enemies::steer` → new variants plug in there.
-- `EVENTS: &[Event]` consumed sequentially by `Game::tick` → new `EventKind`s add timeline beats.
-- `pending_levels` counter → multi-level XP bursts already supported.
-- `sprite(id, frame)` single accessor → new art or a real atlas without touching callers.
+The MVP (sections 1–6) is done. V2 turns it into a sellable game. Same workflow: one task = one commit, `cargo clippy -- -D warnings` + `cargo test` before each commit, checkpoint stops. Resume at the first unchecked V2 task in **Progress**.
 
-### Priest (appears ~2:30)
-HP 60, speed 50, keeps ~200 px distance, no contact damage. Casts a slow dodgeable blessing (10 dmg). Holy aura radius ~120: slows Veyra 30% and regenerates nearby enemies. High-priority target.
-- **config.rs**: `Behavior::Support { keep_dist, cast_interval, bolt_speed, bolt_damage, aura_radius, aura_slow, aura_regen }`; new `PRIEST` `EnemyDef` with `contact_damage = 0`; `Event { time: 150.0, kind: Unlock(PRIEST) }`.
-- **enemies.rs**: new SoA column `cooldown: Vec<f32>`; `steer` handles keep-distance (approach/retreat/strafe); returns cast requests into a reusable buffer.
-- **game.rs**: `hostile: Vec<HostileShot>` (preallocated) moved/collided with player; aura pass via spatial hash: regen enemies within radius, player `slow_mul` field applied to speed; optional target bias of Hellflare toward Support enemies within range.
+### 7.1 Decisions (2026-10-18)
 
-### Archangel boss (5:00)
-HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volleys, (2) charge with ground telegraph, (3) light pillars on marked zones. On-screen warning before arrival. Defeating it becomes the victory condition; endless mode stays as an extra. Its soul grants several levels at once.
-- **config.rs**: `Behavior::Boss`; `EnemyDef.flies: bool`; `EventKind::BossWarning`, `EventKind::SpawnBoss(usize)`; boss table `BossPhase { hp_frac, pattern, params }`; `VictoryCondition { Survive(f32), DefeatBoss }`; soul XP sized to N levels.
-- **enemies.rs**: separation skipped when `flies`; the boss is not stored in the SoA horde but in a dedicated `Boss` struct (one entity, rich state machine) to keep the hot loop simple.
-- **game.rs**: `boss: Option<Boss>` with phase/state timers; telegraph zones (`Vec<Telegraph>`) rendered by main; reuses `hostile` shots from the Priest work; `SimEvent::BossWarning`; victory on boss death; boss soul feeds `pending_levels` (multi level-up screens chained).
+| Topic | Decision |
+|---|---|
+| Audio | Own chip synthesizer + own compositions as tracker data. No third-party audio, 100% owned, commercial-safe. |
+| Art | Sprite sheets move to PNG files in `assets/`, embedded with `include_bytes!` (still a single executable). Editable in Aseprite/LibreSprite. A one-off `tools/` script exports the current matrices to PNG as a starting point. |
+| Veyra redesign | **Blocked until the user sends reference images.** Larger, reclining while levitating, suggestive but clothed (no nudity; Steam "suggestive" tier at most). |
+| Language | English + Spanish from the start; every string goes through `i18n`. |
+| Monetisation | Chests ("Summoning Circles") are bought **only with in-game currency earned by playing**. Never sell them or the currency for real money (loot box laws in BE/NL and others, Steam disclosure). Drop rates are shown in-game. |
+| Fonts | Only OFL fonts (embedding in a commercial game is allowed; ship the licence text and credit). Candidates: **Jacquard 24** / **Jacquarda Bastarda 9** (pixel gothic, titles), **Pixelify Sans** or **Silkscreen** (readable body text). Confirm licence files when downloading. |
+| Dependencies | Still only `macroquad`, now with `features = ["audio"]`. Saves use a hand-written `key=value` text format (no serde). |
+
+### 7.2 Theme & nomenclature
+
+Every name describes what a succubus is and does: seduction, sin, pacts, souls, the Abyss. All names below are English keys; Spanish goes in the i18n table.
+
+- **Currency: Tribute** (Tributo): gold coins stamped with Veyra's sigil. Earned from kills (small chance), map objectives and an end-of-run payout scaled by time, kills, map and mode.
+- **XP: Souls** (as now).
+- **Permanent upgrades: Infernal Pacts** (Pactos infernales), signed at the **Altar**.
+- **Pets: Familiars** (Familiares), obtained from **Summoning Circles** (Círculos de invocación), which take the place of chests.
+- **Run upgrades:** weapons are **Arts** (Artes) and passives are **Sins** (Pecados).
+- Existing renames: Fury → **Wrath**, Frenzy → **Bloodlust**, Ember Legion → **Legion**, Light Wings → **Night Wings**, Soul Pull → **Siren's Call**, Blood Pact stays.
+
+### 7.3 Screen & resolution adaptation
+
+- The logical height stays at 360 px. The logical width follows the window aspect ratio, clamped to 480–864 (4:3 up to 21:9), so wide screens see more of the world and lose the black bars.
+- Scale mode setting: **Pixel-perfect** (integer scale plus thin bars) or **Fill** (fractional scale, Nearest filtering).
+- Fullscreen toggle (`set_fullscreen`) plus a remembered windowed size.
+- The UI uses anchors (top-left, top-centre, …) and never fixed 640-based coordinates. A UI scale setting offers ×1 / ×1.5 / ×2 in logical px.
+- The render target is recreated on resize. The spatial grid window and the spawn ring derive from the current view size.
+
+### 7.4 Input
+
+- Menus, upgrade choice, Altar, Circles and Settings all work with **mouse** (hover selects, click confirms, wheel scrolls) **and keyboard** (arrows/WASD + Enter/Esc). The last device used decides whether the hover highlight shows.
+- Shared UI layer in `ui.rs`: `Button`, `Slider`, `Toggle`, `Tabs`, `ListView`, with a single focus model. Gamepad hooks stay in the same model, to be added later.
+- Optional setting for in-run movement: "move toward cursor while holding LMB".
+
+### 7.5 Title menu & scenes
+
+- **Title scene:** Veyra reclines on air above a burning village silhouette. The scene has parallax layers (sky, smoke, burning roofs), rising embers, wing and tail animation and slow eye blinks. The cursor makes her glance toward the selected button. The logo is in the gothic pixel font with a flickering infernal glow, and the title theme plays.
+- **Menu:** Play (map select → mode: Normal / Rush / Endless once unlocked), Altar, Summoning Circles, Familiars, Settings, Credits, Quit.
+- **Settings:**
+  - Audio: master, music and SFX volumes.
+  - Graphics: fullscreen, scale mode, UI scale, screen shake, damage numbers, flash intensity.
+  - Gameplay: language, mouse movement.
+  - Controls: reference sheet.
+  - Data: **reset progress**, with a two-step confirmation.
+- **Credits:** scrolling, styled list. Includes design/code, art, music & SFX (own), the font licences (OFL text), macroquad (MIT/Apache notice) and "special thanks".
+- Transitions are a short dissolve or ember wipe between scenes.
+
+### 7.6 Art restyle
+
+- **Veyra:** about 48×32 reclining body (on her side, levitating) plus separate wings, tail and hair layers for secondary motion. Frames: idle float (4), move lean (4), cast (3), hurt (2), death dissolve (6). Bigger shadow and a subtle red rim light. Draw order and pivot are tuned so she reads clearly among 2,500 enemies.
+- **Enemy sizes vary by type:** small (rat 12 px, bat 12), medium (villager 20, monk 20), large (knight 26, paladin 28), brutes 40, bosses 64–96. `EnemyDef` gets `size` and `radius` from the sprite. The spatial queries add the largest radius in play.
+- **Effects:** an outline on elites, death-burst particles in each enemy's palette, ember trail on projectiles and hit-stop of 1–2 frames on big hits.
+- **Ground:** each map has its own tileset plus scattered props (fences, graves, pews, banners, clouds). Props are not walls: they don't block movement.
+- **Palette rule:** Veyra and her Arts own the warm reds, magentas and golds. Enemies and maps use colder or muted palettes so the player always reads her first.
+
+### 7.7 Arts (weapons) and Sins (passives)
+
+Modelled on the Vampire Survivors structure: up to **6 Arts + 6 Sins**, Arts reach level 8, and an Art **evolves** when it is at max level, its paired Sin is owned and a boss chest ("Abyssal Offering") is opened.
+
+| Art | Archetype (VS analogue) | Behaviour | Evolution (+ Sin) |
+|---|---|---|---|
+| Hellflare | Magic Wand | Homing fireballs at the nearest enemy | **Hellstorm** (+ Legion): rain of fireballs |
+| Tail Lash | Whip | Horizontal sweep on the facing side; alternates sides | **Barbed Scourge** (+ Wrath): bleed damage over time |
+| Kiss of Ruin | Knife | Fast piercing heart bolt in the move direction | **Kiss of Death** (+ Blood Pact): lifesteal on hit |
+| Brimstone Halo | King Bible | Orbiting embers | **Infernal Crown** (+ Dark Sigil): permanent ring |
+| Allure | Garlic (area) plus a succubus twist | Aura that **charms** enemies: they fight for Veyra for a few seconds | **Siren's Dominion** (+ Siren's Call): charmed enemies explode on expiry |
+| Hellgate | Santa Water | Burning pools at random spots near enemies | **Abyssal Rift**: pools pull enemies in |
+| Chain of Torment | Lightning Ring | Chain lightning between N enemies | **Torment Eternal** (+ Bloodlust): unlimited bounces in a radius |
+| Wing Gust | Clock Lancet / control | Cone knockback with a short slow | **Tempest of Wings** (+ Night Wings): pushes and damages |
+
+| Sin | Effect / level | Max |
+|---|---|---|
+| Wrath | +10% damage | 5 |
+| Bloodlust | −8% cooldown | 5 |
+| Legion | +1 projectile / instance | 2 |
+| Night Wings | +10% speed | 5 |
+| Blood Pact | +20 max HP, heal 30 | 5 |
+| Siren's Call | +40% pickup radius | 5 |
+| Dark Sigil | +10% duration | 5 |
+| Allurement | +10% area | 5 |
+| Greed | +20% Tribute | 5 |
+| Infernal Hide | +1 armour | 5 |
+
+On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Reroll charges come from Pacts.
+
+### 7.8 Enemies, difficulty, maps and story
+
+- New behaviours on top of `Chase`:
+  - `Ranged { keep_dist, shot }`
+  - `Charger { windup, dash_speed }` (with a telegraph)
+  - `Support` (aura/heal, the old Priest design)
+  - `Swarm` (bats: sine motion)
+  - `Shielded` (blocks frontal projectiles)
+  - `Flyer` (ignores separation)
+- **Elites:** a random tinted variant, ×5 HP, drops an Offering. **Bosses** use a dedicated `Boss` struct with a phase state machine (as in the old Archangel design).
+- **Difficulty curve:** each map defines its own spawn curve, an HP multiplier per minute and event table, with swarm and ring events like VS (encircling wall, stampede line).
+- **Map clear:** survive the timer **and** kill the final boss. Clearing a map unlocks the next map and that map's **Endless** mode.
+- **Rush mode:** the clock runs ×2 (a 10-minute map lasts 5 real minutes). Spawn rate and enemy HP/speed are scaled up and Tribute is ×1.5. Unlocked per map after a Normal clear.
+
+| # | Map | Objective / length | Enemies | Boss |
+|---|---|---|---|---|
+| 1 | **Ashford Village** (the current map, reworked) | Survive 10:00, kill the boss | Rat, Hound, Villager, Torchbearer (ranged), Knight, Brute farmer (large) | **Captain of the Watch**: shield charge, calls militia |
+| 2 | **Abbey of Saint Veil** | Survive 12:00 and break 3 holy seals spread across the map | Bats, Monk, Nun (holy water, ranged), Priest (support), Inquisitor (elite) | **Grand Inquisitor**: chains, purifying circles |
+| 3 | **Bastion of Aurum** (royal city) | Survive 15:00, defend nothing, kill the boss | Crossbowman, Paladin (shielded), Cavalry (charger), War mage | **The Lion King-Paladin** |
+| 4 | **The Celestial Gate** | Survive 15:00 | Cherub (swarm), Seraph (flyer, ranged), Angelic host | **Archangel** (3 phases: feathers, charge, light pillars) |
+
+- **Story (subtle):** Veyra was a succubus bound for centuries under the Abbey by the Church, and her seal breaks in Ashford.
+  - Each map opens with a 2–3 line card in Veyra's voice. Bosses get one line each on arrival and on death.
+  - Item and Familiar descriptions carry lore fragments. After each clear a "Memory" unlocks in the Codex.
+  - The ending after the Archangel is a short illustrated sequence: she claims dominion.
+
+### 7.9 Meta-progression (roguelike)
+
+- **Infernal Pacts:**
+  - Pacts: Might, Armour, Max HP, Recovery, Cooldown, Area, Speed, Duration, Amount, Magnet, Growth, Greed, Luck, Revival, Reroll, Banish.
+  - Each pact has ranks, and its cost rises with the rank and with the total number of pacts bought (the VS PowerUp formula).
+  - A full refund is always available.
+- **Summoning Circles & Familiars:** one Familiar equipped per run. It follows Veyra, attacks and gives a passive.
+  - The first copy of a Familiar unlocks it at rank 1. Duplicates raise its rank up to 5 (dupes needed: 1, 2, 3, 4).
+  - Duplicates beyond rank 5 refund Tribute.
+  - Higher circles give stronger Familiars.
+
+| Circle | Cost | Familiars |
+|---|---|---|
+| Lesser Circle | 500 | Bat (bites, +5% speed), Imp (throws small embers), Black Cat (+Luck), Crow (picks up far souls) |
+| Greater Circle | 2,000 | Hellhound (charges, burns), Gargoyle (+armour, stone shield), Will-o'-wisp (slows, +area), Shadow Serpent (poison pools) |
+| Abyssal Circle | 8,000 | Cerberus Pup (triple bite), Lesser Drake (fire breath cone), Lilim (fellow lesser succubus, charms), Nightmare (shadow steed, aura) |
+
+- Rates are listed in the Circle screen, and the rolls are tested for distribution.
+- **Codex:** seen enemies, Arts, Familiars and Memories.
+- **Save file:** `$XDG_DATA_HOME/veyra-dominion/save.txt` (Linux) or `%APPDATA%\veyra-dominion\save.txt` (Windows). It has a version field and is written atomically (tmp + rename). Settings go in a separate `settings.txt`.
+
+### 7.10 Audio design (own chip synth)
+
+**Synth (`audio/synth.rs`).** NES-like core extended with 16-bit touches. It renders to PCM, deterministically, and is unit-tested.
+- Voices:
+  - 2 pulse voices (duty 12.5/25/50/75%, vibrato, pitch sweep)
+  - 1 triangle bass
+  - 1 noise voice (long/short LFSR, for drums)
+  - 1 4-bit **wavetable** voice (Game Boy wave channel style, for organ and choir colours in the Abbey and Celestial maps)
+- Per-instrument macros (volume/arp/pitch/duty envelopes, as in FamiTracker) plus a light SNES-style echo.
+- Each track is pre-rendered to WAV bytes at load and played with macroquad's audio (`load_sound_from_bytes`, looped). If dynamic layering is needed later, the plan is to switch to a real-time callback.
+
+**Tracks (`assets/music/*.vtrk`).** Plain-text tracker patterns, reviewable in git. Each track has its own identity, so they don't all sound alike:
+- **Veyra's leitmotif:** a hook built on a minor 2nd plus a tritone. It appears on the title screen, the victory jingle, and in variations in each map theme.
+
+| Track | Key / mode | Tempo / feel | Colour |
+|---|---|---|---|
+| Title "Dominion" | D Phrygian dominant | 84 BPM, slow 6/8 sway | Seductive pulse lead, triangle drone, sparse echo |
+| Ashford | E harmonic minor | 150, driving 4/4 | Galloping bass ostinato, Castlevania-style energy |
+| Abbey | C Dorian vs C Phrygian | 120 | Corrupted plainchant on the wave channel against a pulse counter-melody |
+| Bastion | G minor march | 132 | Snare-heavy noise channel, brass-like 25% pulses |
+| Celestial Gate | Lydian clashing with the leitmotif | 140 | Bright arps fighting Veyra's dark motif |
+| Boss | Per map, chromatic | +10 BPM | — |
+| Jingles | — | — | Level-up, victory, game over, summon reveal (per rarity) |
+
+**How the music is made:**
+- Study NES/SNES technique: Castlevania III (VRC6), Mega Man 2, Ninja Gaiden, Vampire Survivors' own "Castlevania pastiche" style.
+- Never copy melodies.
+- Every track is exported to WAV with `cargo run --example render_audio` so the user can listen and **approve each track before integration**.
+
+**SFX (`audio/sfx.rs`).** sfxr-style parameter presets rendered by the same synth:
+- Combat: fire per Art, hit, kill per enemy family, soul pickup (pitch rises with combo), player hurt.
+- Progression: level-up, coin.
+- UI: move, confirm, back.
+- Events: summon (by rarity), boss warning.
+
+**Mixer.**
+- Per-sound voice cap (e.g. ≤4 simultaneous hits) and ±pitch jitter.
+- Ducking under jingles.
+- Volumes from Settings.
+
+### 7.11 Architecture changes
+
+- **Modules:**
+  - `assets.rs` (embedded PNGs + atlas rects manifest)
+  - `ui.rs` (widgets/focus)
+  - `scenes/` (title, map_select, run, settings, credits, altar, circles, codex)
+  - `i18n.rs` (`Key` enum → `[&str; 2]`; a test fails if any string is empty)
+  - `save.rs`, `meta.rs` (pacts, tribute, familiars)
+  - `weapons.rs` (Arts as data + per-archetype update fn)
+  - `familiars.rs`, `maps.rs` (`MapDef { ground, props, enemies, events, objective, music, duration }`)
+  - `audio/` (synth, sfx, music, tracks)
+- `config.rs` keeps the balance numbers but is split per domain if it grows past about 600 lines.
+- The simulation stays headless and testable. Audio and visual feedback leave the sim as `SimEvent`s or a per-tick event buffer that `main` consumes, so the sim never calls the audio functions.
+- `Game::new(map, mode, loadout)` takes the run parameters. Meta bonuses are applied as base stats.
+- Hot path: Arts use preallocated pools per archetype, there are still no allocations per tick, and the stress test is extended to all Arts at max level plus 2,500 enemies.
+
+### 7.12 V2 tasks
+
+| # | Task | Done when | Commit |
+|---|---|---|---|
+| V1 | Asset pipeline: export current matrices to PNG (`tools/`), `assets.rs` loads embedded PNG atlas; matrices removed | Game looks identical, test checks every sprite rect exists | `feat: png asset pipeline` |
+| V2 | Adaptive resolution: variable logical width, pixel-perfect/fill, fullscreen, anchored HUD, resize-safe target | Correct on 16:9, 16:10, 21:9, 4:3 | `feat: adaptive resolution and anchored ui` |
+| V3 | Fonts (OFL gothic title + readable body), licence files in `assets/fonts/` | All text uses the new fonts | `feat: pixel gothic fonts` |
+| V4 | `i18n.rs` EN/ES, every existing string migrated, language switch | Completeness test green | `feat: english and spanish localisation` |
+| V5 | `ui.rs` widgets with mouse + keyboard focus; level-up screen uses it | Upgrades pickable by mouse and keys | `feat: mouse and keyboard ui layer` |
+| V6 | `save.rs` + settings file, atomic writes, versioning + tests | Round-trip tests green | `feat: save and settings files` |
+| V7 | Scene system + Settings screen (audio sliders inert for now, graphics, language, reset progress) + Credits | Navigable with mouse/keys | `feat: scenes, settings and credits` |
+| **CP4** | **Checkpoint 4 — Foundations** | | |
+| V8 | Chip synth core + WAV export example + tests | `render_audio` writes test tones | `feat: chip synthesizer core` |
+| V9 | SFX presets + mixer (caps, jitter), wired to SimEvents | Sounds in game, volumes work | `feat: sound effects and mixer` |
+| V10 | Tracker format + title theme & Ashford theme → **user listening approval** | User approves both | `feat: tracker music and first themes` |
+| V11 | Remaining music + jingles | User approves | `feat: full soundtrack` |
+| **CP5** | **Checkpoint 5 — Audio** | | |
+| V12 | **Veyra redesign (needs reference images)**: proposals as PNG for approval, then reclining sprite set + animation layers | User approves, in game | `feat: veyra redesign` |
+| V13 | Enemy restyle with sized sprites, `EnemyDef.size`, hash radius fix, death bursts, elite outline | Stress test still green | `feat: enemy restyle with variable sizes` |
+| V14 | Animated title scene (Veyra, parallax village, embers, glowing logo, music) | User approves look | `feat: animated title scene` |
+| **CP6** | **Checkpoint 6 — Look & feel** | | |
+| V15 | Arts framework (6 slots, levels, pools) + Tail Lash, Kiss of Ruin, Brimstone Halo | Tests + visible | `feat: arts framework and first arts` |
+| V16 | Allure (charm), Hellgate, Chain of Torment, Wing Gust | Tests + visible | `feat: remaining arts` |
+| V17 | Sins table, renames, mixed level-up choices, evolutions + Offerings | Evolution tests green | `feat: sins and evolutions` |
+| V18 | New behaviours (Ranged, Charger, Support, Swarm, Shielded, Flyer) + hostile shots + elites | Behaviour tests green | `feat: enemy behaviours and elites` |
+| V19 | Boss framework + Captain of the Watch | Boss beatable | `feat: boss framework and first boss` |
+| **CP7** | **Checkpoint 7 — Combat depth** | | |
+| V20 | Tribute currency, end-of-run payout screen, Altar + Pacts (refund) | Meta tests green | `feat: tribute and infernal pacts` |
+| V21 | Summoning Circles + Familiars (4 Lesser), equip, ranks, duplicate refund, rate display | Distribution tests green | `feat: summoning circles and familiars` |
+| V22 | Greater + Abyssal Familiars | Visible + tested | `feat: greater and abyssal familiars` |
+| **CP8** | **Checkpoint 8 — Meta** | | |
+| V23 | `MapDef`, map select, objectives, Ashford reworked (10:00 + boss), Endless per map | Clear unlocks next | `feat: maps and objectives` |
+| V24 | Rush mode | Tests on scaling | `feat: rush mode` |
+| V25 | Abbey of Saint Veil (+ seals objective, enemies, boss, tileset) | Clearable | `feat: abbey of saint veil` |
+| V26 | Bastion of Aurum | Clearable | `feat: bastion of aurum` |
+| V27 | Celestial Gate + Archangel + ending | Clearable | `feat: celestial gate and ending` |
+| V28 | Story cards, boss lines, Memories, Codex | All text EN/ES | `feat: story and codex` |
+| **CP9** | **Checkpoint 9 — Content** | | |
+| V29 | Balance pass, juice (hit-stop, shake, damage numbers), accessibility (flash/shake toggles) | Playtest notes in README | `feat: balance and game feel pass` |
+| V30 | Release: Windows + Linux builds, icon, `strip = true`, licences bundle, README/press kit | Builds run on both | `chore: release packaging` |
+| **CP10** | **Checkpoint 10 — Release candidate** | | |
+
+### 7.13 V2 risks
+
+| Risk | Mitigation |
+|---|---|
+| Music sounds generic or samey | Per-track mode/tempo/colour table, leitmotif rules, user listens to WAV exports before integration |
+| Gacha legal exposure | Earned-only currency, rates shown, no real-money path ever |
+| Suggestive art vs store rules | Clothed, no nudity, review proposals with the user before integration |
+| Performance with more Arts and bigger enemies | Pools per Art, extended stress test, hash radius includes max enemy radius |
+| Font licence | OFL only, licence files shipped and credited |
+| Scope creep | Checkpoints are stop points. Content (maps 3–4, Abyssal Familiars) can slip without breaking the game |
 
 ## 8. Progress
 
@@ -267,3 +507,72 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T14 Stress test
 - [x] T15 Clippy, docs, release
 - [x] **CP3 Full loop**
+
+### V2 sessions
+
+- **S1 — Assets & fonts**
+  - [ ] V1 Asset pipeline
+  - [ ] V3 Fonts
+- **S2 — Screen & input**
+  - [ ] V2 Adaptive resolution
+  - [ ] V5 Mouse + keyboard UI layer
+- **S3 — Text & data**
+  - [ ] V4 English + Spanish localisation
+  - [ ] V6 Save and settings files
+- **S4 — Menus**
+  - [ ] V7 Scenes, settings and credits
+  - [ ] **CP4 Foundations**
+- **S5 — Synth**
+  - [ ] V8 Chip synthesizer core
+- **S6 — SFX**
+  - [ ] V9 Sound effects and mixer
+- **S7 — First music** *(user approval)*
+  - [ ] V10 Tracker format + first themes
+- **S8 — Soundtrack** *(user approval)*
+  - [ ] V11 Remaining music + jingles
+  - [ ] **CP5 Audio**
+- **S9 — Veyra** *(user approval; ask for the reference images at the start)*
+  - [ ] V12 Veyra redesign
+- **S10 — Enemies look**
+  - [ ] V13 Enemy restyle with variable sizes
+- **S11 — Title screen** *(user approval)*
+  - [ ] V14 Animated title scene
+  - [ ] **CP6 Look & feel**
+- **S12 — Arts I**
+  - [ ] V15 Arts framework + first Arts
+- **S13 — Arts II**
+  - [ ] V16 Remaining Arts
+- **S14 — Sins**
+  - [ ] V17 Sins and evolutions
+- **S15 — Enemy AI**
+  - [ ] V18 Enemy behaviours and elites
+- **S16 — First boss**
+  - [ ] V19 Boss framework + first boss
+  - [ ] **CP7 Combat depth**
+- **S17 — Pacts**
+  - [ ] V20 Tribute and Infernal Pacts
+- **S18 — Familiars**
+  - [ ] V21 Summoning Circles + Lesser Familiars
+  - [ ] V22 Greater + Abyssal Familiars
+  - [ ] **CP8 Meta**
+- **S19 — Maps & modes**
+  - [ ] V23 Maps, objectives and per-map Endless
+  - [ ] V24 Rush mode
+- **S20 — Abbey**
+  - [ ] V25 Abbey of Saint Veil
+- **S21 — Bastion**
+  - [ ] V26 Bastion of Aurum
+- **S22 — Celestial Gate**
+  - [ ] V27 Celestial Gate + Archangel + ending
+- **S23 — Story**
+  - [ ] V28 Story and Codex
+  - [ ] **CP9 Content**
+- **S24 — Polish**
+  - [ ] V29 Balance and game feel pass
+- **S25 — Release**
+  - [ ] V30 Release packaging
+  - [ ] **CP10 Release candidate**
+
+## 9. Session log
+
+- **S0 (2026-10-18)** — V2 planned: decisions in 7.1 (own chip synth, PNG assets, EN+ES, earned-only gacha, OFL fonts). The MVP release binary is 1.14 MB (0.97 MB stripped). The user will send Veyra reference images for S9. Next: S1.
