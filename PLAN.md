@@ -223,7 +223,7 @@ Each task = one commit (+ `git push`), `cargo check` before commit, Progress che
 | `macroquad::rand` is global → nondeterministic parallel tests | Tests assert invariants, not exact sequences; seed with `srand` per test |
 | Unbounded world breaks the grid | Grid window centred on player; enemies beyond `RELOCATE_RADIUS` are moved back to the ring |
 | Spiral of death on slow frames | Clamp frame dt and max ticks per frame |
-| Clippy `-D warnings` on unused v2 hooks | Only add enum variants that are used now (`Chase`, `Unlock`, `Victory`); v2 variants stay in this doc |
+| Clippy `-D warnings` on unused v2 hooks | Only add enum variants that are used now (`Chase`, `Unlock`, `Victory`); v2 variants stay in this doc. Same for `EnemyDef` fields and consts: each is added in the task that first reads it (`KNIGHT`, weights, `group` in T11; `soul_xp` in T9; `name` in T12) |
 | Sprite content rating | Clothed leather outfit, no nudity; silhouette conveyed by shape and palette |
 | Context/weekly budget | State lives in PLAN.md + git; one commit per task; checkpoint stops |
 
@@ -258,7 +258,7 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T6 SoA enemies + spawning
 - [x] T7 Hellflare weapon
 - [x] T8 Damage, death, title, game over
-- [ ] **CP2 Combat**
+- [x] **CP2 Combat**
 - [ ] T9 Souls + XP
 - [ ] T10 Upgrades
 - [ ] T11 Wave director
