@@ -131,6 +131,14 @@ fn draw_enemies(game: &Game) {
     }
 }
 
+fn draw_souls(game: &Game) {
+    for (i, s) in game.souls.iter().enumerate() {
+        let bob = (TAU * SOUL_BOB_HZ * game.time + i as f32).sin();
+        draw_shadow(s.pos, 2.5, 1.0, 0.6);
+        draw_sprite(SpriteId::Soul, 0, s.pos - vec2(4.0, 9.0 + bob), false);
+    }
+}
+
 fn draw_projectiles(game: &Game) {
     for p in &game.projectiles {
         draw_sprite(
@@ -244,6 +252,7 @@ async fn main() {
         set_camera(&target_camera(&target, origin));
         clear_background(BLACK);
         draw_ground(origin);
+        draw_souls(&game);
         draw_enemies(&game);
         draw_fades(&game);
         draw_veyra(&game, player_pos.round(), game.time + alpha * TICK_DT);

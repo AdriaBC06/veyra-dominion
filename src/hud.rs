@@ -27,9 +27,12 @@ pub fn format_time(t: f32) -> String {
 pub fn draw_hud(game: &Game) {
     let p = &game.player;
     let text = format!(
-        "HP {}/{}   KILLS {}   {}",
+        "HP {}/{}   LV {} ({}/{})   KILLS {}   {}",
         p.hp.ceil(),
         p.max_hp,
+        game.level,
+        game.xp,
+        xp_to_next(game.level),
         game.kills,
         format_time(game.time)
     );

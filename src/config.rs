@@ -61,6 +61,21 @@ pub const HIT_FLASH_TIME: f32 = 0.1;
 pub const DEATH_FADE_TIME: f32 = 0.35;
 pub const MAX_FADES: usize = 512;
 
+// --- Souls & XP -----------------------------------------------------------
+/// Souls within this distance fly toward Veyra.
+pub const PICKUP_RADIUS: f32 = 48.0;
+pub const SOUL_MAGNET_SPEED: f32 = 240.0;
+/// Souls this close are absorbed.
+pub const SOUL_COLLECT_RADIUS: f32 = 6.0;
+/// When full, a new soul's XP merges into the nearest existing one.
+pub const MAX_SOULS: usize = 600;
+pub const SOUL_BOB_HZ: f32 = 2.0;
+
+/// XP needed to go from `level` to `level + 1`.
+pub const fn xp_to_next(level: u32) -> u32 {
+    8 + 6 * level
+}
+
 // --- Enemies & spawning ---------------------------------------------------
 pub const MAX_ENEMIES: usize = 2500;
 /// Enemies spawn on this ring around the player, just outside the visible frame.
@@ -93,6 +108,7 @@ pub struct EnemyDef {
     pub speed: f32,
     pub radius: f32,
     pub contact_damage: f32,
+    pub soul_xp: u32,
     pub behavior: Behavior,
 }
 
@@ -106,6 +122,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         speed: 75.0,
         radius: 5.0,
         contact_damage: 5.0,
+        soul_xp: 1,
         behavior: Behavior::Chase,
     },
     EnemyDef {
@@ -114,6 +131,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         speed: 55.0,
         radius: 6.0,
         contact_damage: 8.0,
+        soul_xp: 2,
         behavior: Behavior::Chase,
     },
     EnemyDef {
@@ -122,6 +140,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         speed: 42.0,
         radius: 7.0,
         contact_damage: 15.0,
+        soul_xp: 5,
         behavior: Behavior::Chase,
     },
 ];

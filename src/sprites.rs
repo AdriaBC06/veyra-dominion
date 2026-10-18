@@ -15,10 +15,11 @@ pub enum SpriteId {
     Knight,
     Fireball,
     Smoke,
+    Soul,
     Ground,
 }
 
-const SPRITE_COUNT: usize = 9;
+const SPRITE_COUNT: usize = 10;
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -65,6 +66,8 @@ fn palette(ch: char) -> Option<Color> {
         'B' => rgb(58, 88, 168),   // plume
         'M' => rgb(132, 122, 138), // smoke
         'm' => rgb(88, 80, 96),    // smoke shadow
+        'c' => rgb(196, 236, 255), // soul core
+        'C' => rgb(96, 168, 232),  // soul glow
         _ => panic!("unknown palette char {ch:?}"),
     }
 }
@@ -280,9 +283,13 @@ const SMOKE: Frame = &[
     "..mmm...", ".mMMMm..", "mMMMMMm.", "mMMmMMmm", ".mMMMMMm", "..mMMMm.", "...mmm..", "........",
 ];
 
+const SOUL: Frame = &[
+    "...C....", "..CcC...", ".CcccC..", ".CcccC..", "..CcC...", "...C....", "........", "........",
+];
+
 /// Matrix-defined sprites, indexed by `SpriteId as usize`, plus whether they get
 /// hit-flash copies. Ground is procedural.
-const MATRIX_SPRITES: [(SpriteId, &[Frame], bool); 8] = [
+const MATRIX_SPRITES: [(SpriteId, &[Frame], bool); 9] = [
     (SpriteId::VeyraBody, &[VEYRA_REST, VEYRA_IMPULSE], false),
     (SpriteId::VeyraWings, &[WINGS_UP, WINGS_DOWN], false),
     (SpriteId::VeyraTail, &[TAIL], false),
@@ -291,6 +298,7 @@ const MATRIX_SPRITES: [(SpriteId, &[Frame], bool); 8] = [
     (SpriteId::Knight, &[KNIGHT_0, KNIGHT_1], true),
     (SpriteId::Fireball, &[FIREBALL], false),
     (SpriteId::Smoke, &[SMOKE], false),
+    (SpriteId::Soul, &[SOUL], false),
 ];
 
 struct Atlas {

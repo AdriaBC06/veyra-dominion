@@ -259,7 +259,7 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T7 Hellflare weapon
 - [x] T8 Damage, death, title, game over
 - [x] **CP2 Combat**
-- [ ] T9 Souls + XP
+- [x] T9 Souls + XP
 - [ ] T10 Upgrades
 - [ ] T11 Wave director
 - [ ] T12 HUD, pause, debug

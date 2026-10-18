@@ -42,6 +42,12 @@ pub struct Projectile {
     pub life: f32,
 }
 
+/// A dropped soul worth `xp`; drifts to Veyra once she is within `PICKUP_RADIUS`.
+pub struct Soul {
+    pub pos: Vec2,
+    pub xp: u32,
+}
+
 /// A short-lived visual left by the simulation (enemy vanish, smoke puff).
 pub struct Fade {
     pub pos: Vec2,
@@ -57,8 +63,14 @@ pub struct Game {
     pub player: Player,
     pub enemies: Enemies,
     pub projectiles: Vec<Projectile>,
+    pub souls: Vec<Soul>,
     pub fades: Vec<Fade>,
     pub kills: u32,
+    pub level: u32,
+    /// XP gathered toward the next level.
+    pub xp: u32,
+    /// Level-ups earned but not yet spent on an upgrade.
+    pub pending_levels: u32,
     /// Seconds since the killing blow, while the death animation plays.
     pub dying: Option<f32>,
     hash: SpatialHash,
@@ -82,8 +94,12 @@ impl Game {
             },
             enemies: Enemies::with_capacity(MAX_ENEMIES),
             projectiles: Vec::with_capacity(MAX_PROJECTILES),
+            souls: Vec::with_capacity(MAX_SOULS),
             fades: Vec::with_capacity(MAX_FADES),
             kills: 0,
+            level: 1,
+            xp: 0,
+            pending_levels: 0,
             dying: None,
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
             spawn_acc: 0.0,
@@ -110,6 +126,9 @@ impl Game {
             self.contact_damage();
         }
         self.remove_dead_enemies();
+        if alive {
+            self.update_souls();
+        }
         self.update_fades();
 
         if let Some(t) = &mut self.dying {
@@ -233,7 +252,56 @@ impl Game {
                 });
             }
             self.kills += 1;
+            let xp = ENEMY_DEFS[self.enemies.kind[i] as usize].soul_xp;
+            self.drop_soul(self.enemies.pos(i), xp);
             self.enemies.swap_remove(i);
+        }
+    }
+
+    fn drop_soul(&mut self, pos: Vec2, xp: u32) {
+        if self.souls.len() < MAX_SOULS {
+            self.souls.push(Soul { pos, xp });
+            return;
+        }
+        let nearest = self.souls.iter_mut().min_by(|a, b| {
+            let (da, db) = (a.pos.distance_squared(pos), b.pos.distance_squared(pos));
+            da.total_cmp(&db)
+        });
+        if let Some(s) = nearest {
+            s.xp += xp;
+        }
+    }
+
+    /// Pulls nearby souls toward Veyra and absorbs the ones that reach her.
+    fn update_souls(&mut self) {
+        let target = self.player.pos;
+        let mut gained = 0;
+        self.souls.retain_mut(|s| {
+            let off = target - s.pos;
+            let d2 = off.length_squared();
+            if d2 <= SOUL_COLLECT_RADIUS * SOUL_COLLECT_RADIUS {
+                gained += s.xp;
+                return false;
+            }
+            if d2 <= PICKUP_RADIUS * PICKUP_RADIUS {
+                let step = SOUL_MAGNET_SPEED * TICK_DT;
+                s.pos = if d2 <= step * step {
+                    target
+                } else {
+                    s.pos + off.normalize() * step
+                };
+            }
+            true
+        });
+        self.gain_xp(gained);
+    }
+
+    pub fn gain_xp(&mut self, amount: u32) {
+        self.xp += amount;
+        while self.xp >= xp_to_next(self.level) {
+            self.xp -= xp_to_next(self.level);
+            self.level += 1;
+            self.pending_levels += 1;
         }
     }
 
@@ -346,6 +414,7 @@ mod tests {
         assert_eq!(g.kills, 1);
         assert_eq!(g.enemies.len(), 0);
         assert_eq!(g.fades.len(), 1);
+        assert_eq!(g.souls.len(), 1);
         for _ in 0..60 {
             g.tick(&InputState::default());
         }
@@ -377,6 +446,51 @@ mod tests {
         }
         assert!(died && g.player.hp == 0.0);
         assert!(g.fades.iter().any(|f| f.sprite == SpriteId::Smoke));
+    }
+
+    #[test]
+    fn xp_curve() {
+        assert_eq!(xp_to_next(1), 14);
+        for n in 1..50 {
+            assert_eq!(xp_to_next(n), 8 + 6 * n);
+        }
+    }
+
+    #[test]
+    fn big_xp_gain_yields_several_pending_levels() {
+        let mut g = Game::new();
+        g.gain_xp(xp_to_next(1) + xp_to_next(2) + xp_to_next(3) + 1);
+        assert_eq!((g.level, g.pending_levels, g.xp), (4, 3, 1));
+    }
+
+    #[test]
+    fn souls_are_pulled_in_and_absorbed() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.souls.push(Soul {
+            pos: vec2(PICKUP_RADIUS - 1.0, 0.0),
+            xp: 5,
+        });
+        g.souls.push(Soul {
+            pos: vec2(PICKUP_RADIUS * 3.0, 0.0),
+            xp: 5,
+        });
+        for _ in 0..30 {
+            g.tick(&InputState::default());
+        }
+        assert_eq!(g.xp, 5);
+        assert_eq!(g.souls.len(), 1);
+    }
+
+    #[test]
+    fn souls_merge_when_full() {
+        let mut g = Game::new();
+        for i in 0..MAX_SOULS {
+            g.drop_soul(vec2(i as f32 * 10.0, 0.0), 1);
+        }
+        g.drop_soul(vec2(21.0, 0.0), 4);
+        assert_eq!(g.souls.len(), MAX_SOULS);
+        assert_eq!(g.souls[2].xp, 5);
     }
 
     #[test]
