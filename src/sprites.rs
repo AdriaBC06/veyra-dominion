@@ -34,37 +34,37 @@ fn palette(ch: char) -> Option<Color> {
     let rgb = |r, g, b| Some(Color::from_rgba(r, g, b, 255));
     match ch {
         '.' => None,
-        'R' => rgb(200, 50, 60),  // skin
-        'r' => rgb(142, 31, 44),  // skin shadow
-        'H' => rgb(158, 27, 42),  // horn / tail tip
-        'h' => rgb(214, 70, 80),  // horn highlight
-        'P' => rgb(59, 31, 94),   // hair
-        'p' => rgb(90, 50, 144),  // hair highlight
-        'Y' => rgb(242, 165, 42), // eyes
-        'D' => rgb(36, 20, 46),   // corset
-        'd' => rgb(58, 32, 72),   // corset highlight
-        'G' => rgb(217, 166, 64), // gold trim
-        'J' => rgb(224, 48, 74),  // gem
-        'S' => rgb(90, 36, 117),  // skirt
-        's' => rgb(61, 24, 80),   // skirt shadow
-        'L' => rgb(42, 26, 53),   // sleeves / stockings
-        'W' => rgb(107, 42, 110), // wing membrane
-        'w' => rgb(46, 22, 56),   // wing bone
-        'g' => rgb(112, 98, 92),  // rat fur
-        'k' => rgb(66, 56, 56),   // fur shadow / boots
+        'R' => rgb(200, 50, 60),   // skin
+        'r' => rgb(142, 31, 44),   // skin shadow
+        'H' => rgb(158, 27, 42),   // horn / tail tip
+        'h' => rgb(214, 70, 80),   // horn highlight
+        'P' => rgb(59, 31, 94),    // hair
+        'p' => rgb(90, 50, 144),   // hair highlight
+        'Y' => rgb(242, 165, 42),  // eyes
+        'D' => rgb(36, 20, 46),    // corset
+        'd' => rgb(58, 32, 72),    // corset highlight
+        'G' => rgb(217, 166, 64),  // gold trim
+        'J' => rgb(224, 48, 74),   // gem
+        'S' => rgb(90, 36, 117),   // skirt
+        's' => rgb(61, 24, 80),    // skirt shadow
+        'L' => rgb(42, 26, 53),    // sleeves / stockings
+        'W' => rgb(107, 42, 110),  // wing membrane
+        'w' => rgb(46, 22, 56),    // wing bone
+        'g' => rgb(112, 98, 92),   // rat fur
+        'k' => rgb(66, 56, 56),    // fur shadow / boots
         'n' => rgb(196, 136, 138), // rat nose / tail
-        'e' => rgb(18, 14, 20),   // eyes / visor slit
+        'e' => rgb(18, 14, 20),    // eyes / visor slit
         'f' => rgb(220, 178, 138), // human skin
-        'o' => rgb(94, 62, 34),   // villager hair
-        'b' => rgb(124, 86, 52),  // tunic
-        'u' => rgb(72, 72, 92),   // trousers
-        't' => rgb(122, 92, 56),  // wooden shaft
+        'o' => rgb(94, 62, 34),    // villager hair
+        'b' => rgb(124, 86, 52),   // tunic
+        'u' => rgb(72, 72, 92),    // trousers
+        't' => rgb(122, 92, 56),   // wooden shaft
         'i' => rgb(168, 168, 176), // iron
         'a' => rgb(172, 178, 190), // armour
         'A' => rgb(102, 108, 124), // armour shadow
-        'B' => rgb(58, 88, 168),  // plume
+        'B' => rgb(58, 88, 168),   // plume
         'M' => rgb(132, 122, 138), // smoke
-        'm' => rgb(88, 80, 96),   // smoke shadow
+        'm' => rgb(88, 80, 96),    // smoke shadow
         _ => panic!("unknown palette char {ch:?}"),
     }
 }
@@ -392,7 +392,11 @@ pub fn init() {
                 let (w, h) = (frame[0].len() as u16, frame.len() as u16);
                 rects.push(packer.add(w, h, |x, y| {
                     let c = palette(frame[y as usize].as_bytes()[x as usize] as char);
-                    if white { c.map(|_| WHITE) } else { c }
+                    if white {
+                        c.map(|_| WHITE)
+                    } else {
+                        c
+                    }
                 }));
             }
         }

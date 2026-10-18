@@ -49,7 +49,6 @@ impl Enemies {
         self.phase.push(macroquad::rand::gen_range(0.0, 2.0));
     }
 
-    #[allow(dead_code)] // used once enemies can die (T7)
     pub fn swap_remove(&mut self, i: usize) {
         self.x.swap_remove(i);
         self.y.swap_remove(i);

@@ -53,12 +53,16 @@ fn present(target: &RenderTarget) {
 
 /// Draws a sprite frame with its top-left corner at `pos`.
 fn draw_sprite(id: SpriteId, frame: usize, pos: Vec2, flip_x: bool) {
+    draw_sprite_tinted(id, frame, pos, flip_x, WHITE);
+}
+
+fn draw_sprite_tinted(id: SpriteId, frame: usize, pos: Vec2, flip_x: bool, color: Color) {
     let (tex, src) = sprite(id, frame);
     draw_texture_ex(
         &tex,
         pos.x.round(),
         pos.y.round(),
-        WHITE,
+        color,
         DrawTextureParams {
             source: Some(src),
             flip_x,
@@ -99,7 +103,14 @@ fn draw_ground(origin: Vec2) {
 }
 
 fn draw_shadow(pos: Vec2, half_w: f32, half_h: f32) {
-    draw_ellipse(pos.x, pos.y, half_w, half_h, 0.0, Color::new(0.0, 0.0, 0.0, 0.35));
+    draw_ellipse(
+        pos.x,
+        pos.y,
+        half_w,
+        half_h,
+        0.0,
+        Color::new(0.0, 0.0, 0.0, 0.35),
+    );
 }
 
 /// Enemies are drawn with their feet at their position, facing Veyra.
@@ -115,6 +126,28 @@ fn draw_enemies(game: &Game) {
         }
         draw_shadow(pos, 5.0, 1.5);
         draw_sprite(def.sprite, frame, pos - vec2(8.0, 15.0), px > pos.x);
+    }
+}
+
+fn draw_projectiles(game: &Game) {
+    for p in &game.projectiles {
+        draw_sprite(
+            SpriteId::Fireball,
+            0,
+            p.pos - vec2(4.0, 4.0 + PROJ_DRAW_HEIGHT),
+            false,
+        );
+    }
+}
+
+/// Fades are centred horizontally on their position and stand on it.
+fn draw_fades(game: &Game) {
+    for f in &game.fades {
+        let k = 1.0 - f.t / f.duration;
+        let (_, src) = sprite(f.sprite, f.frame);
+        let pos = f.pos - vec2(src.w * 0.5, src.h - 1.0);
+        let flip = game.player.pos.x > f.pos.x;
+        draw_sprite_tinted(f.sprite, f.frame, pos, flip, Color::new(1.0, 1.0, 1.0, k));
     }
 }
 
@@ -174,7 +207,17 @@ async fn main() {
         clear_background(BLACK);
         draw_ground(origin);
         draw_enemies(&game);
+        draw_fades(&game);
         draw_veyra(&game, player_pos.round(), game.time + alpha * TICK_DT);
+        draw_projectiles(&game);
+        // Placeholder until the HUD lands (T12).
+        draw_text(
+            format!("KILLS {}", game.kills),
+            origin.x + 6.0,
+            origin.y + 14.0,
+            16.0,
+            WHITE,
+        );
 
         present(&target);
         next_frame().await;

@@ -35,6 +35,22 @@ pub const WING_FPS: f32 = 3.0;
 pub const TAIL_LAG_SCALE: f32 = 0.012;
 pub const TAIL_SMOOTHING: f32 = 6.0;
 
+// --- Weapon: Hellflare ---------------------------------------------------
+pub const FIRE_DAMAGE: f32 = 10.0;
+pub const FIRE_INTERVAL: f32 = 0.6;
+/// Only enemies within this distance are targeted.
+pub const FIRE_RANGE: f32 = 340.0;
+pub const PROJ_SPEED: f32 = 320.0;
+pub const PROJ_LIFETIME: f32 = 1.4;
+pub const PROJ_RADIUS: f32 = 4.0;
+/// Fireballs are launched from Veyra's hands, this high above her ground point.
+pub const PROJ_DRAW_HEIGHT: f32 = 18.0;
+pub const MAX_PROJECTILES: usize = 256;
+pub const HIT_FLASH_TIME: f32 = 0.1;
+/// Dead enemies fade out as a white silhouette over this time.
+pub const DEATH_FADE_TIME: f32 = 0.35;
+pub const MAX_FADES: usize = 512;
+
 // --- Enemies & spawning ---------------------------------------------------
 pub const MAX_ENEMIES: usize = 2500;
 /// Enemies spawn on this ring around the player, just outside the visible frame.
@@ -43,6 +59,8 @@ pub const SPAWN_RING_RADIUS: f32 = 400.0;
 pub const RELOCATE_RADIUS: f32 = 600.0;
 pub const SPAWN_RATE_START: f32 = 1.0;
 /// Soft separation: neighbours closer than this push each other apart.
+/// Largest `EnemyDef::radius`, used to size collision queries.
+pub const MAX_ENEMY_RADIUS: f32 = 7.0;
 pub const SEPARATION_RADIUS: f32 = 12.0;
 pub const SEPARATION_PUSH: f32 = 60.0;
 /// Only this many neighbours contribute to separation (bounds the cost in dense hordes).
@@ -63,6 +81,7 @@ pub struct EnemyDef {
     pub sprite: SpriteId,
     pub hp: f32,
     pub speed: f32,
+    pub radius: f32,
     pub behavior: Behavior,
 }
 
@@ -74,18 +93,21 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         sprite: SpriteId::Rat,
         hp: 6.0,
         speed: 75.0,
+        radius: 5.0,
         behavior: Behavior::Chase,
     },
     EnemyDef {
         sprite: SpriteId::Villager,
         hp: 14.0,
         speed: 55.0,
+        radius: 6.0,
         behavior: Behavior::Chase,
     },
     EnemyDef {
         sprite: SpriteId::Knight,
         hp: 45.0,
         speed: 42.0,
+        radius: 7.0,
         behavior: Behavior::Chase,
     },
 ];

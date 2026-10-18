@@ -107,7 +107,6 @@ impl SpatialHash {
         }
     }
 
-    #[allow(dead_code)] // used by the weapon (T7)
     /// Closest point within `max_r`, searching cell rings outward from `p`.
     pub fn nearest(&self, p: Vec2, max_r: f32) -> Option<usize> {
         let (cx, cy) = self.cell_coords(p);
