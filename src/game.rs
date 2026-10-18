@@ -1,9 +1,9 @@
 //! Simulation state. Pure logic: no drawing, input or window calls.
 
+use crate::assets::{SpriteId, FLASH_FRAME_OFFSET};
 use crate::config::*;
 use crate::enemies::Enemies;
 use crate::spatial::SpatialHash;
-use crate::sprites::{SpriteId, FLASH_FRAME_OFFSET};
 use crate::upgrades::{PlayerStats, Upgrades};
 use macroquad::math::Vec2;
 use macroquad::rand::gen_range;

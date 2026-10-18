@@ -1,15 +1,15 @@
+mod assets;
 mod config;
 mod enemies;
 mod game;
 mod hud;
 mod spatial;
-mod sprites;
 mod upgrades;
 
+use assets::{sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
 use config::*;
 use game::{Game, InputState, SimEvent};
 use macroquad::prelude::*;
-use sprites::{sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
 use std::f32::consts::TAU;
 
 fn window_conf() -> Conf {
@@ -93,7 +93,7 @@ fn draw_ground(origin: Vec2) {
     let (cols, rows) = ((LOGICAL_W / tile) as i32 + 2, (LOGICAL_H / tile) as i32 + 2);
     for iy in y0..y0 + rows {
         for ix in x0..x0 + cols {
-            let v = sprites::ground_variant(ix, iy);
+            let v = assets::ground_variant(ix, iy);
             draw_sprite(
                 SpriteId::Ground,
                 v,
@@ -209,7 +209,7 @@ fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    sprites::init();
+    assets::init();
     let target = render_target(LOGICAL_W as u32, LOGICAL_H as u32);
     target.texture.set_filter(FilterMode::Nearest);
 

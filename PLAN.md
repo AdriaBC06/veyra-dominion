@@ -166,7 +166,7 @@ impl Game {
 ```
 Tick order: events → player move → rebuild hash → spawn/relocate → steer enemies → fire → projectiles vs enemies → contact damage → souls magnet/pickup → fades → victory/death.
 
-**sprites.rs** — pixel art as char matrices + palette, packed at startup into one atlas `Image` → one `Texture2D` (`FilterMode::Nearest`, good batching). A white silhouette copy of every enemy frame is generated for hit flash.
+**assets.rs** (was `sprites.rs` until V1) — pixel art as embedded PNG strips in `assets/sprites/` (one file per sprite, equal-width frames side by side, frame count in the `SHEETS` table), packed at startup into one atlas `Image` → one `Texture2D` (`FilterMode::Nearest`, good batching). A white silhouette copy of every enemy frame is generated for hit flash. Ground variants are a strip too (`ground.png`).
 ```rust
 pub enum SpriteId { VeyraBody, VeyraWings, VeyraTail, Rat, Villager, Knight, Fireball, Soul, Smoke, Ground }
 pub struct Atlas { tex: Texture2D, rects: Vec<Rect>, index: [(u16, u8); N] }
@@ -222,7 +222,7 @@ Each task = one commit (+ `git push`), `cargo check` before commit, Progress che
 - **xp**: `xp_to_next(1)=14`, `xp_to_next(n)=8+6n`; a big XP gain yields multiple `pending_levels`.
 - **upgrades**: each effect matches table; caps stop offering; `roll_choices` distinct; returns <3 when fewer remain; EmberLegion stops at 5 projectiles; BloodPact heals clamped to max.
 - **stress**: `Game::new`, force `time = 300`, player HP huge, 20,000 ticks with random input; assert no panic, `enemies.len() <= MAX_ENEMIES`, projectiles/souls ≤ caps, mean tick < 16 ms (`std::time::Instant`, test-only).
-- Sprites: matrix dimensions and palette chars are valid (pure data test, no texture creation).
+- Sprites: every embedded PNG decodes, every sprite rect exists inside the atlas, flash frames are white silhouettes (CPU-only decode, no texture creation).
 - `cargo build --release` only at CP3 (and CP1/CP2 if cheap).
 
 ## 6. Risks & mitigations
@@ -248,7 +248,7 @@ The MVP (sections 1–6) is done. V2 turns it into a sellable game. Same workflo
 | Topic | Decision |
 |---|---|
 | Audio | Own chip synthesizer + own compositions as tracker data. No third-party audio, 100% owned, commercial-safe. |
-| Art | Sprite sheets move to PNG files in `assets/`, embedded with `include_bytes!` (still a single executable). Editable in Aseprite/LibreSprite. A one-off `tools/` script exports the current matrices to PNG as a starting point. |
+| Art | Sprite sheets move to PNG files in `assets/`, embedded with `include_bytes!` (still a single executable). Editable in Aseprite/LibreSprite. The matrices were exported once to PNG (V1, via a throwaway test, so no `tools/` script remains); new art is drawn directly in the PNGs. Format: one horizontal strip per sprite, frames of equal width; a new sprite needs a `SpriteId` and a `SHEETS` row in `assets.rs`. |
 | Veyra redesign | **Blocked until the user sends reference images.** Larger, reclining while levitating, suggestive but clothed (no nudity; Steam "suggestive" tier at most). |
 | Language | English + Spanish from the start; every string goes through `i18n`. |
 | Monetisation | Chests ("Summoning Circles") are bought **only with in-game currency earned by playing**. Never sell them or the currency for real money (loot box laws in BE/NL and others, Steam disclosure). Drop rates are shown in-game. |
@@ -511,7 +511,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 ### V2 sessions
 
 - **S1 — Assets & fonts**
-  - [ ] V1 Asset pipeline
+  - [x] V1 Asset pipeline
   - [ ] V3 Fonts
 - **S2 — Screen & input**
   - [ ] V2 Adaptive resolution

@@ -1,6 +1,6 @@
 //! All tunable numbers and data tables live here.
 
-use crate::sprites::SpriteId;
+use crate::assets::SpriteId;
 
 pub const GAME_TITLE: &str = "Veyra: Dominion";
 
