@@ -8,7 +8,7 @@ mod run;
 mod settings;
 mod title;
 
-use crate::audio::Audio;
+use crate::audio::{Audio, Track};
 use crate::hud;
 use crate::i18n;
 use crate::save::{SaveData, Settings};
@@ -138,6 +138,8 @@ impl App {
             }
             Nav::NewRun => {
                 self.end_run();
+                // A new run starts its theme from the top.
+                self.audio.stop_music();
                 Scene::Run
             }
             Nav::ResumeRun => Scene::Run,
@@ -176,7 +178,13 @@ impl App {
         }
 
         let s = &self.settings;
-        self.audio.set_volumes(s.master, s.sfx);
+        self.audio.set_volumes(s.master, s.music, s.sfx);
+        // Settings keeps whatever was playing (title, or the paused run's theme).
+        match self.scene {
+            Scene::Title(_) | Scene::Credits(_) => self.audio.play_music(Track::Title),
+            Scene::Run => self.audio.play_music(Track::Ashford),
+            Scene::Settings(_) => {}
+        }
         self.audio.play_queued(get_time());
 
         self.fade = (self.fade - get_frame_time()).max(0.0);

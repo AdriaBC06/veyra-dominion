@@ -24,7 +24,7 @@ pub struct Settings {
     pub fullscreen: bool,
     /// Windowed size, restored at start and when leaving fullscreen.
     pub window: (u32, u32),
-    /// Volumes in 0..1; music is inert until the soundtrack lands (V10).
+    /// Volumes in 0..1.
     pub master: f32,
     pub music: f32,
     pub sfx: f32,

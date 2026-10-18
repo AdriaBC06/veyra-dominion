@@ -298,7 +298,7 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 - **Built in V7:** `scenes/` holds `App` (owns settings, screen, save, the current `Run` and the `Scene` enum: Title / Run / Settings / Credits). Scenes return a `Nav` (Title, NewRun, ResumeRun, Settings, Credits, Quit) and `App::navigate` applies it; the run is ended (stats recorded) when it is replaced. Outside a run a fresh idle `Run` is the backdrop. Transition = 0.25 s fade from black (the ember wipe can come with V14).
   - Title menu is Play / Settings / Credits / Quit for now; Altar, Circles, Familiars and map/mode select join with their tasks (V20+, V23).
   - Pause, game over and victory are button menus (`ui::button_column`); the old R / E / T keys are gone. Esc in the pause menu resumes; Settings opened from pause returns to it.
-  - Settings tabs: Audio (master and SFX live since V9, music inert until V10), Video (fullscreen, scaling), Game (language, hold-click-to-move), Keys (controls sheet), Data (lifetime stats + reset with a second press to confirm; Esc or moving away disarms). Screen shake, damage numbers and flash intensity join the Video tab in V29 with the features themselves. Settings are written when the screen is left. F9/F10/F11 still work everywhere.
+  - Settings tabs: Audio (master and SFX live since V9, music since V10), Video (fullscreen, scaling), Game (language, hold-click-to-move), Keys (controls sheet), Data (lifetime stats + reset with a second press to confirm; Esc or moving away disarms). Screen shake, damage numbers and flash intensity join the Video tab in V29 with the features themselves. Settings are written when the screen is left. F9/F10/F11 still work everywhere.
   - Credits scroll on their own after 2 s (wheel/arrows take over); they list the author (**Adrià Bonnin Catalán**, `AUTHOR` in `credits.rs`), the fonts, macroquad and a line pointing to the licence folder. The full OFL and MIT texts are **not** shown on screen (the user found them made the credits far too long): V30 must ship `assets/fonts/OFL-*.txt` and `assets/licenses/` in a `licences/` folder next to the executable.
 
 ### 7.6 Art restyle
@@ -438,6 +438,15 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - Flow: `Game.cues` (`Cue` enum, deduped, ≤ 8, no per-tick allocation) → `Run` drains them after the fixed steps into `audio::cue(Sfx)` (a deduped thread-local queue that UI code also uses; `Focus::update` cues move/confirm/back) → `App::frame` calls `Audio::play_queued` once per frame with volume `master × sfx × gain`. Volume applies to sounds started afterwards (fine for short SFX; music will need `set_sound_volume`). Ducking waits for the jingles (V11).
 - `cargo run --release --example render_audio` also writes `target/audio/sfx/<name>.wav` (all variants in a row, at mix gain).
 
+**Implemented (V10):**
+- `audio/tracker.rs` (std only) parses `.vtrk` and renders it; the full syntax is in its module doc. Instruments are FamiTracker-style macros (`|` loop, `/` release). Patterns are horizontal: one line per channel (`p1 p2 tri noi wav`), `.` empty, `=` release, `^` cut, notes `C4`=60, `:v` hex velocity, `drum` tokens for the noise. Each `order` line is one frame that layers patterns, with `Nx` repeat and per-item modifiers `+n`/`-n` (transpose, never the noise), `@ch` (move a one-line pattern) and `%inst` (swap its instrument). `#` starts a comment only at the start of a word (`F#4` is a note). A pattern line with the wrong step count is an error with its line number.
+- The whole order loops (no intro section). `Song::render_loop` renders the song twice and keeps the second pass, so the loop's start already holds the echo and ringing notes of its end: seamless with macroquad's `looped`.
+- `audio/music.rs`: `Track` (Title, Ashford) embeds `assets/music/*.vtrk`; `render` levels every track to a long-term RMS of -26 dBFS (peak ≤ 0.95), a bed under the combat effects. Both tracks render in well under a second at load.
+- Playback: title, credits → Title; run → Ashford; Settings keeps what was playing. A new run restarts its theme. Music volume = master × music, applied live with `set_sound_volume`.
+- Title "Dominion": 84 is the dotted-quarter (6/8, 12 rows a bar). Leitmotif = D–Eb–D then the tritone fall to G# leaning into A. Form A (pulse lead over a D drone) | A' (her "voice" on the wave, the pulse whispering answers) | B (Gm Eb Cm D, swaying bass, wave pad) | A; 32 bars, 45.7 s.
+- Ashford: gallop bass, off-beat chord stabs (arp macro), the leitmotif as B–C–B–F–F# over B major; the breakdown passes it between the pulses and quotes the title's own pitches. Form A | A' (octave double) | B (long notes over 16th arps) | breakdown + build ending on D#; 32 bars, 51.2 s.
+- `render_audio` writes `target/audio/music/<name>.wav`, two loops in a row so the seam can be checked. To check a mix, render each channel alone (filter `Song.events` by channel): in both tracks the lead sits about 3 dB under the full mix and the accompaniment 7–12 dB under.
+
 ### 7.11 Architecture changes
 
 - **Modules:**
@@ -547,7 +556,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S6 — SFX**
   - [x] V9 Sound effects and mixer
 - **S7 — First music** *(user approval)*
-  - [ ] V10 Tracker format + first themes
+  - [x] V10 Tracker format + first themes
 - **S8 — Soundtrack** *(user approval)*
   - [ ] V11 Remaining music + jingles
   - [ ] **CP5 Audio**
@@ -622,3 +631,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Not ear-checked by the user yet; the effects are in `target/audio/sfx/` if any need retuning (patches live in `sfx::patch`). Next: S7 (V10 tracker + first themes, user approval).
 - **S6 follow-up (2026-10-19)** — User feedback: UI and Hellflare too loud and the fire sound odd; level-up loved; asked for a stronger hurt and more sounds, all clearly crafted. Re-voiced UI (sine/triangle, D–A intervals) and Hellflare (soft hiss + ember thump), set the mix tiers in 7.10 by measurement, redesigned hurt (crack + body blow + a shuddering cry doubled a minor 2nd up), added armour hit, heartbeat, upgrade pick, war horn and pause. Render now sorts notes by time; level-up's bass always entered on its last note, now written so explicitly (sound unchanged).
   - User approved the result ("está bien"). `pipewire-alsa` is now installed, so the game plays sound directly (launch it with the sandbox off). The user wants the audio to feel curated and made with care: give every new sound/track a clear musical idea, keep UI subtle, and measure levels against the tiers in 7.10. Next: S7 (V10 tracker + first themes, user approval).
+- **S7 (2026-10-19)** — V10 done: `.vtrk` tracker (`audio/tracker.rs`, syntax in its module doc), `audio/music.rs`, title theme "Dominion" and "Ashford" (see 7.10 "Implemented (V10)"); music plays per scene and the music volume is live. 87 tests.
+  - User approved both tracks first listen ("están excelentes las dos"). Keep this approach for V11: a written musical idea per track, the leitmotif varied per map, per-channel solo renders to check the mix, levelled to -26 dBFS RMS.
+  - Gotcha: `#` only starts a comment at the start of a word, since `F#4` is a note. Tracks are `include_str!`'d, so a temporary binary measuring them must be rebuilt after editing a `.vtrk`.
+  - No intro sections: the whole order loops. Game over / victory keep the map theme until V11's jingles (ducking also lands there). Next: S8 (V11 remaining music + jingles, user approval).

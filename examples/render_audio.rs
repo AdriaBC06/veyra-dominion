@@ -1,13 +1,20 @@
-//! Renders synth test tones and every sound effect to WAV so they can be
-//! listened to: `cargo run --example render_audio [out_dir]` (default
-//! `target/audio`). Effects go to `sfx/`, all their pitch variants in a row.
+//! Renders synth test tones, every sound effect and the music to WAV so they
+//! can be listened to: `cargo run --example render_audio [out_dir]` (default
+//! `target/audio`). Effects go to `sfx/`, all their pitch variants in a row;
+//! tracks go to `music/`, looped twice so the seam can be heard.
 
+#[allow(dead_code)]
+#[path = "../src/audio/music.rs"]
+mod music;
 #[allow(dead_code)]
 #[path = "../src/audio/sfx.rs"]
 mod sfx;
 #[allow(dead_code)]
 #[path = "../src/audio/synth.rs"]
 mod synth;
+#[allow(dead_code)]
+#[path = "../src/audio/tracker.rs"]
+mod tracker;
 #[allow(dead_code)]
 #[path = "../src/audio/wav.rs"]
 mod wav;
@@ -241,8 +248,14 @@ fn main() {
         (format!("sfx/{}", e.name()), out)
     });
 
+    std::fs::create_dir_all(dir.join("music")).expect("create music dir");
+    let tracks = music::Track::ALL.map(|t| {
+        let one = music::render(t).unwrap_or_else(|e| panic!("{e}"));
+        (format!("music/{}", t.name()), [one.as_slice(), &one].concat())
+    });
+
     let files = files.into_iter().map(|(n, s)| (n.to_owned(), s));
-    for (name, samples) in files.chain(effects) {
+    for (name, samples) in files.chain(effects).chain(tracks) {
         let path = dir.join(format!("{name}.wav"));
         std::fs::write(&path, wav::encode(&samples, SAMPLE_RATE)).expect("write wav");
         println!(

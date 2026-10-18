@@ -1,0 +1,169 @@
+# Dominion — title theme.
+# D Phrygian dominant (D Eb F# G A Bb C), 6/8 at 84 dotted-quarter BPM: one
+# bar = 12 rows. Veyra's leitmotif opens it: D-Eb-D, a minor 2nd sigh, then a
+# tritone fall to G# that leans up into A.
+# Form (32 bars, loops): A sung by the pulse lead over a D drone | A' on her
+# "voice" (wave) with the pulse whispering answers | B climbs over a swaying
+# bass | A again. The echo is a dotted eighth (3 rows).
+
+song Dominion
+tempo 84 6
+echo 0.357 0.3 0.25
+
+# Pulse lead: opens from a thin to a hollow duty while it swells, scoops up into
+# the note, and sighs down a semitone when released.
+inst lead
+  vol 7 10 12 13 | 12 / 10 8 6 5 4 3 2 1 0
+  duty 0 1 1 2
+  pitch -10 -6 -3 -1 | 0 / -1 -3 -6 -10 -16
+  vib 0.18 5 0.35
+
+# Her voice: a soft sine-like wave with a little body, a slow swell, a wider
+# scoop and the same sigh.
+inst voice
+  vol 4 7 10 12 13 14 | 14 / 12 9 7 5 4 3 2 1 0
+  pitch -16 -8 -4 -2 | 0 / -2 -6 -12 -20
+  vib 0.2 4.5 0.3
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+
+# The same wave as a quiet held pad under the B section.
+inst pad
+  vol 1 2 3 4 5 6 | 6 / 5 4 3 2 1 0
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+
+# Plucked 12.5% pulse for the 6/8 broken chords.
+inst harp
+  vol 9 8 7 6 6 5 5 4 4 3 3 2 2 1 1 0
+  duty 1 0
+# Softer, to leave room for her voice in A'.
+inst harp2
+  vol 6 5 5 4 4 3 3 3 2 2 2 1 1 1 0
+  duty 1 0
+
+inst drone
+  vol 13 12 11 10 | 9 / 7 4 2 0
+
+inst hiss
+  vol 13 8 4 2 1 0
+
+# A long breath of noise that marks the start of a section.
+inst breath
+  vol 1 1 2 2 3 3 4 4 5 5 5 5 5 4 4 4 4 3 3 3 3 3 2 2 2 2 2 2 1 1 1 1 1 1 1 1 0
+
+drum h hiss C8
+drum w breath G6
+
+# --- Melody A (one bar each) ---------------------------------------------------
+pattern t1 12
+  p1 lead | D5 . . . Eb5 . D5 . . . . . |
+pattern t2 12
+  p1 lead | G#4 . . . A4 . . . . . . = |
+pattern t3 12
+  p1 lead | Bb4 . C5 . Eb5 . D5 . . . . . |
+pattern t4 12
+  p1 lead | F#4 . . . G4 . A4 . . . . = |
+pattern t5 12
+  p1 lead | D5 . . . Eb5 . D5 . Bb4 . G4 . |
+pattern t6 12
+  p1 lead | Eb5 . . . D5 . C5 . . . . = |
+pattern t7 12
+  p1 lead | Bb4 . . . A4 . G4 . . . F#4 . |
+pattern t8 12
+  p1 lead | Eb4 . . . D4 . . . . . . = |
+
+# --- Whispered answers in A', while her voice holds a note ---------------------
+pattern a2 12
+  p1 lead | . . . . . . Eb5:9 . . D5:9 . = |
+pattern a4 12
+  p1 lead | . . . . . . D5:8 . . F#5:8 . = |
+pattern a6 12
+  p1 lead | . . . . . . G5:8 . . Eb5:8 . = |
+# Rises into B.
+pattern a8 12
+  p1 lead | . . . . . . F#4:9 . A4:a . C5:b . |
+
+# --- Melody B ------------------------------------------------------------------
+pattern b1 12
+  p1 lead | D5 . . . . . G5 . . . A5 . |
+pattern b2 12
+  p1 lead | Bb5 . . . . . A5 . G5 . . . |
+# C up to F#: the leitmotif's tritone, rising this time.
+pattern b3 12
+  p1 lead | C5 . . . Eb5 . F#5 . . . . . |
+pattern b4 12
+  p1 lead | G5 . . . F#5 . A5 . . . . = |
+pattern b5 12
+  p1 lead | D5 . . . Eb5 . D5 . . . G5 . |
+pattern b6 12
+  p1 lead | Bb5 . . . A5 . G5 . . . Eb5 . |
+pattern b7 12
+  p1 lead | Eb5 . . . D5 . C5 . Bb4 . A4 . |
+
+# --- Pad under B ---------------------------------------------------------------
+pattern pw 12
+  wav pad | Bb4 . . . . . . . . . . . |
+pattern pc 12
+  wav pad | Eb4 . . . . . G4 . . . . . |
+pattern pd 12
+  wav pad | F#4 . . . . . A4 . . . . . |
+pattern pe 12
+  wav pad | F#4 . . . . . . . . . . = |
+
+# --- Bass ----------------------------------------------------------------------
+# A drone re-struck on each dotted quarter, and the swaying root-fifth of B.
+pattern drone 12
+  tri drone | D2 . . . . . D2:b . . . . . |
+pattern sway 12
+  tri drone | D2 . . . . . A1:c . . . . . |
+
+# --- Broken chords -------------------------------------------------------------
+pattern arpD 12
+  p2 harp | D3 . A3 . D4 . F#4 . D4 . A3 . |
+pattern arpGm 12
+  p2 harp | G3 . D4 . G4 . Bb4 . G4 . D4 . |
+
+# --- Noise ---------------------------------------------------------------------
+pattern breath 12
+  noi | w . . . . . . . . . . . |
+pattern tick 12
+  noi | . . . . . . h:5 . . . . . |
+pattern shake 12
+  noi | h:9 . h:4 . h:5 . h:8 . h:4 . h:5 . |
+
+order
+  # A
+  t1 drone arpD
+  t2 drone arpD
+  t3 drone arpD+1
+  t4 drone arpD
+  t5 drone arpGm
+  t6 drone arpGm-7
+  t7 drone arpD+1
+  t8 drone arpD
+  # A': her voice
+  t1@wav%voice drone arpD%harp2 breath
+  t2@wav%voice a2 drone arpD%harp2 tick
+  t3@wav%voice drone arpD+1%harp2 tick
+  t4@wav%voice a4 drone arpD%harp2 tick
+  t5@wav%voice drone arpGm%harp2 tick
+  t6@wav%voice a6 drone arpGm%harp2-7 tick
+  t7@wav%voice drone arpD+1%harp2 tick
+  t8@wav%voice a8 drone arpD%harp2 tick
+  # B: Gm Eb Cm D, twice
+  b1 pw sway+5 arpGm shake
+  b2 pw-3 sway+1 arpD+1 shake
+  b3 pc sway-2 arpGm-7 shake
+  b4 pd sway arpD shake
+  b5 pw sway+5 arpGm shake
+  b6 pw-3 sway+1 arpD+1 shake
+  b7 pw-7 sway-2 arpGm-7 shake
+  t2 pe sway arpD shake
+  # A
+  t1 drone arpD breath
+  t2 drone arpD
+  t3 drone arpD+1
+  t4 drone arpD
+  t5 drone arpGm
+  t6 drone arpGm-7
+  t7 drone arpD+1
+  t8 drone arpD

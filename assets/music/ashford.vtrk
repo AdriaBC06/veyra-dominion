@@ -1,0 +1,172 @@
+# Ashford — the burning village, map 1.
+# E harmonic minor (E F# G A B C D#), driving 4/4 at 150 BPM: one bar = 16 rows.
+# The triangle gallops (eighth + two sixteenths) under the whole track, chords
+# stab on the off-beats, Castlevania style. Veyra's leitmotif comes back as a
+# variation over the B chord: B-C-B, then the tritone fall to F that leans up
+# into F#. In the breakdown it is passed between the pulses and once quotes the
+# title theme's own pitches (D-Eb-D-G#-A).
+# Form (32 bars, loops): A | A' (lead doubled an octave down, busier drums) |
+# B (long heroic notes over sixteenth arpeggios) | breakdown and build.
+
+song Ashford
+tempo 150 4
+echo 0.15 0.2 0.15
+
+inst lead
+  vol 15 14 13 12 | 11 / 8 5 3 1 0
+  duty 1
+  pitch -6 -2 0
+  vib 0.2 6 0.25
+
+# The octave double and the answers: a rounder 50% pulse, a step behind in level.
+inst lead2
+  vol 10 9 9 8 | 8 / 5 3 1 0
+  duty 2
+  vib 0.2 6 0.25
+
+# Off-beat chord stabs: a fast arpeggio macro plays the whole chord on one voice.
+inst stabm
+  vol 13 12 10 8 6 4 2 0
+  arp | 0 3 7
+  duty 1
+inst stabM
+  vol 13 12 10 8 6 4 2 0
+  arp | 0 4 7
+  duty 1
+
+inst pluck
+  vol 9 7 5 4 3 2 1 0
+  duty 0 1
+
+# Decays fast enough that every hoof beat of the gallop is heard.
+inst gallop
+  vol 15 13 11 9 8 7 6 5 | 5 / 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 15 14 12 10 8 6 5 4 3 2 1 0
+  pitch 24 0
+inst hat
+  vol 8 4 2 0
+inst crash
+  vol 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare A5
+drum h hat C8
+drum c crash F7
+
+# --- Melody A --------------------------------------------------------------------
+pattern la1 16
+  p1 lead | E5 . . B4 E5 . F#5 . G5 . . . F#5 . E5 . |
+pattern la2 16
+  p1 lead | G5 . . F#5 E5 . G5 . C6 . . . B5 . G5 . |
+pattern la3 16
+  p1 lead | A5 . . G5 F#5 . A5 . D6 . . . C6 . A5 . |
+pattern la4 16
+  p1 lead | B5 . . . . . A5 . G5 . F#5 . D#5 . . = |
+pattern la6 16
+  p1 lead | G5 . . F#5 E5 . G5 . C6 . B5 . C6 . D6 . |
+pattern la7 16
+  p1 lead | E6 . . . C6 . B5 . A5 . G5 . F#5 . E5 . |
+# The leitmotif over B major.
+pattern la8 16
+  p1 lead | B5 . . . C6 . B5 . . . F5 . F#5 . . = |
+
+# --- Melody B --------------------------------------------------------------------
+pattern lb1 16
+  p1 lead | C6 . . . . . . . B5 . . . A5 . . . |
+pattern lb2 16
+  p1 lead | B5 . . . . . . . G5 . . . E5 . . . |
+pattern lb3 16
+  p1 lead | A5 . . . C6 . . . B5 . . . A5 . . . |
+pattern lb4 16
+  p1 lead | D#5 . . . . . . . F#5 . . . B5 . . . |
+pattern lb5 16
+  p1 lead | C6 . . . . . B5 . G5 . . . E5 . . . |
+pattern lb6 16
+  p1 lead | D6 . . . . . C6 . A5 . . . F#5 . . . |
+pattern lb7 16
+  p1 lead | B5 . . . C6 . B5 . . . F5 . F#5 . A5 . |
+pattern lb8 16
+  p1 lead | B5 . A5 . G5 . F#5 . E5 . D#5 . C5 . B4 . |
+
+# --- Breakdown and build -----------------------------------------------------------
+pattern hold 16
+  p1 lead | E4 . . . . . . . . . . . . . . = |
+pattern lc5 16
+  p1 lead | E5 . F#5 . G5 . A5 . B5 . A5 . G5 . F#5 . |
+pattern lc6 16
+  p1 lead | G5 . A5 . B5 . C6 . E6 . C6 . B5 . A5 . |
+pattern lc7 16
+  p1 lead | A5 . B5 . C6 . D6 . E6 . D6 . C6 . B5 . |
+# Lands on the leading tone, which the loop resolves to E.
+pattern lc8 16
+  p1 lead | D#6 . . . . . . . B5 . . . F#5 . D#5 . |
+
+# --- Harmony -------------------------------------------------------------------------
+pattern stab 16
+  p2 stabm | . . E4 . . . E4 . . . E4 . . . E4 . |
+pattern arpm 16
+  p2 pluck | E4 G4 B4 E5 B4 G4 E4 G4 B4 E5 B4 G4 E4 G4 B4 G4 |
+pattern arpM 16
+  p2 pluck | E4 G#4 B4 E5 B4 G#4 E4 G#4 B4 E5 B4 G#4 E4 G#4 B4 G#4 |
+
+# --- Bass ------------------------------------------------------------------------------
+pattern gal 16
+  tri gallop | E2 . E2 E2 E2 . E2 E2 E2 . E2 E2 E3 . E3 E2 |
+
+# --- Drums -----------------------------------------------------------------------------
+pattern beat 16
+  noi | k . h . s . h . k . k . s . h h:8 |
+pattern beatc 16
+  noi | c . h . s . h . k . k . s . h h:8 |
+pattern beat2 16
+  noi | k h:5 h:9 h:5 s h:5 h:9 h:5 k h:5 k h:5 s h:5 h:9 s:8 |
+pattern half 16
+  noi | k . . . . . . . s . . . . . . . |
+pattern half2 16
+  noi | k . . . . . h:6 . s . . . k . h:6 . |
+pattern fill 16
+  noi | s:6 s:7 s:8 s:9 s:a s:b s:c s:d s s s s s s s s |
+
+order
+  # A: Em C D B | Em C Am B
+  la1 stab gal beatc
+  la2 stab%stabM-4 gal-4 beat
+  la3 stab%stabM-2 gal-2 beat
+  la4 stab%stabM-5 gal-5 beat
+  la1 stab gal beat
+  la6 stab%stabM-4 gal-4 beat
+  la7 stab+5 gal+5 beat
+  la8 stab%stabM-5 gal-5 beat
+  # A': doubled an octave down
+  la1 la1@p2-12%lead2 gal beatc
+  la2 la2@p2-12%lead2 gal-4 beat2
+  la3 la3@p2-12%lead2 gal-2 beat2
+  la4 la4@p2-12%lead2 gal-5 beat2
+  la1 la1@p2-12%lead2 gal beat2
+  la6 la6@p2-12%lead2 gal-4 beat2
+  la7 la7@p2-12%lead2 gal+5 beat2
+  la8 la8@p2-12%lead2 gal-5 beat2
+  # B: Am Em Am B | C D B B
+  lb1 arpm+5 gal+5 beatc
+  lb2 arpm gal beat
+  lb3 arpm+5 gal+5 beat
+  lb4 arpM-5 gal-5 beat
+  lb5 arpM-4 gal-4 beat
+  lb6 arpM-2 gal-2 beat
+  lb7 arpM-5 gal-5 beat
+  lb8 arpM-5 gal-5 beat2
+  # Breakdown: the leitmotif passed between the pulses over Em Em D B
+  la8-12 gal half
+  hold la8@p2-7%lead2 gal half
+  la8-9 gal-2 half
+  hold+7 la8@p2-5%lead2 gal-5 half2
+  # Build: Em C Am B
+  lc5 stab gal beat2
+  lc6 stab%stabM-4 gal-4 beat2
+  lc7 stab+5 gal+5 beat2
+  lc8 stab%stabM-5 gal-5 fill
