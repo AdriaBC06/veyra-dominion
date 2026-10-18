@@ -1,6 +1,10 @@
-//! Renders synth test tones to WAV so they can be listened to:
-//! `cargo run --example render_audio [out_dir]` (default `target/audio`).
+//! Renders synth test tones and every sound effect to WAV so they can be
+//! listened to: `cargo run --example render_audio [out_dir]` (default
+//! `target/audio`). Effects go to `sfx/`, all their pitch variants in a row.
 
+#[allow(dead_code)]
+#[path = "../src/audio/sfx.rs"]
+mod sfx;
 #[allow(dead_code)]
 #[path = "../src/audio/synth.rs"]
 mod synth;
@@ -11,6 +15,9 @@ mod wav;
 use std::path::PathBuf;
 use synth::{Channel, Echo, Instrument, Macro, Synth, Vibrato, SAMPLE_RATE};
 use Channel::*;
+
+/// Silence between the variants of an effect in its export.
+const SFX_GAP: f32 = 0.15;
 
 const PLAIN: usize = 0;
 const PLUCK: usize = 1;
@@ -222,7 +229,20 @@ fn main() {
         ),
         ("08_all_voices", sequence(echo, &demo, 3.4)),
     ];
-    for (name, samples) in files {
+    let sfx_dir = dir.join("sfx");
+    std::fs::create_dir_all(&sfx_dir).expect("create sfx dir");
+    let gap = vec![0.0; (SFX_GAP * SAMPLE_RATE as f32) as usize];
+    let effects = sfx::Sfx::ALL.map(|e| {
+        let mut out = Vec::new();
+        for &pitch in e.variants() {
+            out.extend(sfx::render(e, pitch).iter().map(|s| s * e.gain()));
+            out.extend(&gap);
+        }
+        (format!("sfx/{}", e.name()), out)
+    });
+
+    let files = files.into_iter().map(|(n, s)| (n.to_owned(), s));
+    for (name, samples) in files.chain(effects) {
         let path = dir.join(format!("{name}.wav"));
         std::fs::write(&path, wav::encode(&samples, SAMPLE_RATE)).expect("write wav");
         println!(

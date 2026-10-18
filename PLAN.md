@@ -298,7 +298,7 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 - **Built in V7:** `scenes/` holds `App` (owns settings, screen, save, the current `Run` and the `Scene` enum: Title / Run / Settings / Credits). Scenes return a `Nav` (Title, NewRun, ResumeRun, Settings, Credits, Quit) and `App::navigate` applies it; the run is ended (stats recorded) when it is replaced. Outside a run a fresh idle `Run` is the backdrop. Transition = 0.25 s fade from black (the ember wipe can come with V14).
   - Title menu is Play / Settings / Credits / Quit for now; Altar, Circles, Familiars and map/mode select join with their tasks (V20+, V23).
   - Pause, game over and victory are button menus (`ui::button_column`); the old R / E / T keys are gone. Esc in the pause menu resumes; Settings opened from pause returns to it.
-  - Settings tabs: Audio (3 sliders, inert until V9), Video (fullscreen, scaling), Game (language, hold-click-to-move), Keys (controls sheet), Data (lifetime stats + reset with a second press to confirm; Esc or moving away disarms). Screen shake, damage numbers and flash intensity join the Video tab in V29 with the features themselves. Settings are written when the screen is left. F9/F10/F11 still work everywhere.
+  - Settings tabs: Audio (master and SFX live since V9, music inert until V10), Video (fullscreen, scaling), Game (language, hold-click-to-move), Keys (controls sheet), Data (lifetime stats + reset with a second press to confirm; Esc or moving away disarms). Screen shake, damage numbers and flash intensity join the Video tab in V29 with the features themselves. Settings are written when the screen is left. F9/F10/F11 still work everywhere.
   - Credits scroll on their own after 2 s (wheel/arrows take over); they list the author (**Adrià Bonnin Catalán**, `AUTHOR` in `credits.rs`), the fonts, macroquad and a line pointing to the licence folder. The full OFL and MIT texts are **not** shown on screen (the user found them made the credits far too long): V30 must ship `assets/fonts/OFL-*.txt` and `assets/licenses/` in a `licences/` folder next to the executable.
 
 ### 7.6 Art restyle
@@ -429,6 +429,13 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - Ducking under jingles.
 - Volumes from Settings.
 
+**Implemented (V9):**
+- `audio/sfx.rs` (std only): `Sfx` enum with one patch each (instruments + timed notes + echo), plus per-effect `variants` (pitch offsets), `length`, `cap`, `gap` (min seconds between starts) and `gain`. `render(sfx, pitch)` normalises to peak 0.9. Effects so far: fire (Hellflare), hit, kill per `Family` (Beast/Human/Armored, a new `EnemyDef.family`), soul, hurt, death, level-up (D Phrygian dominant arp ending on the b2 hook), UI move/confirm/back. Coin, summon and boss warning join with their features (V19–V21).
+- macroquad plays a fixed WAV with no pitch control, so jitter = 5 pre-rendered variants (±0.5 st) picked at random, and the soul combo = 8 variants on a minor pentatonic ladder (pickups < 0.6 s apart climb, else reset). Everything is rendered at load (`Audio::load`, ~50 short sounds).
+- `audio/mixer.rs` (pure, tested): per-effect voice end times on the app clock decide cap and gap; xorshift jitter.
+- Flow: `Game.cues` (`Cue` enum, deduped, ≤ 8, no per-tick allocation) → `Run` drains them after the fixed steps into `audio::cue(Sfx)` (a deduped thread-local queue that UI code also uses; `Focus::update` cues move/confirm/back) → `App::frame` calls `Audio::play_queued` once per frame with volume `master × sfx × gain`. Volume applies to sounds started afterwards (fine for short SFX; music will need `set_sound_volume`). Ducking waits for the jingles (V11).
+- `cargo run --release --example render_audio` also writes `target/audio/sfx/<name>.wav` (all variants in a row, at mix gain).
+
 ### 7.11 Architecture changes
 
 - **Modules:**
@@ -536,7 +543,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S5 — Synth**
   - [x] V8 Chip synthesizer core
 - **S6 — SFX**
-  - [ ] V9 Sound effects and mixer
+  - [x] V9 Sound effects and mixer
 - **S7 — First music** *(user approval)*
   - [ ] V10 Tracker format + first themes
 - **S8 — Soundtrack** *(user approval)*
@@ -607,3 +614,6 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S5 (2026-10-19)** — V8 done: chip synth core (see 7.10 "Implemented"), 14 tests. `cargo run --release --example render_audio` writes 8 test WAVs to `target/audio/` (duties, scale, triangle bass, drums, wave organ, macros, echo, all voices); peaks 0.15–0.9, no clipping.
   - `audio/mod.rs` has a module-level `allow(dead_code)` until V9 wires sound into the game; remove it then. macroquad's `audio` feature isn't enabled yet either (V9).
   - Mix gains per channel are in `CHANNEL_GAIN` (synth.rs); five voices at full volume plus echo stay ≤ 1, but V9/V10 may want to rebalance once real tracks exist. Next: S6 (V9 SFX + mixer).
+- **S6 (2026-10-19)** — V9 done: SFX presets, mixer and wiring (see 7.10 "Implemented (V9)"). macroquad's `audio` feature is on; the module-level `allow(dead_code)` is gone (only `synth` keeps one for the tracker API V10 needs); unused `Synth::sample_rate` removed. 77 tests.
+  - Gotcha: on this machine `pipewire-alsa` is not installed, so ALSA's `default` hits the hardware held by PipeWire (`snd_pcm_dmix_open ... unable to open slave`) and the game runs silent. Fix: `sudo pacman -S pipewire-alsa`. Tested meanwhile with `HOME=<tmp>` holding a `.asoundrc` of `pcm.!default pulse` / `ctl.!default pulse`: the game opens a PipeWire stream (`pactl list sink-inputs`). Sound needs the sandbox off.
+  - Not ear-checked by the user yet; the effects are in `target/audio/sfx/` if any need retuning (patches live in `sfx::patch`). Next: S7 (V10 tracker + first themes, user approval).

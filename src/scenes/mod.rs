@@ -8,6 +8,7 @@ mod run;
 mod settings;
 mod title;
 
+use crate::audio::Audio;
 use crate::hud;
 use crate::i18n;
 use crate::save::{SaveData, Settings};
@@ -43,6 +44,7 @@ enum Scene {
 
 pub struct App {
     settings: Settings,
+    audio: Audio,
     screen: Screen,
     save: SaveData,
     run: Run,
@@ -53,7 +55,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(settings: Settings) -> Self {
+    pub fn new(settings: Settings, audio: Audio) -> Self {
         let (w, h) = settings.window;
         let screen = Screen::new(
             settings.scale_mode,
@@ -62,6 +64,7 @@ impl App {
         );
         Self {
             settings,
+            audio,
             screen,
             save: SaveData::load(),
             run: Run::new(),
@@ -171,6 +174,10 @@ impl App {
         if let Some(nav) = nav {
             self.navigate(nav);
         }
+
+        let s = &self.settings;
+        self.audio.set_volumes(s.master, s.sfx);
+        self.audio.play_queued(get_time());
 
         self.fade = (self.fade - get_frame_time()).max(0.0);
         self.draw(view);

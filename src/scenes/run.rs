@@ -3,8 +3,9 @@
 
 use super::Nav;
 use crate::assets::{self, sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
+use crate::audio::{self, Sfx};
 use crate::config::*;
-use crate::game::{Game, InputState, SimEvent};
+use crate::game::{Cue, Game, InputState, SimEvent};
 use crate::hud;
 use crate::i18n::{tr, trf, Key};
 use crate::screen::Screen;
@@ -66,7 +67,10 @@ impl Run {
 
     pub fn update(&mut self, input: &UiInput, view: Vec2, mouse_move: bool) -> Option<Nav> {
         match self.state {
-            State::Playing if input.back => self.set_state(State::Paused),
+            State::Playing if input.back => {
+                audio::cue(Sfx::UiBack);
+                self.set_state(State::Paused);
+            }
             State::Playing => self.simulate(input, view, mouse_move),
             State::LevelUp => self.level_up(input, view),
             _ => return self.menu_update(input, view),
@@ -93,6 +97,7 @@ impl Run {
             match self.game.tick(&sim_input) {
                 SimEvent::None => {}
                 SimEvent::LevelUp => {
+                    audio::cue(Sfx::LevelUp);
                     self.state = State::LevelUp;
                     self.focus = Focus::default();
                     break;
@@ -110,6 +115,18 @@ impl Run {
         if ticks == MAX_TICKS_PER_FRAME {
             self.accumulator = 0.0;
         }
+        for cue in self.game.cues.drain(..) {
+            audio::cue(match cue {
+                Cue::Fire => Sfx::Fire,
+                Cue::Hit => Sfx::Hit,
+                Cue::Kill(Family::Beast) => Sfx::KillBeast,
+                Cue::Kill(Family::Human) => Sfx::KillHuman,
+                Cue::Kill(Family::Armored) => Sfx::KillArmored,
+                Cue::Soul => Sfx::Soul,
+                Cue::Hurt => Sfx::Hurt,
+                Cue::Died => Sfx::Death,
+            });
+        }
         self.update_ms = ((get_time() - started) * 1000.0) as f32;
     }
 
@@ -118,14 +135,17 @@ impl Run {
         let cards = hud::level_up_cards(view);
         let action = self.focus.update(input, &cards[..count]);
         let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3];
-        let pick = keys
+        let by_key = keys
             .iter()
             .position(|&k| is_key_pressed(k))
-            .filter(|&slot| slot < count)
-            .or(match action {
-                Action::Confirm(slot) => Some(slot),
-                _ => None,
-            });
+            .filter(|&slot| slot < count);
+        if by_key.is_some() {
+            audio::cue(Sfx::UiConfirm);
+        }
+        let pick = by_key.or(match action {
+            Action::Confirm(slot) => Some(slot),
+            _ => None,
+        });
         if let Some(slot) = pick {
             self.game.choose_upgrade(slot);
             self.focus.index = 0;

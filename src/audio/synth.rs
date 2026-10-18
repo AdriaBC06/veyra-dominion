@@ -329,10 +329,6 @@ impl Synth {
         }
     }
 
-    pub fn sample_rate(&self) -> u32 {
-        self.sample_rate as u32
-    }
-
     /// Replaces the echo settings and clears the echo buffer.
     pub fn set_echo(&mut self, echo: Echo) {
         let len = ((echo.delay * self.sample_rate) as usize).max(1);

@@ -12,6 +12,7 @@ mod spatial;
 mod ui;
 mod upgrades;
 
+use audio::Audio;
 use config::*;
 use macroquad::prelude::*;
 use save::Settings;
@@ -34,7 +35,7 @@ async fn main() {
     assets::init();
     let settings = Settings::load();
     i18n::set_lang(settings.lang);
-    let mut app = App::new(settings);
+    let mut app = App::new(settings, Audio::load().await);
     prevent_quit();
 
     loop {

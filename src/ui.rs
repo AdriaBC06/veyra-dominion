@@ -3,6 +3,7 @@
 //! drawing so it can be tested headless with hand-made `UiInput`s.
 
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
+use crate::audio::{self, Sfx};
 use crate::i18n::{tr, Key};
 use crate::screen::Layout;
 use macroquad::prelude::*;
@@ -93,8 +94,25 @@ impl Default for Focus {
 }
 
 impl Focus {
-    /// Moves the focus and reports the action for this frame.
+    /// Moves the focus and reports the action for this frame, cueing the UI
+    /// sound for a focus move, confirm or back.
     pub fn update(&mut self, input: &UiInput, items: &[Rect]) -> Action {
+        let before = self.index.min(items.len().saturating_sub(1));
+        let action = self.step(input, items);
+        let sound = match action {
+            Action::Confirm(_) => Some(Sfx::UiConfirm),
+            Action::Back => Some(Sfx::UiBack),
+            Action::Adjust(..) => Some(Sfx::UiMove),
+            _ if self.index != before => Some(Sfx::UiMove),
+            _ => None,
+        };
+        if let Some(sfx) = sound {
+            audio::cue(sfx);
+        }
+        action
+    }
+
+    fn step(&mut self, input: &UiInput, items: &[Rect]) -> Action {
         let n = items.len();
         if n == 0 {
             return if input.back {
@@ -441,6 +459,27 @@ mod tests {
             mouse: vec2(x, y),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn focus_cues_ui_sounds() {
+        let mut f = Focus::default();
+        let items = rows();
+        audio::take_cues();
+        f.update(&at(500.0, 500.0), &items);
+        assert!(audio::take_cues().is_empty(), "idle frame is silent");
+        let key = |down, confirm, back| UiInput {
+            down,
+            confirm,
+            back,
+            ..at(500.0, 500.0)
+        };
+        f.update(&key(true, false, false), &items);
+        assert_eq!(audio::take_cues(), [Sfx::UiMove]);
+        f.update(&key(false, true, false), &items);
+        assert_eq!(audio::take_cues(), [Sfx::UiConfirm]);
+        f.update(&key(false, false, true), &items);
+        assert_eq!(audio::take_cues(), [Sfx::UiBack]);
     }
 
     #[test]

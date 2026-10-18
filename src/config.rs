@@ -182,6 +182,14 @@ pub enum Behavior {
     Chase,
 }
 
+/// Broad enemy kind, used to pick the kill sound.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Family {
+    Beast,
+    Human,
+    Armored,
+}
+
 pub struct EnemyDef {
     pub name: &'static str,
     pub sprite: SpriteId,
@@ -196,6 +204,7 @@ pub struct EnemyDef {
     /// Inclusive range of enemies spawned together.
     pub group: (u8, u8),
     pub behavior: Behavior,
+    pub family: Family,
 }
 
 pub const RAT: usize = 0;
@@ -215,6 +224,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         weight_growth_per_min: -4.0,
         group: (2, 4),
         behavior: Behavior::Chase,
+        family: Family::Beast,
     },
     EnemyDef {
         name: "Villager",
@@ -228,6 +238,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         weight_growth_per_min: 4.0,
         group: (1, 2),
         behavior: Behavior::Chase,
+        family: Family::Human,
     },
     EnemyDef {
         name: "Knight",
@@ -241,6 +252,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         weight_growth_per_min: 12.0,
         group: (1, 1),
         behavior: Behavior::Chase,
+        family: Family::Armored,
     },
 ];
 

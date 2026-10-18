@@ -26,6 +26,21 @@ pub enum SimEvent {
     Victory,
 }
 
+/// Something audible happened this tick. The frontend drains `Game::cues` and
+/// turns them into sounds; each cue is kept once until drained.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Cue {
+    Fire,
+    Hit,
+    Kill(Family),
+    Soul,
+    Hurt,
+    Died,
+}
+
+/// Distinct cues: 5 plus one kill per family.
+const MAX_CUES: usize = 8;
+
 pub struct Player {
     pub pos: Vec2,
     /// Position at the previous tick, for render interpolation.
@@ -84,6 +99,8 @@ pub struct Game {
     pub choices: [Option<usize>; 3],
     /// Seconds since the killing blow, while the death animation plays.
     pub dying: Option<f32>,
+    /// Cues since the frontend last drained them, without repeats.
+    pub cues: Vec<Cue>,
     hash: SpatialHash,
     /// Spawn ring radius, derived from the view size (see `set_view`).
     spawn_ring: f32,
@@ -120,6 +137,7 @@ impl Game {
             stats: Upgrades::default().stats(),
             choices: [None; 3],
             dying: None,
+            cues: Vec::with_capacity(MAX_CUES),
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
             spawn_ring: Self::ring_radius(Vec2::new(DEFAULT_VIEW_W, LOGICAL_H)),
             spawn_acc: 0.0,
@@ -182,6 +200,12 @@ impl Game {
         SimEvent::None
     }
 
+    fn cue(&mut self, cue: Cue) {
+        if !self.cues.contains(&cue) && self.cues.len() < MAX_CUES {
+            self.cues.push(cue);
+        }
+    }
+
     /// Takes the upgrade in `slot` of `choices`; rerolls if more levels are pending.
     pub fn choose_upgrade(&mut self, slot: usize) {
         let Some(idx) = self.choices.get(slot).copied().flatten() else {
@@ -221,6 +245,9 @@ impl Game {
         if p.hp <= 0.0 {
             self.dying = Some(0.0);
             self.spawn_death_smoke();
+            self.cue(Cue::Died);
+        } else {
+            self.cue(Cue::Hurt);
         }
     }
 
@@ -264,6 +291,7 @@ impl Game {
                 });
             }
             self.fire_cd = self.stats.fire_interval;
+            self.cue(Cue::Fire);
         }
     }
 
@@ -272,6 +300,7 @@ impl Game {
     fn update_projectiles(&mut self) {
         let enemies = &mut self.enemies;
         let damage = self.stats.damage;
+        let mut hits = false;
         let mut k = self.projectiles.len();
         while k > 0 {
             k -= 1;
@@ -292,10 +321,14 @@ impl Game {
             if let Some(j) = hit {
                 enemies.hp[j] -= damage;
                 enemies.flash[j] = HIT_FLASH_TIME;
+                hits = true;
             }
             if hit.is_some() || pr.life <= 0.0 {
                 self.projectiles.swap_remove(k);
             }
+        }
+        if hits {
+            self.cue(Cue::Hit);
         }
     }
 
@@ -316,7 +349,9 @@ impl Game {
                 });
             }
             self.kills += 1;
-            let xp = ENEMY_DEFS[self.enemies.kind[i] as usize].soul_xp;
+            let def = &ENEMY_DEFS[self.enemies.kind[i] as usize];
+            let (xp, family) = (def.soul_xp, def.family);
+            self.cue(Cue::Kill(family));
             self.drop_soul(self.enemies.pos(i), xp);
             self.enemies.swap_remove(i);
         }
@@ -358,6 +393,9 @@ impl Game {
             }
             true
         });
+        if gained > 0 {
+            self.cue(Cue::Soul);
+        }
         self.gain_xp(gained);
     }
 
@@ -560,6 +598,9 @@ mod tests {
         }
         assert_eq!(g.kills, 1);
         assert_eq!(g.enemies.len(), 0);
+        for cue in [Cue::Fire, Cue::Hit, Cue::Kill(Family::Beast)] {
+            assert_eq!(g.cues.iter().filter(|&&c| c == cue).count(), 1, "{cue:?}");
+        }
         assert_eq!(g.fades.len(), 1);
         assert_eq!(g.souls.len(), 1);
         for _ in 0..60 {
@@ -592,6 +633,7 @@ mod tests {
             }
         }
         assert!(died && g.player.hp == 0.0);
+        assert!(g.cues.contains(&Cue::Hurt) && g.cues.contains(&Cue::Died));
         assert!(g.fades.iter().any(|f| f.sprite == SpriteId::Smoke));
     }
 
@@ -627,6 +669,7 @@ mod tests {
         }
         assert_eq!(g.xp, 5);
         assert_eq!(g.souls.len(), 1);
+        assert_eq!(g.cues, [Cue::Soul]);
     }
 
     #[test]
