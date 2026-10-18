@@ -248,7 +248,7 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 ## 8. Progress
 
 - [x] T1 Repo bootstrap
-- [ ] T2 Window, loop, render target
+- [x] T2 Window, loop, render target
 - [ ] T3 Sprite atlas
 - [ ] T4 Levitating player, camera, ground
 - [ ] **CP1 Setup**
