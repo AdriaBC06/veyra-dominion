@@ -1,11 +1,12 @@
 mod config;
 mod enemies;
 mod game;
+mod hud;
 mod spatial;
 mod sprites;
 
 use config::*;
-use game::{Game, InputState};
+use game::{Game, InputState, SimEvent};
 use macroquad::prelude::*;
 use sprites::{sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
 use std::f32::consts::TAU;
@@ -102,15 +103,16 @@ fn draw_ground(origin: Vec2) {
     }
 }
 
-fn draw_shadow(pos: Vec2, half_w: f32, half_h: f32) {
-    draw_ellipse(
-        pos.x,
-        pos.y,
-        half_w,
-        half_h,
-        0.0,
-        Color::new(0.0, 0.0, 0.0, 0.35),
-    );
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AppState {
+    Title,
+    Playing,
+    GameOver,
+}
+
+fn draw_shadow(pos: Vec2, half_w: f32, half_h: f32, opacity: f32) {
+    let color = Color::new(0.0, 0.0, 0.0, 0.35 * opacity);
+    draw_ellipse(pos.x, pos.y, half_w, half_h, 0.0, color);
 }
 
 /// Enemies are drawn with their feet at their position, facing Veyra.
@@ -124,7 +126,7 @@ fn draw_enemies(game: &Game) {
         if e.flash[i] > 0.0 {
             frame += FLASH_FRAME_OFFSET;
         }
-        draw_shadow(pos, 5.0, 1.5);
+        draw_shadow(pos, 5.0, 1.5, 1.0);
         draw_sprite(def.sprite, frame, pos - vec2(8.0, 15.0), px > pos.x);
     }
 }
@@ -154,28 +156,43 @@ fn draw_fades(game: &Game) {
 /// Draws Veyra hovering over `pos` (the point on the ground below her).
 fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
     let p = &game.player;
+    let opacity = game.dying.map_or(1.0, |d| (1.0 - d / DEATH_TIME).max(0.0));
+    let blink_off =
+        game.dying.is_none() && p.iframes > 0.0 && (p.iframes / BLINK_PERIOD) as u32 % 2 == 1;
+    if blink_off {
+        return;
+    }
+    let tint = Color::new(1.0, 1.0, 1.0, opacity);
     let bob = BOB_AMPLITUDE * (TAU * BOB_HZ * t).sin();
     let shrink = 1.0 - SHADOW_SHRINK * bob / BOB_AMPLITUDE;
-    draw_shadow(pos, 6.0 * shrink, 2.0 * shrink);
+    draw_shadow(pos, 6.0 * shrink, 2.0 * shrink, opacity);
 
     let body = pos - vec2(8.0, 24.0 + HOVER_HEIGHT + bob.round());
     let moving = p.vel.length() > IMPULSE_SPEED;
     let facing_left = p.facing < 0.0;
     // The tail hangs on the side opposite to where she faces, so it trails behind.
     let tail_x = if facing_left { 10.0 } else { -2.0 };
-    draw_sprite(
+    draw_sprite_tinted(
         SpriteId::VeyraWings,
         (t * WING_FPS) as usize,
         body + vec2(-4.0, 6.0),
         false,
+        tint,
     );
-    draw_sprite(
+    draw_sprite_tinted(
         SpriteId::VeyraTail,
         0,
         body + vec2(tail_x, 15.0) + p.tail_lag,
         !facing_left,
+        tint,
     );
-    draw_sprite(SpriteId::VeyraBody, moving as usize, body, facing_left);
+    draw_sprite_tinted(
+        SpriteId::VeyraBody,
+        moving as usize,
+        body,
+        facing_left,
+        tint,
+    );
 }
 
 #[macroquad::main(window_conf)]
@@ -185,19 +202,40 @@ async fn main() {
     target.texture.set_filter(FilterMode::Nearest);
 
     let mut game = Game::new();
+    let mut state = AppState::Title;
     let mut accumulator = 0.0f32;
 
     loop {
-        let input = read_input();
-        accumulator += get_frame_time().min(MAX_FRAME_DT);
-        let mut ticks = 0;
-        while accumulator >= TICK_DT && ticks < MAX_TICKS_PER_FRAME {
-            game.tick(&input);
-            accumulator -= TICK_DT;
-            ticks += 1;
-        }
-        if ticks == MAX_TICKS_PER_FRAME {
+        let restart = match state {
+            AppState::Title => is_key_pressed(KeyCode::Enter),
+            AppState::GameOver => is_key_pressed(KeyCode::R),
+            AppState::Playing => false,
+        };
+        if restart {
+            game = Game::new();
             accumulator = 0.0;
+            state = AppState::Playing;
+        } else if state == AppState::GameOver && is_key_pressed(KeyCode::T) {
+            game = Game::new();
+            state = AppState::Title;
+        }
+
+        if state == AppState::Playing {
+            let input = read_input();
+            accumulator += get_frame_time().min(MAX_FRAME_DT);
+            let mut ticks = 0;
+            while accumulator >= TICK_DT && ticks < MAX_TICKS_PER_FRAME {
+                accumulator -= TICK_DT;
+                ticks += 1;
+                if game.tick(&input) == SimEvent::PlayerDied {
+                    state = AppState::GameOver;
+                    accumulator = 0.0;
+                    break;
+                }
+            }
+            if ticks == MAX_TICKS_PER_FRAME {
+                accumulator = 0.0;
+            }
         }
 
         let alpha = accumulator / TICK_DT;
@@ -210,14 +248,22 @@ async fn main() {
         draw_fades(&game);
         draw_veyra(&game, player_pos.round(), game.time + alpha * TICK_DT);
         draw_projectiles(&game);
-        // Placeholder until the HUD lands (T12).
-        draw_text(
-            format!("KILLS {}", game.kills),
-            origin.x + 6.0,
-            origin.y + 14.0,
-            16.0,
-            WHITE,
-        );
+
+        set_camera(&target_camera(&target, Vec2::ZERO));
+        match state {
+            AppState::Title => {
+                hud::draw_center_screen(GAME_TITLE, &["Survive 5:00", "", "Enter to rise"])
+            }
+            AppState::Playing => hud::draw_hud(&game),
+            AppState::GameOver => {
+                let stats = format!(
+                    "Survived {}   Kills {}",
+                    hud::format_time(game.time),
+                    game.kills
+                );
+                hud::draw_center_screen("Banished", &[&stats, "", "R restart   T title"]);
+            }
+        }
 
         present(&target);
         next_frame().await;

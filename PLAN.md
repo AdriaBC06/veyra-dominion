@@ -91,19 +91,21 @@ pub const UPGRADES: [UpgradeDef; 6];
 **spatial.rs** — uniform grid of 64 px cells over a fixed window centred on the player (counting sort into flat arrays, no hashing allocations). Enemies outside the window are relocated by the sim, so the grid never overflows.
 ```rust
 pub struct SpatialHash { cell: f32, cols: usize, rows: usize, origin: Vec2,
-                         cell_start: Vec<u32>, entries: Vec<u32>, cell_of: Vec<u32> }
+                         cell_start: Vec<u32>, entries: Vec<u32>, points: Vec<Vec2>, cell_of: Vec<u32> }
+// points = position snapshot parallel to entries, so queries need no xs/ys and
+// separation can read neighbours while the SoA columns are being written.
 impl SpatialHash {
     pub fn new(cell: f32, cols: usize, rows: usize, capacity: usize) -> Self;
     pub fn rebuild(&mut self, center: Vec2, xs: &[f32], ys: &[f32]);
-    pub fn query_radius(&self, p: Vec2, r: f32, f: impl FnMut(usize));
-    pub fn nearest(&self, p: Vec2, max_r: f32, xs: &[f32], ys: &[f32]) -> Option<usize>; // ring-by-ring
+    pub fn query_radius(&self, p: Vec2, r: f32, f: impl FnMut(usize, Vec2));
+    pub fn nearest(&self, p: Vec2, max_r: f32) -> Option<usize>; // ring-by-ring
 }
 ```
 
 **enemies.rs** — SoA.
 ```rust
 pub struct Enemies { pub x: Vec<f32>, pub y: Vec<f32>, pub hp: Vec<f32>,
-                     pub kind: Vec<u8>, pub flash: Vec<f32> }
+                     pub kind: Vec<u8>, pub flash: Vec<f32>, pub phase: Vec<f32> }
 impl Enemies {
     pub fn with_capacity(n: usize) -> Self;
     pub fn len(&self) -> usize;
@@ -131,9 +133,9 @@ impl Upgrades {
 pub struct InputState { pub move_dir: Vec2 }
 pub struct Player { pub pos: Vec2, pub vel: Vec2, pub hp: f32, pub max_hp: f32,
                     pub iframes: f32, pub facing: f32, pub tail_lag: Vec2, pub anim_t: f32 }
-pub struct Projectile { pub pos: Vec2, pub vel: Vec2, pub life: f32, pub pierce: u32 }
+pub struct Projectile { pub pos: Vec2, pub vel: Vec2, pub life: f32 }   // no pierce in MVP (no upgrade uses it)
 pub struct Soul { pub pos: Vec2, pub xp: u32 }         // merged into nearest when MAX_SOULS reached
-pub struct Fade { pub pos: Vec2, pub sprite: SpriteId, pub t: f32 }  // enemy vanish / smoke puffs
+pub struct Fade { pub pos: Vec2, pub vel: Vec2, pub sprite: SpriteId, pub frame: usize, pub t: f32, pub duration: f32 }  // enemy vanish / smoke puffs
 pub enum SimEvent { None, LevelUp, PlayerDied, Victory }
 pub struct Game {
     pub time: f32, pub endless: bool, pub kills: u32, pub level: u32, pub xp: u32,
@@ -255,7 +257,7 @@ HP ~3,000, flies (ignores separation), 3 phases by HP: (1) homing feather volley
 - [x] T5 Spatial hash
 - [x] T6 SoA enemies + spawning
 - [x] T7 Hellflare weapon
-- [ ] T8 Damage, death, title, game over
+- [x] T8 Damage, death, title, game over
 - [ ] **CP2 Combat**
 - [ ] T9 Souls + XP
 - [ ] T10 Upgrades

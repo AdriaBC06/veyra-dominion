@@ -19,6 +19,16 @@ pub const MAX_FRAME_DT: f32 = 0.25;
 pub const MAX_TICKS_PER_FRAME: u32 = 8;
 
 // --- Player ---------------------------------------------------------------
+pub const PLAYER_MAX_HP: f32 = 100.0;
+pub const PLAYER_IFRAMES: f32 = 0.5;
+/// Collision radius of Veyra's ground point against enemies.
+pub const PLAYER_RADIUS: f32 = 6.0;
+/// While invulnerable the sprite toggles visibility with this period.
+pub const BLINK_PERIOD: f32 = 0.06;
+/// Time from the killing blow to the game over screen.
+pub const DEATH_TIME: f32 = 1.2;
+pub const DEATH_SMOKE_PUFFS: usize = 12;
+pub const SMOKE_RISE_SPEED: f32 = 22.0;
 pub const PLAYER_SPEED: f32 = 180.0;
 /// Exponential approach rate of velocity toward the input direction (floaty feel).
 pub const PLAYER_ACCEL: f32 = 14.0;
@@ -82,6 +92,7 @@ pub struct EnemyDef {
     pub hp: f32,
     pub speed: f32,
     pub radius: f32,
+    pub contact_damage: f32,
     pub behavior: Behavior,
 }
 
@@ -94,6 +105,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         hp: 6.0,
         speed: 75.0,
         radius: 5.0,
+        contact_damage: 5.0,
         behavior: Behavior::Chase,
     },
     EnemyDef {
@@ -101,6 +113,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         hp: 14.0,
         speed: 55.0,
         radius: 6.0,
+        contact_damage: 8.0,
         behavior: Behavior::Chase,
     },
     EnemyDef {
@@ -108,6 +121,7 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         hp: 45.0,
         speed: 42.0,
         radius: 7.0,
+        contact_damage: 15.0,
         behavior: Behavior::Chase,
     },
 ];

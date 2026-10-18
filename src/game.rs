@@ -14,6 +14,13 @@ pub struct InputState {
     pub move_dir: Vec2,
 }
 
+/// Notable outcome of a tick, for the frontend's state machine.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SimEvent {
+    None,
+    PlayerDied,
+}
+
 pub struct Player {
     pub pos: Vec2,
     /// Position at the previous tick, for render interpolation.
@@ -23,6 +30,10 @@ pub struct Player {
     pub facing: f32,
     /// Smoothed tail offset trailing behind the movement.
     pub tail_lag: Vec2,
+    pub hp: f32,
+    pub max_hp: f32,
+    /// Remaining invulnerability after a hit.
+    pub iframes: f32,
 }
 
 pub struct Projectile {
@@ -48,6 +59,8 @@ pub struct Game {
     pub projectiles: Vec<Projectile>,
     pub fades: Vec<Fade>,
     pub kills: u32,
+    /// Seconds since the killing blow, while the death animation plays.
+    pub dying: Option<f32>,
     hash: SpatialHash,
     spawn_acc: f32,
     fire_cd: f32,
@@ -63,11 +76,15 @@ impl Game {
                 vel: Vec2::ZERO,
                 facing: -1.0,
                 tail_lag: Vec2::ZERO,
+                hp: PLAYER_MAX_HP,
+                max_hp: PLAYER_MAX_HP,
+                iframes: 0.0,
             },
             enemies: Enemies::with_capacity(MAX_ENEMIES),
             projectiles: Vec::with_capacity(MAX_PROJECTILES),
             fades: Vec::with_capacity(MAX_FADES),
             kills: 0,
+            dying: None,
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
             spawn_acc: 0.0,
             fire_cd: 0.0,
@@ -75,18 +92,79 @@ impl Game {
     }
 
     /// Advances the simulation by one fixed step.
-    pub fn tick(&mut self, input: &InputState) {
+    pub fn tick(&mut self, input: &InputState) -> SimEvent {
         self.time += TICK_DT;
-        self.move_player(input);
+        let alive = self.dying.is_none();
+        let idle = InputState::default();
+        self.move_player(if alive { input } else { &idle });
         let center = self.player.pos;
         self.hash.rebuild(center, &self.enemies.x, &self.enemies.y);
         self.spawn_enemies();
         self.relocate_far_enemies();
         self.enemies.steer(TICK_DT, center, &self.hash);
-        self.fire();
+        if alive {
+            self.fire();
+        }
         self.update_projectiles();
+        if alive {
+            self.contact_damage();
+        }
         self.remove_dead_enemies();
         self.update_fades();
+
+        if let Some(t) = &mut self.dying {
+            *t += TICK_DT;
+            if *t >= DEATH_TIME {
+                return SimEvent::PlayerDied;
+            }
+        }
+        SimEvent::None
+    }
+
+    /// The strongest touching enemy hurts Veyra, then she is briefly invulnerable.
+    fn contact_damage(&mut self) {
+        let p = &mut self.player;
+        p.iframes = (p.iframes - TICK_DT).max(0.0);
+        if p.iframes > 0.0 {
+            return;
+        }
+        let enemies = &self.enemies;
+        let mut damage = 0.0f32;
+        self.hash
+            .query_radius(p.pos, PLAYER_RADIUS + MAX_ENEMY_RADIUS + 4.0, |j, _| {
+                let def = &ENEMY_DEFS[enemies.kind[j] as usize];
+                let reach = PLAYER_RADIUS + def.radius;
+                if enemies.hp[j] > 0.0 && enemies.pos(j).distance_squared(p.pos) <= reach * reach {
+                    damage = damage.max(def.contact_damage);
+                }
+            });
+        if damage <= 0.0 {
+            return;
+        }
+        p.hp = (p.hp - damage).max(0.0);
+        p.iframes = PLAYER_IFRAMES;
+        if p.hp <= 0.0 {
+            self.dying = Some(0.0);
+            self.spawn_death_smoke();
+        }
+    }
+
+    fn spawn_death_smoke(&mut self) {
+        let center = self.player.pos - Vec2::Y * PROJ_DRAW_HEIGHT;
+        for _ in 0..DEATH_SMOKE_PUFFS {
+            if self.fades.len() >= MAX_FADES {
+                break;
+            }
+            let off = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, 10.0);
+            self.fades.push(Fade {
+                pos: center + off,
+                vel: off * 0.8 - Vec2::Y * SMOKE_RISE_SPEED * gen_range(0.6, 1.4),
+                sprite: SpriteId::Smoke,
+                frame: 0,
+                t: gen_range(-0.3, 0.0),
+                duration: DEATH_TIME,
+            });
+        }
     }
 
     /// Hellflare: shoots at the nearest enemy whenever the cooldown allows.
@@ -272,6 +350,33 @@ mod tests {
             g.tick(&InputState::default());
         }
         assert!(g.fades.is_empty() && g.projectiles.is_empty());
+    }
+
+    #[test]
+    fn contact_hurts_once_per_iframe_window_then_kills() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.fire_cd = f32::INFINITY; // keep the attacker alive
+        g.enemies.spawn(VILLAGER, Vec2::ZERO, 1000.0);
+        g.tick(&InputState::default());
+        let dmg = ENEMY_DEFS[VILLAGER].contact_damage;
+        assert_eq!(g.player.hp, PLAYER_MAX_HP - dmg);
+        for _ in 0..10 {
+            g.tick(&InputState::default());
+        }
+        assert_eq!(g.player.hp, PLAYER_MAX_HP - dmg);
+
+        let mut died = false;
+        for _ in
+            0..(60.0 * (PLAYER_MAX_HP / dmg + 1.0) * PLAYER_IFRAMES + 60.0 * DEATH_TIME) as usize
+        {
+            died |= g.tick(&InputState::default()) == SimEvent::PlayerDied;
+            if died {
+                break;
+            }
+        }
+        assert!(died && g.player.hp == 0.0);
+        assert!(g.fades.iter().any(|f| f.sprite == SpriteId::Smoke));
     }
 
     #[test]
