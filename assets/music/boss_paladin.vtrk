@@ -1,0 +1,156 @@
+# The Lion of Aurum — boss of the Bastion, the Lion King-Paladin.
+# G major against Veyra's G minor, 142 BPM 4/4 (Bastion +10): one bar = 16 rows.
+# A noble enemy: his heroic fanfare climbs the G major chord and moves by
+# chromatic mediants (G Eb F G, then G B C D), brass in thirds over a marching
+# bass and the horn on the roots. Her leitmotif (G-Ab-G, the fall to C#, into
+# D) answers in G minor, and her own chord is Ab, the b2 he cannot reach.
+# Form (24 bars, loops): A his fanfare | B the duel: her lines and his
+# answers alternate (Gm Gm Eb D | Gm Ab G D) | A' the fanfare with the horn
+# doubling the tune an octave down, double-time snares.
+
+song The Lion of Aurum
+tempo 142 4
+echo 0.11 0.15 0.12
+
+# His brass: a full 50% pulse, proud.
+inst brass
+  vol 11 13 15 | 13 / 10 7 4 2 0
+  duty 2
+  pitch -12 -6 -2 0
+  vib 0.12 5.5 0.3
+inst brass2
+  vol 6 8 9 | 8 / 6 4 2 1 0
+  duty 1
+  pitch -12 -6 -2 0
+  vib 0.12 5.5 0.3
+
+inst her
+  vol 7 10 12 13 | 12 / 10 8 6 4 2 1 0
+  duty 0 1 1 2
+  pitch -12 -6 -3 -1 0 / -1 -3 -6 -10
+  vib 0.25 5.5 0.25
+
+inst horn
+  vol 5 8 11 13 14 | 14 / 12 9 6 3 1 0
+  pitch -6 -3 -1 0
+  vib 0.15 5 0.35
+  wave 7ACEFFFEDCBBAA987765544321000135
+inst hornpad
+  vol 4 6 8 9 | 9 / 7 5 3 1 0
+  wave 7ACEFFFEDCBBAA987765544321000135
+
+inst tuba
+  vol 15 14 12 10 8 6 4 2 1 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 15 14 11 8 5 3 1 0
+  pitch 30 0
+inst crash
+  vol 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare B5
+drum c crash F7
+
+# --- His fanfare (l) and the brass in thirds under it (g) --------------------------------------------------------------------
+pattern l1 16
+  p1 brass | D5 . . D5 G5 . . . B5 . . . D6 . . . |
+pattern g1 16
+  p2 brass2 | B4 . . B4 D5 . . . G5 . . . B5 . . . |
+pattern l2 16
+  p1 brass | Eb6 . . . D6 . . . Bb5 . . . G5 . . . |
+pattern g2 16
+  p2 brass2 | G5 . . . F5 . . . G5 . . . Eb5 . . . |
+pattern l3 16
+  p1 brass | A5 . . . C6 . . . F6 . . . . . . . |
+pattern g3 16
+  p2 brass2 | F5 . . . A5 . . . C6 . . . . . . . |
+pattern l4 16
+  p1 brass | D6 . . . . . . . . . . . . . . = |
+pattern g4 16
+  p2 brass2 | B5 . . . . . . . . . . . . . . = |
+pattern l6 16
+  p1 brass | D#6 . . . F#6 . . . D#6 . . . B5 . . . |
+pattern g6 16
+  p2 brass2 | B5 . . . D#6 . . . B5 . . . F#5 . . . |
+pattern l7 16
+  p1 brass | E6 . . . D6 . C6 . G5 . . . E5 . . . |
+pattern g7 16
+  p2 brass2 | C6 . . . B5 . G5 . E5 . . . C5 . . . |
+pattern l8 16
+  p1 brass | F#5 . . . A5 . . . D6 . . . C6 . . = |
+pattern g8 16
+  p2 brass2 | D5 . . . F#5 . . . A5 . . . F#5 . . = |
+
+# --- The duel (B) ---------------------------------------------------------------------
+pattern m1 16
+  p1 her | G5 . . . Ab5 . G5 . . . C#5 . D5 . . = |
+pattern m2 16
+  p2 brass | D5 . . D5 G5 . . . Bb5 . . . D6 . . = |
+pattern m3 16
+  p1 her | G5 . . . . . . . F5 . Eb5 . D5 . . = |
+pattern m4 16
+  p2 brass | F#5 . . . A5 . . . D6 . . . . . . = |
+pattern m5 16
+  p1 her | D6 . . . Eb6 . D6 . . . G#5 . A5 . . = |
+pattern m6 16
+  p1 her | C6 . . . . . . . Eb6 . . . Ab5 . . = |
+pattern m7 16
+  p2 brass | D5 . . D5 G5 . . . B5 . . . D6 . . . |
+pattern m8 16
+  p1 her | A5 . . . . . . . F#5 . . . D5 . . = |
+  p2 brass | F#5 . . . . . . . D5 . . . A4 . . = |
+
+# --- Bass and horn roots ---------------------------------------------------------------
+pattern march 16
+  tri tuba | G2 . G2 . D2 . D2 . G2 . G2 . D2 . D2 . |
+pattern root 16
+  wav hornpad | G3 . . . . . . . D4 . . . . . . . |
+
+# --- Drums -------------------------------------------------------------------------------
+pattern r1 16
+  noi | k . s:6 s:8 s . s:6 . k . s:6 s:8 s . s:8 s:a |
+pattern r1c 16
+  noi | c . s:6 s:8 s . s:6 . k . s:6 s:8 s . s:8 s:a |
+pattern r2 16
+  noi | k s:5 s:7 s:5 s s:5 s:7 s:5 k s:5 s:7 s:5 s s:7 s:9 s:b |
+pattern r2c 16
+  noi | c s:5 s:7 s:5 s s:5 s:7 s:5 k s:5 s:7 s:5 s s:7 s:9 s:b |
+pattern duel 16
+  noi | k . . . s . . . k . k . s . . s:7 |
+pattern duelc 16
+  noi | c . . . s . . . k . k . s . . s:7 |
+pattern roll 16
+  noi | s:5 s:6 s:6 s:7 s:8 s:8 s:9 s:a s:b s:b s:c s:d s:e s:e s s |
+
+order
+  # A: G Eb F G | G B C D
+  l1 g1 march root r1c
+  l2 g2 march-4 root-4 r1
+  l3 g3 march-2 root-2 r1
+  l4 g4 march root r1
+  l1 g1 march root r1
+  l6 g6 march+4 root+4 r1
+  l7 g7 march+5 root+5 r1
+  l8 g8 march+7 root+7 r1
+  # B: the duel. Gm Gm Eb D | Gm Ab G D
+  m1 march root duelc
+  m2 march root duel
+  m3 march-4 root-4 duel
+  m4 march+7 root+7 duel
+  m5 march root duel
+  m6 march+1 root+1 duel
+  m7 march root duel
+  m8 march+7 root+7 roll
+  # A': the horn doubles the tune
+  l1 g1 l1@wav-12%horn march r2c
+  l2 g2 l2@wav-12%horn march-4 r2
+  l3 g3 l3@wav-12%horn march-2 r2
+  l4 g4 l4@wav-12%horn march r2
+  l1 g1 l1@wav-12%horn march r2
+  l6 g6 l6@wav-12%horn march+4 r2
+  l7 g7 l7@wav-12%horn march+5 r2
+  l8 g8 l8@wav-12%horn march+7 roll

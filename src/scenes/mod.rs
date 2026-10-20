@@ -129,6 +129,10 @@ impl App {
             self.store_settings();
         }
         let in_run = matches!(self.scene, Scene::Run);
+        if matches!(nav, Nav::Title | Nav::NewRun) {
+            // A victory or game over jingle ends with the run.
+            self.audio.stop_jingle();
+        }
         self.scene = match nav {
             Nav::Title => {
                 if in_run {

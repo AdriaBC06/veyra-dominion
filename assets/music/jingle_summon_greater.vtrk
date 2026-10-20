@@ -1,0 +1,49 @@
+# Summon (Greater Circle) — something larger steps out.
+# D Phrygian dominant, 132 BPM: a breath of noise opens the circle under a
+# plucked arpeggio from the low A, then the pulses sound her sigh in thirds (D-Eb-D
+# over F#-G-F#) on a full D major chord, her voice (the wave) on the fifth.
+
+song Greater Summon
+tempo 132 4
+echo 0.23 0.3 0.25
+
+inst lead
+  vol 10 12 13 | 12 / 9 7 5 3 2 1 0
+  duty 1 1 2
+  pitch -6 -2 0
+  vib 0.25 5.5 0.2
+inst lead2
+  vol 7 8 9 | 9 / 7 5 3 2 1 0
+  duty 1
+inst pluck
+  vol 9 8 6 5 4 3 2 1 0
+  duty 0
+inst voice
+  vol 4 7 10 12 13 | 13 / 11 9 7 5 4 3 2 1 0
+  pitch -16 -8 -4 -2 0
+  vib 0.2 4.5 0.25
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+inst bass
+  vol 13 12 11 10 | 9 / 6 3 0
+inst swell
+  vol 1 2 3 4 5 6 7 8 9 8 6 4 2 1 0
+inst crash
+  vol 9 8 7 7 6 6 5 5 4 4 4 3 3 3 2 2 2 2 1 1 1 1 1 0
+
+drum w swell G6
+drum c crash F7
+
+pattern open 8
+  p1 pluck | A4 . D5 . F#5 . A5 . |
+  tri bass | A1 . . . . . . . |
+  noi | w . . . . . . . |
+pattern sigh 16
+  p1 lead | D6 . . Eb6 D6 . . . . . . . . . . = |
+  p2 lead2 | F#5 . . G5 F#5 . . . . . . . . . . = |
+  tri bass | D2 . . . . . . . . . . . . . . = |
+  wav voice | A4 . . . . . . . . . . . . . . = |
+  noi | c . . . . . . . . . . . . . . . |
+
+order
+  open
+  sigh

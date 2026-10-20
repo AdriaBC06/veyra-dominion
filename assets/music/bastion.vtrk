@@ -1,0 +1,201 @@
+# Aurum — the Bastion of Aurum, map 3, the royal city.
+# G minor march, 132 BPM 4/4: one bar = 16 rows. The royal army's anthem in
+# dotted rhythms on brass-like 25% pulses in thirds and sixths, oom-pah bass and
+# a snare-heavy drum line. Veyra's leitmotif hides inside it as a fanfare figure:
+# G-Ab-G, then the tritone fall to C# that leans up into D, played alone when
+# the brass falls silent.
+# Form (32 bars, loops): A the anthem | A' with a horn (wave) an octave down
+# and rolling snares | B the trio in Eb major, the horn singing over off-beat
+# brass, until her figure creeps in | C the crack in the gold: her figure
+# passed between the pulses over a dark bass, then the anthem rises a semitone
+# (her b2, applied to the whole army) and falls back to D.
+
+song Aurum
+tempo 132 4
+echo 0.11 0.15 0.12
+
+# Brass: a quick scoop and swell, like a lip onto the note.
+inst brass
+  vol 10 12 14 | 13 / 10 7 4 2 0
+  duty 1
+  pitch -12 -6 -2 0
+  vib 0.12 5.5 0.3
+# The second brass: the same, a step down in level.
+inst brass2
+  vol 6 8 9 | 8 / 6 4 2 1 0
+  duty 1
+  pitch -12 -6 -2 0
+  vib 0.12 5.5 0.3
+
+# Horn: a round wave (harmonics 1-3) for the octave double and the trio.
+inst horn
+  vol 5 8 11 13 14 | 14 / 12 9 6 3 1 0
+  pitch -6 -3 -1 0
+  vib 0.15 5 0.35
+  wave 7ACEFFFEDCBBAA987765544321000135
+
+# Her figure, the title's lead colour: thin, scooped, sighing.
+inst her
+  vol 7 10 12 | 11 / 9 7 5 3 2 1 0
+  duty 0 0 1
+  pitch -12 -6 -3 -1 0 / -1 -3 -6 -10
+  vib 0.25 5.5 0.25
+
+# The "pah" of the trio: one voice plays the whole chord with an arp macro.
+inst pahM
+  vol 9 8 6 4 2 0
+  arp | 0 4 7
+  duty 1
+inst pahm
+  vol 9 8 6 4 2 0
+  arp | 0 3 7
+  duty 1
+
+# Tuba: short, so the oom-pah breathes.
+inst tuba
+  vol 15 14 12 10 8 6 4 2 1 0
+# A held tuba for the dark bass of C.
+inst tubal
+  vol 13 12 11 10 | 9 / 6 3 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+# A dry, crisp military snare.
+inst snare
+  vol 15 14 11 8 5 3 1 0
+  pitch 30 0
+inst crash
+  vol 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare B5
+drum c crash F7
+
+# --- The anthem (A), lead ---------------------------------------------------------
+pattern a1 16
+  p1 brass | G4 . . G4 D5 . . . G5 . . . . . A5 Bb5 |
+pattern a2 16
+  p1 brass | A5 . . G5 F#5 . . . D5 . . . . . . . |
+pattern a3 16
+  p1 brass | Eb5 . . D5 C5 . . . Eb5 . . D5 C5 . Bb4 . |
+pattern a4 16
+  p1 brass | A4 . . . D5 . . . . . . . . . . = |
+pattern a6 16
+  p1 brass | C6 . . Bb5 A5 . . . G5 . . . A5 . Bb5 . |
+pattern a7 16
+  p1 brass | Eb6 . . D6 C6 . Bb5 . A5 . G5 . F#5 . . . |
+# Her figure, alone: the brass of the second voice falls silent.
+pattern a8 16
+  p1 her | G5 . . . Ab5 . G5 . . . C#5 . D5 . . = |
+
+# --- The anthem, second brass in thirds and sixths ----------------------------------
+pattern h1 16
+  p2 brass2 | D4 . . D4 Bb4 . . . D5 . . . . . F#5 G5 |
+pattern h2 16
+  p2 brass2 | F#5 . . E5 D5 . . . A4 . . . . . . . |
+pattern h3 16
+  p2 brass2 | C5 . . Bb4 G4 . . . C5 . . Bb4 G4 . G4 . |
+pattern h4 16
+  p2 brass2 | F#4 . . . A4 . . . . . . . . . . = |
+pattern h6 16
+  p2 brass2 | A5 . . G5 F5 . . . C5 . . . F5 . G5 . |
+pattern h7 16
+  p2 brass2 | G5 . . F5 Eb5 . D5 . C5 . Bb4 . A4 . . . |
+
+# --- The trio (B), Eb major, on the horn ---------------------------------------------
+pattern t1 16
+  wav horn | G4 . . . . . . . Bb4 . . . Ab4 . G4 . |
+pattern t2 16
+  wav horn | F4 . . . . . . . Eb4 . . . . . . . |
+pattern t3 16
+  wav horn | Ab4 . . . . . . . C5 . . . Bb4 . Ab4 . |
+pattern t4 16
+  wav horn | G4 . . . . . . . . . . . . . . = |
+pattern t5 16
+  wav horn | G4 . . . . . . . Bb4 . . . Eb5 . . . |
+pattern t6 16
+  wav horn | D5 . . . C5 . . . Bb4 . . . Ab4 . . . |
+pattern t8 16
+  wav horn | D4 . . . . . . . . . . . . . . = |
+# The brass takes the tune for the second half, an octave up.
+pattern u5 16
+  p1 brass2 | G5 . . . . . . . Bb5 . . . Eb6 . . . |
+pattern u6 16
+  p1 brass2 | D6 . . . C6 . . . Bb5 . . . Ab5 . . . |
+# Her figure creeps into the trio.
+pattern u7 16
+  p1 her | G5 . . . Ab5 . G5 . . . C#5 . D5 . . . |
+pattern u8 16
+  p1 her | . . . . . . . . . . . . . . . = |
+
+# --- The crack (C) -------------------------------------------------------------------
+pattern f1 16
+  p1 her | G5 . . . Ab5 . G5 . . . C#5 . D5 . . = |
+pattern f2 16
+  p2 her | G4 . . . Ab4 . G4 . . . C#4 . D4 . . = |
+pattern last 16
+  p1 brass | D5 . . . . . . . . . . . C#5 . D5 = |
+
+# --- Harmony and bass ------------------------------------------------------------------
+pattern pah 16
+  p2 pahM | . . Eb4 . . . Eb4 . . . Eb4 . . . Eb4 . |
+pattern oom 16
+  tri tuba | G2 . . . D2 . . . G2 . . . D2 . . . |
+pattern long 16
+  tri tubal | G2 . . . . . . . . . . . . . . . |
+
+# --- Drums -------------------------------------------------------------------------------
+pattern m1 16
+  noi | k . s:5 . s . . s:6 k . s:5 . s . s:6 s:8 |
+pattern m1c 16
+  noi | c . s:5 . s . . s:6 k . s:5 . s . s:6 s:8 |
+pattern m2 16
+  noi | k s:4 s:6 s:4 s s:4 s:6 s:5 k s:4 s:6 s:4 s s:6 s:8 s:a |
+pattern m2c 16
+  noi | c s:4 s:6 s:4 s s:4 s:6 s:5 k s:4 s:6 s:4 s s:6 s:8 s:a |
+pattern trio 16
+  noi | k . . . s:9 . . . k . . . s:9 . . s:6 |
+# Muffled timpani and a distant snare for the crack.
+pattern dark 16
+  noi | k . . . . . . . k:a . . . s:6 . . . |
+pattern roll 16
+  noi | s:5 s:6 s:6 s:7 s:8 s:8 s:9 s:a s:b s:b s:c s:d s:e s:e s s |
+
+order
+  # A: Gm D Cm D | Gm F Eb D
+  a1 h1 oom m1c
+  a2 h2 oom-5 m1
+  a3 h3 oom+5 m1
+  a4 h4 oom-5 m1
+  a1 h1 oom m1
+  a6 h6 oom-2 m1
+  a7 h7 oom-4 m1
+  a8 oom-5 m1
+  # A': the horn an octave down
+  a1 h1 a1@wav-12%horn oom m2c
+  a2 h2 a2@wav-12%horn oom-5 m2
+  a3 h3 a3@wav-12%horn oom+5 m2
+  a4 h4 a4@wav-12%horn oom-5 m2
+  a1 h1 a1@wav-12%horn oom m2
+  a6 h6 a6@wav-12%horn oom-2 m2
+  a7 h7 a7@wav-12%horn oom-4 m2
+  a8 a8@wav-12%horn oom-5 m2
+  # B: the trio. Eb Bb Ab Eb | Eb Bb Cm D
+  t1 pah oom-4 trio
+  t2 pah-5 oom+3 trio
+  t3 pah-7 oom+1 trio
+  t4 pah oom-4 trio
+  t5 u5 pah oom-4 m1c
+  t6 u6 pah-5 oom+3 m1
+  u7 pah-3%pahm long+5 m1
+  t8 u8 pah-1 oom-5 roll
+  # C: the crack. Gm Eb Cm D, then the anthem a semitone up and back
+  f1 long dark
+  f2 long-4 dark
+  f1 long+5 dark
+  f2 long-5 dark
+  a1 h1 a1@wav-12%horn oom m2c
+  a1+1 h1+1 a1@wav-11%horn oom+1 m2
+  a1 h1 a1@wav-12%horn oom m2
+  last oom-5 roll

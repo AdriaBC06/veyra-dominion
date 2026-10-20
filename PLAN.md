@@ -447,6 +447,13 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - Ashford: gallop bass, off-beat chord stabs (arp macro), the leitmotif as B–C–B–F–F# over B major; the breakdown passes it between the pulses and quotes the title's own pitches. Form A | A' (octave double) | B (long notes over 16th arps) | breakdown + build ending on D#; 32 bars, 51.2 s.
 - `render_audio` writes `target/audio/music/<name>.wav`, two loops in a row so the seam can be checked. To check a mix, render each channel alone (filter `Song.events` by channel): in both tracks the lead sits about 3 dB under the full mix and the accompaniment 7–12 dB under.
 
+**Implemented (V11):**
+- Tracks: Abbey "Saint Veil" (C Dorian chant on the wave, her Phrygian answers, then the chant turns Phrygian under organum in fourths and two bars of parallel tritones; 3+3+2 pulse; 32 bars, 64 s), Bastion "Aurum" (G minor march, brass in thirds, horn double, Eb trio; the leitmotif disguised as a fanfare figure, then the anthem rises a semitone; 58 s), Gate "The Gate" (A Lydian: heaven's #4 is her tritone; choir/trumpet hymn, her Bb/A against heaven's B/A; 55 s). Bosses, map tempo +10: Captain "The Watch" (E-F grinding bass, alarm bell = her B-C sigh; 36 s), Inquisitor "The Inquisition" (wave toccata, tritone chain bass, minor chords sliding by semitones, she sings his chant back; 44 s), Paladin "The Lion of Aurum" (G major fanfare with chromatic mediants vs her G minor, her Ab chord; 41 s), Archangel "Seraphic Wrath" (feathers / chromatic charge / pillars of light / hymn with her title voice answering; 51 s).
+- Jingles (`Jingle`, `assets/music/jingle_*.vtrk`): victory (bII V I in D Phrygian dominant), game over (the leitmotif sinks to G instead of leaning into A), summon Lesser / Greater / Abyssal (Abyssal states the whole leitmotif). The level-up jingle stays the approved `Sfx::LevelUp`. `Song::render_once` plays one pass then rings until a 50 ms block is silent (≤ 4 s); `music::render_jingle` levels the loudest 50 ms RMS to -16 dB (events tier). Exported to `target/audio/jingles/`.
+- Playback: `audio::jingle(Jingle)` (thread-local, like `cue`), played by `play_queued` at master × music volume. Music ducks to 0.3 under a jingle and rises back over 0.8 s (`mixer::duck`, tested). Victory and game over are wired in `Run`; leaving the run (title / new run) calls `stop_jingle`. Summon jingles wait for V21.
+- Loading: macroquad keeps each sound as stereo f32 (~350 KB/s), so all 9 loops would be ~160 MB. `Audio::load` renders only `PRELOADED` (Title, Ashford) plus the jingles; map and boss themes must load with their map (V19/V23), ideally freeing the previous map's.
+- All tracks render in ≤ 0.25 s each; mixes checked per channel: lead 3–5 dB under the mix, accompaniment 7–14 dB under.
+
 ### 7.11 Architecture changes
 
 - **Modules:**
@@ -558,8 +565,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S7 — First music** *(user approval)*
   - [x] V10 Tracker format + first themes
 - **S8 — Soundtrack** *(user approval)*
-  - [ ] V11 Remaining music + jingles
-  - [ ] **CP5 Audio**
+  - [x] V11 Remaining music + jingles
+  - [x] **CP5 Audio**
 - **S9 — Veyra** *(user approval; ask for the reference images at the start)*
   - [ ] V12 Veyra redesign
 - **S10 — Enemies look**
@@ -635,3 +642,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - User approved both tracks first listen ("están excelentes las dos"). Keep this approach for V11: a written musical idea per track, the leitmotif varied per map, per-channel solo renders to check the mix, levelled to -26 dBFS RMS.
   - Gotcha: `#` only starts a comment at the start of a word, since `F#4` is a note. Tracks are `include_str!`'d, so a temporary binary measuring them must be rebuilt after editing a `.vtrk`.
   - No intro sections: the whole order loops. Game over / victory keep the map theme until V11's jingles (ducking also lands there). Next: S8 (V11 remaining music + jingles, user approval).
+- **S8 (2026-10-20)** — V11 + CP5 done: 7 new loops (3 maps, 4 bosses) and 5 jingles, ducking, victory/game over wired (see 7.10 "Implemented (V11)"). 90 tests.
+  - User approved everything on first listen ("me mola todo"). Listening playlist: `target/audio/s8_banda_sonora.m3u` (not committed; regenerate the WAVs with `render_audio`).
+  - CP5: release binary 2.31 MB (2.08 MB stripped), up from 1.95 MB (the `.vtrk` sources are tiny; growth is code).
+  - Gotchas: `@ch` only moves one-line patterns (split harmony into its own pattern); an instrument with no `wave` on the wave channel is silent; a frame lasts as long as its longest pattern, so a jingle can be one long pattern; pitch `sweep` restarts on every note of the line.
+  - Not checked by ear in game: the ducking under victory/game over. Map/boss themes are not loaded yet (see 7.10). Next: S9 (V12 Veyra redesign — ask for the reference images first).

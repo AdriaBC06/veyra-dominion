@@ -1,6 +1,7 @@
 //! Decides which effects actually play: a voice cap and a minimum gap per effect,
-//! a random pitch variant (jitter) and the soul pickup combo. Pure logic on a
-//! clock passed in by the caller; `std` only.
+//! a random pitch variant (jitter) and the soul pickup combo; and how far the
+//! music ducks under a jingle. Pure logic on a clock passed in by the caller;
+//! `std` only.
 
 use super::sfx::{Sfx, COMBO_STEPS};
 
@@ -8,6 +9,20 @@ use super::sfx::{Sfx, COMBO_STEPS};
 const MAX_VOICES: usize = 8;
 /// Soul pickups closer together than this keep climbing the combo ladder.
 pub const COMBO_WINDOW: f64 = 0.6;
+/// Music level while a jingle plays (about -10 dB).
+const DUCK: f32 = 0.3;
+/// Seconds the music takes to come back up after the jingle.
+const DUCK_RELEASE: f64 = 0.8;
+
+/// Music gain at `now` for a jingle that ends at `until`: `DUCK` while it
+/// plays, then a linear rise back to 1.
+pub fn duck(now: f64, until: f64) -> f32 {
+    if now < until {
+        return DUCK;
+    }
+    let rise = ((now - until) / DUCK_RELEASE).min(1.0) as f32;
+    DUCK + (1.0 - DUCK) * rise
+}
 
 #[derive(Clone, Copy)]
 struct Slot {
@@ -94,6 +109,17 @@ impl Mixer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn music_ducks_under_a_jingle_then_recovers() {
+        assert_eq!(duck(0.0, f64::NEG_INFINITY), 1.0);
+        assert_eq!(duck(1.0, 3.0), DUCK);
+        assert_eq!(duck(3.0, 3.0), DUCK);
+        let mid = duck(3.0 + DUCK_RELEASE / 2.0, 3.0);
+        assert!(DUCK < mid && mid < 1.0);
+        assert_eq!(duck(3.0 + DUCK_RELEASE, 3.0), 1.0);
+        assert_eq!(duck(10.0, 3.0), 1.0);
+    }
 
     #[test]
     fn caps_voices_and_frees_them_when_done() {

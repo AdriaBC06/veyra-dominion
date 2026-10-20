@@ -1,0 +1,45 @@
+# Game over — Veyra falls.
+# D minor, 96 BPM, a long dying echo. Her leitmotif without its resolution: the
+# D-Eb-D sigh, then the tritone fall to G#, which never leans up into A but
+# sinks a semitone further to G, over her own Eb chord. It ends on a bare D
+# minor, her voice on the third.
+
+song Fallen
+tempo 96 4
+echo 0.47 0.4 0.3
+
+inst her
+  vol 7 10 12 13 | 12 / 10 8 6 5 4 3 2 1 0
+  duty 0 0 1
+  pitch -12 -6 -3 -1 0 / -1 -3 -6 -10 -16
+  vib 0.25 4.5 0.3
+inst pad
+  vol 4 6 7 8 | 8 / 6 5 4 3 2 1 0
+  duty 2
+inst voice
+  vol 3 5 7 9 10 | 10 / 8 6 5 4 3 2 1 0
+  pitch -16 -8 -4 -2 0 / -2 -6 -12 -20
+  vib 0.2 4 0.3
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+inst bass
+  vol 12 11 10 9 | 9 / 7 5 3 1 0
+
+# A long breath of noise, as in the title theme.
+inst breath
+  vol 1 1 2 2 3 3 4 4 5 5 5 5 5 4 4 4 4 3 3 3 3 3 2 2 2 2 2 2 1 1 1 1 1 1 1 1 0
+inst thud
+  vol 13 11 8 5 3 1 0
+  sweep -40
+
+drum w breath G6
+drum t thud C2
+
+pattern fall 40
+  p1 her | D5 . . . Eb5 . . . D5 . . . . . . . | G#4 . . . . . . . G4 . . . . . . = | . . . . . . . . |
+  p2 pad | F4 . . . G4 . . . F4 . . . . . . . | Eb4 . . . . . . . Bb3 . . . . . . = | D4 . . . . . . = |
+  tri bass | D2 . . . . . . . . . . . . . . . | Eb2 . . . . . . . . . . . . . . . | D2 . . . . . . = |
+  wav voice | . . . . . . . . . . . . . . . . | . . . . . . . . . . . . . . . . | F4 . . . . . . = |
+  noi | w . . . . . . . . . . . . . . . | . . . . . . . . . . . . . . . . | t . . . . . . . |
+
+order
+  fall

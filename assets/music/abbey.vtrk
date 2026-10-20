@@ -1,0 +1,218 @@
+# Saint Veil — the Abbey, map 2, where Veyra was bound for centuries.
+# C Dorian (C D Eb F G A Bb) against C Phrygian (Db Ab), 120 BPM 4/4: one bar =
+# 16 rows. The Abbey's plainchant is sung by the wave in pure Dorian (the A
+# natural over F is its signature) on a 3+3+2 processional pulse. Veyra seeps in
+# through the pulse with the Phrygian b2: her leitmotif here is C-Db-C, then the
+# tritone fall to F# that leans up into G.
+# Form (32 bars, loops): A the chant alone | A' her answers in the chant's held
+# notes | B the chant itself turns Phrygian, first under organum in parallel
+# fourths, then in parallel tritones (diabolus in musica), and lands in her own
+# mode, C Phrygian dominant | C her melody over a rising organ line, a bell-led
+# breakdown and a build ending on G.
+
+song Saint Veil
+tempo 120 4
+echo 0.375 0.35 0.22
+
+# The chant: an organ-like wave (harmonics 1-4) that swells like a breath.
+inst chant
+  vol 4 7 10 12 14 15 | 15 / 13 11 9 7 5 3 2 1 0
+  pitch -8 -4 -2 0
+  vib 0.15 5 0.4
+  wave 8BEFFEDCBBBAA9888776554443210014
+
+# The same organ, held quietly under C.
+inst organ
+  vol 2 3 4 5 6 7 | 7 / 6 5 4 3 2 1 0
+  wave 8BEFFEDCBBBAA9888776554443210014
+
+# Veyra: a thin 12.5% pulse that scoops into each note and sighs on release,
+# like her lead in the title theme.
+inst her
+  vol 7 10 12 | 11 / 9 7 5 3 2 1 0
+  duty 0 0 1
+  pitch -12 -6 -3 -1 0 / -1 -3 -6 -10
+  vib 0.25 5.5 0.25
+
+# The organum voice under the chant in B: hollow 50%, a step behind in level.
+inst organum
+  vol 4 6 7 | 7 / 5 3 2 1 0
+  duty 2
+
+# Her lead in C, fuller.
+inst lead
+  vol 9 12 13 | 12 / 9 6 4 2 1 0
+  duty 1
+  pitch -10 -5 -2 0
+  vib 0.2 5.5 0.3
+
+# Quiet 12.5% broken chords in eighths.
+inst arp
+  vol 7 6 5 4 3 3 2 2 1 0
+  duty 0
+
+# A chip bell: the arp macro rings the fifth and octave above the struck note.
+inst bell
+  vol 12 11 10 9 8 8 7 7 6 6 5 5 4 4 4 3 3 3 2 2 2 2 1 1 1 1 0
+  arp | 0 19 12 24
+  duty 2
+
+# Bass: struck, then held at half level, so the 3+3+2 pulse is felt.
+inst bass
+  vol 12 11 10 9 8 7 | 7 / 3 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 13 12 10 8 6 5 4 3 2 1 0
+  pitch 24 0
+inst hat
+  vol 7 4 2 0
+inst crash
+  vol 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare A5
+drum h hat C8
+drum c crash F7
+
+# --- The chant, C Dorian -----------------------------------------------------------
+pattern c1 16
+  wav chant | C5 . . . . . . . D5 . . . Eb5 . F5 . |
+pattern c2 16
+  wav chant | G5 . . . . . . . . . . . . . . . |
+pattern c3 16
+  wav chant | G5 . . . A5 . G5 . F5 . . . G5 . . . |
+pattern c4 16
+  wav chant | Eb5 . . . D5 . . . C5 . . . . . . . |
+pattern c5 16
+  wav chant | F5 . . . . . . . G5 . . . A5 . . . |
+pattern c6 16
+  wav chant | Bb5 . . . . . . . A5 . G5 . A5 . . . |
+pattern c7 16
+  wav chant | G5 . . . F5 . . . Eb5 . F5 . D5 . . . |
+pattern c8 16
+  wav chant | C5 . . . . . . . . . . . . . . = |
+
+# --- The chant turned Phrygian (B) --------------------------------------------------
+pattern q1 16
+  wav chant | C5 . . . . . . . Db5 . . . Eb5 . F5 . |
+pattern q2 16
+  wav chant | Ab5 . . . . . . . F5 . . . . . . . |
+pattern q3 16
+  wav chant | G5 . . . Ab5 . G5 . F5 . . . G5 . . . |
+pattern q4 16
+  wav chant | Eb5 . . . Db5 . . . C5 . . . . . . . |
+pattern q5 16
+  wav chant | F5 . . . . . . . G5 . . . Ab5 . . . |
+pattern q6 16
+  wav chant | Bb5 . . . . . . . Ab5 . G5 . Ab5 . . . |
+pattern q7 16
+  wav chant | G5 . . . F5 . . . Eb5 . F5 . Db5 . . . |
+
+# --- Her answers in A', in the chant's held notes ------------------------------------
+pattern k1 16
+  p1 her | . . . . Db6 . C6 . . . . . . . . = |
+pattern k2 16
+  p1 her | . . . . Ab5 . . . G5 . . . . . . = |
+pattern k4 16
+  p1 her | . . . . . . . . C6 . Db6 . C6 . F#5 G5 |
+pattern k5 16
+  p1 her | . . . = . . . . . . . . . . . . |
+pattern k6 16
+  p1 her | . . . . F6 . Eb6 . Db6 . . . . . . = |
+# The whole leitmotif while the chant holds its final C.
+pattern k8 16
+  p1 her | C6 . . . Db6 . C6 . . . F#5 . G5 . . = |
+
+# --- Her melody (C), C minor with Phrygian colour -------------------------------------
+pattern d1 16
+  p1 lead | G5 . . . Ab5 . G5 . . . . . F5 . Eb5 . |
+pattern d2 16
+  p1 lead | F5 . . . . . . . Eb5 . Db5 . C5 . . . |
+pattern d3 16
+  p1 lead | Eb5 . . . F5 . G5 . . . Ab5 . G5 . . . |
+pattern d4 16
+  p1 lead | Bb5 . . . . . . . Ab5 . G5 . F5 . . . |
+pattern d5 16
+  p1 lead | C6 . . . Db6 . C6 . . . . . G5 . . . |
+pattern d6 16
+  p1 lead | Ab5 . . . . . . . G5 . F5 . Eb5 . . . |
+# G Phrygian dominant climbing to the leading tone.
+pattern d7 16
+  p1 lead | D5 . . . Eb5 . F5 . G5 . Ab5 . B5 . . . |
+pattern d8 16
+  p1 lead | D6 . . . . . . . B5 . . . G5 . . = |
+
+# --- Organ line under C, one note a bar, transposed --------------------------------
+pattern org 16
+  wav organ | C4 . . . . . . . . . . . . . . . |
+
+# --- Harmony ---------------------------------------------------------------------------
+pattern arpm 16
+  p2 arp | C4 . G4 . C5 . Eb5 . G5 . Eb5 . C5 . G4 . |
+pattern arpM 16
+  p2 arp | C4 . G4 . C5 . E5 . G5 . E5 . C5 . G4 . |
+pattern bells 16
+  p2 bell | C5 . . . . . . . . . . . G4:a . . . |
+
+# --- Bass: 3+3+2 ------------------------------------------------------------------------
+pattern ped 16
+  tri bass | C2 . . C2 . . C3 . C2 . . C2 . . Bb1 . |
+pattern pedl 16
+  tri bass | C2 . . . . . . . . . . . . . . . |
+
+# --- Drums ------------------------------------------------------------------------------
+pattern rit 16
+  noi | k . h k . h s . k . h k . h s h:5 |
+pattern ritc 16
+  noi | c . h k . h s . k . h k . h s h:5 |
+pattern rit2 16
+  noi | k h:4 h k h:4 h s h:4 k h:4 h k h:4 h s s:7 |
+pattern rit2c 16
+  noi | c h:4 h k h:4 h s h:4 k h:4 h k h:4 h s s:7 |
+pattern half 16
+  noi | k . . . . . . . s . . . . . . . |
+pattern halfc 16
+  noi | c . . . . . . . s . . . . . . . |
+pattern fill 16
+  noi | k . h k . h s . s:7 s:8 s:9 s:a s:b s:c s:d s |
+
+order
+  # A: the chant alone. Cm Cm F Cm | F Bb Gm Cm
+  c1 ped arpm ritc
+  c2 ped arpm rit
+  c3 ped+5 arpM-7 rit
+  c4 ped arpm rit
+  c5 ped+5 arpM-7 rit
+  c6 ped-2 arpM-2 rit
+  c7 ped-5 arpm-5 rit
+  c8 ped arpm rit
+  # A': her answers
+  c1 k1 ped arpm rit2c
+  c2 k2 ped arpm rit2
+  c3 ped+5 arpM-7 rit2
+  c4 k4 ped arpm rit2
+  c5 k5 ped+5 arpM-7 rit2
+  c6 k6 ped-2 arpM-2 rit2
+  c7 ped-5 arpm-5 rit2
+  c8 k8 ped arpm rit2
+  # B: Phrygian, organum in fourths, two bars of tritones, fourths again. Cm Db Cm Ab | Fm Bbm Db C
+  q1 q1@p1-5%organum ped arpm ritc
+  q2 q2@p1-5%organum ped+1 arpM+1 rit
+  q3 q3@p1-5%organum ped arpm rit
+  q4 q4@p1-5%organum ped-4 arpM-4 rit
+  q5 q5@p1-6%organum ped+5 arpm-7 rit2
+  q6 q6@p1-6%organum ped-2 arpm-2 rit2
+  q7 q7@p1-5%organum ped+1 arpM+1 rit2
+  c8 k8 ped arpM rit2
+  # C: her melody over a rising organ. Cm Db Ab Eb | Cm Fm G G
+  d1 org+3 pedl bells halfc
+  d2 org+5 pedl+1 bells+1 half
+  d3 org+3 pedl-4 bells-4 half
+  d4 org+7 pedl+3 bells+3 half
+  d5 org+7 ped arpm rit2c
+  d6 org+8 ped+5 arpm-7 rit2
+  d7 org+11 ped-5 arpM-5 rit2
+  d8 org+11 ped-5 arpM-5 fill

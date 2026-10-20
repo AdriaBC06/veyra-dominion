@@ -1,0 +1,140 @@
+# The Inquisition — boss of the Abbey, the Grand Inquisitor.
+# C minor, chromatic, 130 BPM 4/4 (Abbey +10): one bar = 16 rows. The Abbey's
+# organ becomes a relentless toccata in sixteenths (a moving line over a
+# repeated pedal note), the bass leaps a tritone into each bar's fifth like a
+# chain pulled tight, and the noise clanks like chains. The Inquisitor's
+# sentence is a stern chant in octaves on the brass; the harmony moves only
+# through minor chords, sliding by semitones (Abm, Dbm) when he loses patience.
+# Form (24 bars, loops): A his sentence | B the fight: her leitmotif (C-Db-C,
+# the fall to F#, into G) against fragments of his chant, until they meet on
+# Gm | C she sings his chant back at him, in her own voice, over his brass.
+
+song The Inquisition
+tempo 130 4
+echo 0.23 0.25 0.15
+
+# The toccata organ: each sixteenth struck and quickly let go.
+inst toccata
+  vol 15 14 12 11 10 9 | 9 / 0
+  wave 8BEFFEDCBBBAA9888776554443210014
+
+inst brass
+  vol 10 12 14 | 13 / 10 7 4 2 0
+  duty 1
+  pitch -12 -6 -2 0
+  vib 0.12 5 0.35
+inst brass2
+  vol 7 9 10 | 9 / 7 5 3 1 0
+  duty 2
+  pitch -12 -6 -2 0
+
+inst her
+  vol 7 10 12 13 | 12 / 10 8 6 4 2 1 0
+  duty 0 1 1 2
+  pitch -12 -6 -3 -1 0 / -1 -3 -6 -10
+  vib 0.25 5.5 0.25
+
+inst bass
+  vol 14 12 10 9 8 7 | 7 / 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 14 13 11 9 7 5 4 3 2 1 0
+  pitch 24 0
+# A chain: a short, metallic clank of the short noise.
+inst chain
+  vol 11 9 7 5 4 3 2 1 0
+  duty 1
+  pitch 16 0
+inst crash
+  vol 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare A5
+drum x chain G5
+drum c crash F7
+
+# --- His sentence ------------------------------------------------------------------
+pattern i1 16
+  p1 brass | C5 . . . . . . . Eb5 . . . G5 . . . |
+pattern i2 16
+  p1 brass | G5 . . . . . . . F5 . Eb5 . D5 . . . |
+pattern i3 16
+  p1 brass | C5 . . . . . . . Ab5 . . . G5 . F5 . |
+pattern i4 16
+  p1 brass | G5 . . . . . . . . . . . . . . = |
+pattern i5 16
+  p1 brass | F5 . . . . . . . Ab5 . . . C6 . . . |
+pattern i6 16
+  p1 brass | Bb5 . . . . . . . G5 . . . D5 . . . |
+pattern i7 16
+  p1 brass | Eb5 . . . . . . . B4 . . . Ab4 . . . |
+pattern i8 16
+  p1 brass | G4 . . . . . . . . . . . D5 . . = |
+
+# --- The fight (B) -------------------------------------------------------------------
+pattern f1 16
+  p1 her | C6 . . . Db6 . C6 . . . F#5 . G5 . . = |
+pattern f2 16
+  p2 brass | Db5 . . . . . . . E5 . . . Ab5 . . = |
+pattern f3 16
+  p1 her | G5 . . . Ab5 . G5 . . . C#5 . D5 . . = |
+pattern f4 16
+  p2 brass | Bb4 . . . . . . . Db5 . . . F5 . . = |
+pattern f6 16
+  p2 brass | Ab5 . . . . . . . E5 . . . Db5 . . = |
+pattern f7 16
+  p1 her | Eb6 . . . E6 . Eb6 . . . A5 . Bb5 . . . |
+  p2 brass2 | Eb5 . . . . . . . . . . . . . . = |
+pattern f8 16
+  p1 her | D6 . . . . . . . . . . . . . . = |
+  p2 brass2 | G5 . . . . . . . . . . . . . . = |
+
+# --- Toccata and bass, transposed per chord (minor) -------------------------------
+pattern tc 16
+  wav toccata | C5 G4 Eb5 G4 D5 G4 C5 G4 B4 G4 C5 G4 D5 G4 Eb5 G4 |
+pattern chain 16
+  tri bass | C2 . C3 . C2 . C3 . C2 . C3 . F#2 . G2 . |
+
+# --- Drums -------------------------------------------------------------------------------
+pattern beat 16
+  noi | k . x . s . . x k . x k s . x . |
+pattern beatc 16
+  noi | c . x . s . . x k . x k s . x . |
+pattern beat2 16
+  noi | k x:6 x k s x:6 . x k x:6 x k s x:6 x s:8 |
+pattern beat2c 16
+  noi | c x:6 x k s x:6 . x k x:6 x k s x:6 x s:8 |
+pattern fill 16
+  noi | k . x . s . x x s:9 s:a s:b s:c s:d s:e s s |
+
+order
+  # A: his sentence. Cm Cm Fm Cm | Fm Gm Abm Gm
+  i1 i1@p2-12%brass2 tc chain beatc
+  i2 i2@p2-12%brass2 tc chain beat
+  i3 i3@p2-12%brass2 tc+5 chain+5 beat
+  i4 i4@p2-12%brass2 tc chain beat
+  i5 i5@p2-12%brass2 tc+5 chain+5 beat
+  i6 i6@p2-12%brass2 tc+7 chain+7 beat
+  i7 i7@p2-12%brass2 tc-4 chain-4 beat
+  i8 i8@p2-12%brass2 tc+7 chain+7 beat
+  # B: the fight. Cm Dbm Cm Bbm | Cm Dbm Ebm Gm
+  f1 tc chain beatc
+  f2 tc+1 chain+1 beat
+  f3 tc chain beat
+  f4 tc-2 chain-2 beat
+  f1 tc chain beat2
+  f6 tc+1 chain+1 beat2
+  f7 tc+3 chain+3 beat2
+  f8 tc+7 chain+7 fill
+  # C: she sings his chant back at him
+  i1%her i1@p2-12%brass tc chain beat2c
+  i2%her i2@p2-12%brass tc chain beat2
+  i3%her i3@p2-12%brass tc+5 chain+5 beat2
+  i4%her i4@p2-12%brass tc chain beat2
+  i5%her i5@p2-12%brass tc+5 chain+5 beat2
+  i6%her i6@p2-12%brass tc+7 chain+7 beat2
+  i7%her i7@p2-12%brass tc-4 chain-4 beat2
+  i8%her i8@p2-12%brass tc+7 chain+7 fill

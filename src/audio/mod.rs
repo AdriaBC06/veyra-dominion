@@ -1,9 +1,9 @@
 //! Audio: own chip synthesizer, sound effect presets, the tracker music and the
-//! mixer. Every effect variant and every track is rendered at load and handed to
-//! macroquad as WAV bytes; tracks play as seamless loops. Anything on
-//! the main thread can queue an effect with `cue`; the app plays the queue once
-//! per frame. The simulation never cues directly: `Game` collects `Cue`s and the
-//! run scene translates them.
+//! mixer. Every effect variant, jingle and preloaded track is rendered at load
+//! and handed to macroquad as WAV bytes; tracks play as seamless loops and duck
+//! under jingles. Anything on the main thread can queue an effect with `cue` or a
+//! jingle with `jingle`; the app plays the queue once per frame. The simulation
+//! never cues directly: `Game` collects `Cue`s and the run scene translates them.
 
 pub mod mixer;
 pub mod music;
@@ -18,13 +18,21 @@ use macroquad::audio::{
     load_sound_from_bytes, play_sound, set_sound_volume, stop_sound, PlaySoundParams, Sound,
 };
 use mixer::Mixer;
-pub use music::Track;
+pub use music::{Jingle, Track};
 pub use sfx::Sfx;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+
+/// Tracks rendered at load: the ones the game plays so far. macroquad keeps a
+/// loaded sound as stereo f32 (about 350 KB a second), so all nine loops would
+/// take about 160 MB; the map and boss themes load with their map instead
+/// (V19/V23).
+const PRELOADED: [Track; 2] = [Track::Title, Track::Ashford];
 
 thread_local! {
     /// Effects requested this frame, at most one of each.
     static QUEUE: RefCell<Vec<Sfx>> = RefCell::new(Vec::with_capacity(Sfx::COUNT));
+    /// The jingle requested this frame; a later request replaces it.
+    static JINGLE: Cell<Option<Jingle>> = const { Cell::new(None) };
 }
 
 /// Queues `sfx` to be played at the end of this frame.
@@ -43,6 +51,12 @@ pub fn recue(old: Sfx, new: Sfx) {
     cue(new);
 }
 
+/// Plays `jingle` at the end of this frame, over any jingle still playing, with
+/// the music ducked under it.
+pub fn jingle(jingle: Jingle) {
+    JINGLE.set(Some(jingle));
+}
+
 /// Empties the queue and returns it, for tests.
 #[cfg(test)]
 pub fn take_cues() -> Vec<Sfx> {
@@ -54,10 +68,18 @@ pub struct Audio {
     sounds: Vec<Vec<Sound>>,
     mixer: Mixer,
     sfx_volume: f32,
-    /// One loop per `Track`; `None` if it failed to render or load.
+    /// One loop per `Track`; `None` if not preloaded or it failed to load.
     music: Vec<Option<Sound>>,
     playing: Option<Track>,
+    /// master × music, before ducking.
     music_volume: f32,
+    /// Per `Jingle`, the sound and its length in seconds.
+    jingles: Vec<Option<(Sound, f64)>>,
+    jingle: Option<Jingle>,
+    /// When the current jingle ends, on the app clock.
+    jingle_end: f64,
+    /// The music gain from ducking, last applied.
+    duck: f32,
 }
 
 impl Audio {
@@ -76,15 +98,13 @@ impl Audio {
             }
             sounds.push(variants);
         }
-        let mut music = Vec::with_capacity(Track::ALL.len());
-        for track in Track::ALL {
-            let sound = match music::render(track) {
-                Ok(samples) => load_sound_from_bytes(&wav::encode(&samples, synth::SAMPLE_RATE))
-                    .await
-                    .map_err(|e| e.to_string()),
-                Err(e) => Err(e),
-            };
-            music.push(sound.map_err(|e| eprintln!("audio: {e}")).ok());
+        let mut music: Vec<Option<Sound>> = Track::ALL.iter().map(|_| None).collect();
+        for track in PRELOADED {
+            music[track as usize] = load_samples(music::render(track)).await.map(|s| s.0);
+        }
+        let mut jingles = Vec::with_capacity(Jingle::ALL.len());
+        for jingle in Jingle::ALL {
+            jingles.push(load_samples(music::render_jingle(jingle)).await);
         }
         Self {
             sounds,
@@ -93,7 +113,15 @@ impl Audio {
             music,
             playing: None,
             music_volume: 1.0,
+            jingles,
+            jingle: None,
+            jingle_end: f64::NEG_INFINITY,
+            duck: 1.0,
         }
+    }
+
+    fn playing_track(&self) -> Option<&Sound> {
+        self.playing.and_then(|t| self.music[t as usize].as_ref())
     }
 
     pub fn set_volumes(&mut self, master: f32, music: f32, sfx: f32) {
@@ -101,8 +129,8 @@ impl Audio {
         let music = master * music;
         if music != self.music_volume {
             self.music_volume = music;
-            if let Some(sound) = self.playing.and_then(|t| self.music[t as usize].as_ref()) {
-                set_sound_volume(sound, music);
+            if let Some(sound) = self.playing_track() {
+                set_sound_volume(sound, music * self.duck);
             }
         }
     }
@@ -118,7 +146,7 @@ impl Audio {
                 sound,
                 PlaySoundParams {
                     looped: true,
-                    volume: self.music_volume,
+                    volume: self.music_volume * self.duck,
                 },
             );
         }
@@ -126,13 +154,48 @@ impl Audio {
     }
 
     pub fn stop_music(&mut self) {
-        if let Some(sound) = self.playing.take().and_then(|t| self.music[t as usize].as_ref()) {
+        if let Some(sound) = self.playing_track() {
             stop_sound(sound);
         }
+        self.playing = None;
     }
 
-    /// Plays this frame's queued effects; `now` is the app clock in seconds.
+    /// Cuts the current jingle short and lifts the ducking at once.
+    pub fn stop_jingle(&mut self) {
+        if let Some((sound, _)) = self
+            .jingle
+            .take()
+            .and_then(|j| self.jingles[j as usize].as_ref())
+        {
+            stop_sound(sound);
+        }
+        self.jingle_end = f64::NEG_INFINITY;
+    }
+
+    /// Plays this frame's jingle and queued effects and updates the ducking;
+    /// `now` is the app clock in seconds.
     pub fn play_queued(&mut self, now: f64) {
+        if let Some(jingle) = JINGLE.take() {
+            self.stop_jingle();
+            if let Some((sound, secs)) = &self.jingles[jingle as usize] {
+                play_sound(
+                    sound,
+                    PlaySoundParams {
+                        looped: false,
+                        volume: self.music_volume,
+                    },
+                );
+                self.jingle = Some(jingle);
+                self.jingle_end = now + secs;
+            }
+        }
+        let duck = mixer::duck(now, self.jingle_end);
+        if duck != self.duck {
+            self.duck = duck;
+            if let Some(sound) = self.playing_track() {
+                set_sound_volume(sound, self.music_volume * duck);
+            }
+        }
         QUEUE.with_borrow_mut(|q| {
             for sfx in q.drain(..) {
                 let Some(variant) = self.mixer.trigger(sfx, now) else {
@@ -152,6 +215,20 @@ impl Audio {
                 }
             }
         });
+    }
+}
+
+/// Loads rendered samples as a sound with its length in seconds; failures are
+/// only reported.
+async fn load_samples(samples: Result<Vec<f32>, String>) -> Option<(Sound, f64)> {
+    let samples = samples.map_err(|e| eprintln!("audio: {e}")).ok()?;
+    let secs = samples.len() as f64 / f64::from(synth::SAMPLE_RATE);
+    match load_sound_from_bytes(&wav::encode(&samples, synth::SAMPLE_RATE)).await {
+        Ok(sound) => Some((sound, secs)),
+        Err(e) => {
+            eprintln!("audio: {e}");
+            None
+        }
     }
 }
 

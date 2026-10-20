@@ -3,7 +3,7 @@
 
 use super::Nav;
 use crate::assets::{self, sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
-use crate::audio::{self, Sfx};
+use crate::audio::{self, Jingle, Sfx};
 use crate::config::*;
 use crate::game::{Cue, Game, InputState, SimEvent};
 use crate::hud;
@@ -112,10 +112,12 @@ impl Run {
                     break;
                 }
                 SimEvent::PlayerDied => {
+                    audio::jingle(Jingle::GameOver);
                     self.set_state(State::GameOver);
                     break;
                 }
                 SimEvent::Victory => {
+                    audio::jingle(Jingle::Victory);
                     self.set_state(State::Victory);
                     break;
                 }

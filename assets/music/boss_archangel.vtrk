@@ -1,0 +1,189 @@
+# Seraphic Wrath — the final boss, the Archangel at the Celestial Gate.
+# A Lydian against Veyra's A Phrygian dominant, chromatic, 150 BPM 4/4 (the
+# Gate +10): one bar = 16 rows. Three sections follow his three phases.
+# Form (32 bars, loops): A feathers: heaven's hymn on trumpet and choir while
+# falling Lydian runs flutter down like feathers | B the charge: the hymn's
+# opening rises a semitone every bar over Ashford's gallop, A to E | C pillars
+# of light: the choir climbs in held notes while her leitmotif (A-Bb-A, the
+# fall to D#, into E) is stretched across five bars, one pillar per note, and
+# her Phrygian cadence (F to E) answers | D the hymn again, and her voice from
+# the title (the wave) answers in its held notes.
+
+song Seraphic Wrath
+tempo 150 4
+echo 0.3 0.3 0.2
+
+inst trumpet
+  vol 10 13 15 | 13 / 10 7 4 1 0
+  duty 2
+  pitch -6 -2 0
+  vib 0.15 6 0.25
+inst trumpet2
+  vol 7 9 10 | 9 / 7 5 3 1 0
+  duty 1
+  vib 0.15 6 0.25
+
+inst her
+  vol 8 11 13 14 | 13 / 11 9 7 5 3 2 1 0
+  duty 0 1 1 2
+  pitch -12 -6 -3 -1 0 / -1 -3 -6 -10
+  vib 0.25 5 0.4
+
+inst choir
+  vol 4 7 10 12 14 15 | 15 / 13 11 9 7 5 3 2 1 0
+  pitch -6 -3 -1 0
+  vib 0.18 5 0.35
+  wave 8BDEFEFFFFFEFEDB8421010000010124
+# Her voice from the title theme, same wave and contour.
+inst voice
+  vol 4 7 10 12 13 14 | 14 / 12 9 7 5 4 3 2 1 0
+  pitch -16 -8 -4 -2 | 0 / -2 -6 -12 -20
+  vib 0.2 4.5 0.3
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+
+# Feathers: light, dry 12.5% plucks.
+inst feather
+  vol 9 7 5 3 2 1 0
+  duty 0
+inst shine
+  vol 7 6 5 4 3 2 1 0
+  duty 0 1
+inst stabM
+  vol 12 11 9 7 5 3 1 0
+  arp | 0 4 7
+  duty 1
+
+inst bass
+  vol 13 12 10 9 8 7 | 7 / 0
+inst gallop
+  vol 15 13 11 9 8 7 6 5 | 5 / 0
+inst pillar
+  vol 14 13 12 11 10 | 9 / 6 3 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 14 13 11 9 7 5 4 3 2 1 0
+  pitch 24 0
+inst hat
+  vol 7 4 2 0
+inst ride
+  vol 8 7 6 5 4 4 3 3 2 2 1 1 0
+  duty 1
+inst crash
+  vol 11 10 9 9 8 8 7 7 6 6 6 5 5 5 4 4 4 4 3 3 3 3 2 2 2 2 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare A5
+drum h hat C8
+drum r ride C6
+drum c crash F7
+
+# --- Heaven's hymn (as at the Gate) ---------------------------------------------------
+pattern h1 16
+  p1 trumpet | E5 . . . A5 . . . B5 . C#6 . . . E6 . |
+pattern h2 16
+  p1 trumpet | D#6 . . . . . . . C#6 . B5 . . . . . |
+pattern h3 16
+  p1 trumpet | E5 . . . A5 . . . B5 . C#6 . . . A6 . |
+pattern h4 16
+  p1 trumpet | G#6 . . . F#6 . . . D#6 . . . B5 . . . |
+pattern h5 16
+  p1 trumpet | C#6 . . . . . . . A5 . . . F#5 . . . |
+pattern h6 16
+  p1 trumpet | E6 . . . . . . . C#6 . D#6 . E6 . . . |
+pattern h7 16
+  p1 trumpet | F#6 . . . E6 . D#6 . C#6 . . . B5 . . . |
+pattern h8 16
+  p1 trumpet | B5 . . . . . . . . . . . G#5 . . = |
+
+# --- Feathers (A): falling runs, Lydian (fe) or minor (fm) -------------------------------
+pattern fe 16
+  p2 feather | E6 D#6 C#6 B5 A5 . . . E6 D#6 C#6 B5 A5 . E5 . |
+pattern fm 16
+  p2 feather | E6 D6 C6 B5 A5 . . . E6 D6 C6 B5 A5 . E5 . |
+
+# --- The charge (B) -------------------------------------------------------------------------
+pattern chg 16
+  p1 trumpet | E4 . . . A4 . . . B4 . C#5 . . . E5 . |
+pattern stab 16
+  p2 stabM | . . A4 . . . A4 . . . A4 . . . A4 . |
+pattern gal 16
+  tri gallop | A1 . A1 A1 A1 . A1 A1 A1 . A1 A1 A2 . A2 A1 |
+
+# --- Pillars of light (C) ---------------------------------------------------------------
+pattern hold 16
+  p1 her | A5 . . . . . . . . . . . . . . = |
+pattern pil 16
+  wav choir | A4 . . . . . . . . . . . . . . = |
+pattern low 16
+  tri pillar | A1 . . . . . . . . . . . . . . = |
+
+# --- Her voice answers (D) --------------------------------------------------------------
+pattern v2 16
+  wav voice | . . . . A5 . Bb5 . A5 . . . . . . = |
+pattern v5 16
+  wav voice | . . A5 . Bb5 . A5 . . . . . . . . = |
+pattern v8 16
+  wav voice | . . . . A5 . Bb5 . A5 . . . D#5 . E5 = |
+
+# --- Arps and bass ---------------------------------------------------------------------
+pattern arpA 16
+  p2 shine | A4 C#5 E5 A5 D#6 A5 E5 C#5 A4 C#5 E5 A5 D#6 A5 E5 C#5 |
+pattern arpM 16
+  p2 shine | A4 C#5 E5 A5 C#6 A5 E5 C#5 A4 C#5 E5 A5 C#6 A5 E5 C#5 |
+pattern oct 16
+  tri bass | A1 . A2 . A1 . A2 . A1 . A2 . A1 . A2 . |
+
+# --- Drums -------------------------------------------------------------------------------
+pattern sky2 16
+  noi | k r h r s r h r k r h k s r h s:8 |
+pattern sky2c 16
+  noi | c r h r s r h r k r h k s r h s:8 |
+pattern charge 16
+  noi | k h k h s h k h k h k h s h s s |
+pattern chargec 16
+  noi | c h k h s h k h k h k h s h s s |
+pattern pillars 16
+  noi | c . . . . . r . s . . . . . r . |
+pattern fill 16
+  noi | k . r . s . r . s:8 s:9 s:a s:b s:c s:d s:e s |
+
+order
+  # A: feathers. A B/A A B | F#m C#m B E
+  h1 h1@wav-12%choir fe oct sky2c
+  h2 h2@wav-12%choir fe+2 oct sky2
+  h3 h3@wav-12%choir fe oct sky2
+  h4 h4@wav-12%choir fe+2 oct+2 sky2
+  h5 h5@wav-12%choir fm-3 oct-3 sky2
+  h6 h6@wav-12%choir fm+4 oct+4 sky2
+  h7 h7@wav-12%choir fe+2 oct+2 sky2
+  h8 h8@wav-12%choir fe-5 oct+7 sky2
+  # B: the charge, a semitone up every bar. A Bb B C C# D D# E
+  chg stab gal chargec
+  chg+1 stab+1 gal+1 charge
+  chg+2 stab+2 gal+2 charge
+  chg+3 stab+3 gal+3 charge
+  chg+4 stab+4 gal+4 charge
+  chg+5 stab+5 gal+5 charge
+  chg+6 stab+6 gal+6 charge
+  chg+7 stab+7 gal+7 fill
+  # C: pillars of light. A Bb A B | E F E E
+  hold pil+16 arpA low pillars
+  hold+1 pil+17 arpM+1 low+1 pillars
+  hold pil+19 arpA low pillars
+  hold-6 pil+21 arpM+2 low+2 pillars
+  hold-5 pil+23 arpM-5 low+7 pillars
+  hold-4 pil+24 arpM-4 low+8 pillars
+  hold-5 pil+23 arpM-5 low+7 pillars
+  hold-10 pil+14 arpM-5 low+7 fill
+  # D: the hymn, and her voice answers
+  h1 h1@p2-12%trumpet2 oct sky2c
+  h2 h2@p2-12%trumpet2 v2 oct sky2
+  h3 h3@p2-12%trumpet2 oct sky2
+  h4 h4@p2-12%trumpet2 oct+2 sky2
+  h5 h5@p2-12%trumpet2 v5 oct-3 sky2
+  h6 h6@p2-12%trumpet2 oct+4 sky2
+  h7 h7@p2-12%trumpet2 oct+2 sky2
+  h8 h8@p2-12%trumpet2 v8 oct+7 fill

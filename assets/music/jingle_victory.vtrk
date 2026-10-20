@@ -1,0 +1,52 @@
+# Victory — the map is hers.
+# D Phrygian dominant, the title's mode, 132 BPM. The pulse sweeps up the D major
+# chord to D6 and sighs to Eb and back, then her leitmotif turns triumphant: the
+# tritone falls to G# over her Bb chord and leans into A over A, and the
+# Phrygian dominant cadence (bII V I) lands on D major, her voice on the fifth.
+
+song Victory
+tempo 132 4
+echo 0.17 0.3 0.2
+
+inst lead
+  vol 11 13 14 15 | 14 / 11 9 7 5 3 2 1 0
+  duty 1 1 2
+  pitch -6 -2 0
+  vib 0.25 5.5 0.3
+inst lead2
+  vol 8 9 10 | 10 / 8 6 4 2 1 0
+  duty 1
+  vib 0.25 5.5 0.3
+inst voice
+  vol 4 7 10 12 13 14 | 14 / 12 10 8 6 5 4 3 2 1 0
+  pitch -16 -8 -4 -2 0
+  vib 0.2 4.5 0.25
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+inst bass
+  vol 14 13 12 11 | 10 / 8 6 4 2 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 14 13 11 9 7 5 4 3 2 1 0
+  pitch 24 0
+inst hat
+  vol 7 4 2 0
+inst crash
+  vol 11 10 9 9 8 8 7 7 6 6 6 5 5 5 4 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare A5
+drum h hat C8
+drum c crash F7
+
+pattern win 48
+  p1 lead | D4 F#4 A4 D5 F#5 A5 D6 . . . . . Eb6 . D6 . | . . . . G#5 . . . A5 . . . . . . . | D6 . . . . . . . . . . . . . . = |
+  p2 lead2 | . . . . . . A5 . . . . . Bb5 . A5 . | . . . . F5 . . . E5 . . . C#5 . . . | F#5 . . . . . . . . . . . . . . = |
+  tri bass | D2 . . . . . . . . . . . . . . . | Bb1 . . . . . . . A1 . . . . . . . | D2 . . . . . . . . . . . . . . = |
+  wav voice | . . . . . . . . . . . . . . . . | . . . . . . . . . . . . . . . . | A4 . . . . . . . . . . . . . . = |
+  noi | c . . . . . . . h:6 . h:8 . s:8 s:a s:c s | k . . . s . . . k . . . s:a s:c s s | c . . . . . . . . . . . . . . . |
+
+order
+  win

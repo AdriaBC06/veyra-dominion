@@ -1,0 +1,195 @@
+# The Gate — the Celestial Gate, map 4.
+# A Lydian (A B C# D# E F# G#), 140 BPM 4/4: one bar = 16 rows. Heaven's
+# brightest note, the Lydian #4, is Veyra's own tritone: to corrupt it she only
+# has to add the minor 2nd. Her leitmotif here is A-Bb-A, then the fall to D#
+# that leans up into E. Heaven's chord is B over an A bass (the Lydian sound);
+# hers is Bb over A.
+# Form (32 bars, loops): A heaven's hymn on the trumpet over bright arps and a
+# choir pad | A' the choir (wave) sings the hymn and she answers in its held
+# notes | B the battle: her melody in A Phrygian dominant, her Bb chord
+# against heaven's B, the leitmotif on the dominant | C heaven resurges, the
+# hymn doubled by the choir in half time, then scale runs up to E.
+
+song The Gate
+tempo 140 4
+echo 0.32 0.3 0.2
+
+# Heaven's trumpet: a bright 50% pulse.
+inst trumpet
+  vol 10 13 15 | 13 / 10 7 4 1 0
+  duty 2
+  pitch -6 -2 0
+  vib 0.15 6 0.25
+
+# Veyra, the title's lead colour.
+inst her
+  vol 7 10 12 13 | 12 / 10 8 6 4 2 1 0
+  duty 0 1 1 2
+  pitch -12 -6 -3 -1 0 / -1 -3 -6 -10
+  vib 0.2 5 0.3
+
+# The choir: a hollow, flute-like wave (odd harmonics), slow to bloom.
+inst choir
+  vol 4 7 10 12 14 15 | 15 / 13 11 9 7 5 3 2 1 0
+  pitch -6 -3 -1 0
+  vib 0.18 5 0.35
+  wave 8BDEFEFFFFFEFEDB8421010000010124
+# The same choir as a quiet held pad.
+inst air
+  vol 2 3 4 5 6 7 | 7 / 6 5 4 3 2 1 0
+  vib 0.1 4 0.5
+  wave 8BDEFEFFFFFEFEDB8421010000010124
+
+# Shimmering sixteenth arps: the duty flickers between 12.5% and 25%.
+inst shine
+  vol 7 6 5 4 3 2 1 0
+  duty 0 1
+
+inst bass
+  vol 13 12 10 9 8 7 | 7 / 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 14 13 11 9 7 5 4 3 2 1 0
+  pitch 24 0
+inst hat
+  vol 7 4 2 0
+# A ride bell: the short (metallic) noise.
+inst ride
+  vol 8 7 6 5 4 4 3 3 2 2 1 1 0
+  duty 1
+inst crash
+  vol 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare A5
+drum h hat C8
+drum r ride C6
+drum c crash F7
+
+# --- Heaven's hymn ---------------------------------------------------------------
+pattern h1 16
+  p1 trumpet | E5 . . . A5 . . . B5 . C#6 . . . E6 . |
+pattern h2 16
+  p1 trumpet | D#6 . . . . . . . C#6 . B5 . . . . . |
+pattern h3 16
+  p1 trumpet | E5 . . . A5 . . . B5 . C#6 . . . A6 . |
+pattern h4 16
+  p1 trumpet | G#6 . . . F#6 . . . D#6 . . . B5 . . . |
+pattern h5 16
+  p1 trumpet | C#6 . . . . . . . A5 . . . F#5 . . . |
+pattern h6 16
+  p1 trumpet | E6 . . . . . . . C#6 . D#6 . E6 . . . |
+pattern h7 16
+  p1 trumpet | F#6 . . . E6 . D#6 . C#6 . . . B5 . . . |
+pattern h8 16
+  p1 trumpet | B5 . . . . . . . . . . . G#5 . . = |
+
+# --- Her answers in A', in the choir's held notes ----------------------------------
+pattern v2 16
+  p1 her | . . . . A5 . Bb5 . A5 . . . . . . = |
+pattern v5 16
+  p1 her | . . A5 . Bb5 . A5 . . . . . . . . = |
+pattern v8 16
+  p1 her | . . . . A5 . Bb5 . A5 . . . D#5 . E5 . |
+
+# --- The battle (B): her melody --------------------------------------------------
+pattern b1 16
+  p1 her | A5 . . . Bb5 . A5 . . . . . D#5 . E5 . |
+pattern b2 16
+  p1 her | F5 . . . . . . . D5 . . . Bb4 . . . |
+pattern b3 16
+  p1 her | C#5 . . . D5 . E5 . . . F5 . E5 . . = |
+# Heaven's answer on the choir, over B/A.
+pattern b4 16
+  wav choir | F#5 . . . D#5 . . . B4 . . . . . . = |
+pattern b5 16
+  p1 her | D5 . . . F5 . . . A5 . . . Bb5 . A5 . |
+pattern b6 16
+  p1 her | B5 . . . . . . . A5 . G5 . F5 . . . |
+# The leitmotif on the dominant: E-F-E, then the fall to A# leaning into B.
+pattern b7 16
+  p1 her | E5 . . . F5 . E5 . . . A#4 . B4 . . . |
+pattern b8 16
+  p1 her | B4 . . . . . . . . . . . . . . = |
+
+# --- Heaven resurges (C): scale runs ---------------------------------------------
+pattern r5 16
+  p1 trumpet | F#5 . G#5 . A5 . B5 . C#6 . B5 . A5 . G#5 . |
+pattern r6 16
+  p1 trumpet | B5 . C#6 . D#6 . E6 . F#6 . E6 . D#6 . C#6 . |
+pattern r7 16
+  p1 trumpet | C#6 . D#6 . E6 . F#6 . G#6 . F#6 . E6 . D#6 . |
+pattern r8 16
+  p1 trumpet | E6 . . . . . . . B5 . . . G#5 . E5 . |
+
+# --- Pads and arps ------------------------------------------------------------------
+pattern pad 16
+  wav air | A4 . . . . . . . . . . . . . . . |
+# A major with the Lydian #4 at the top of each sweep.
+pattern arpA 16
+  p2 shine | A4 C#5 E5 A5 D#6 A5 E5 C#5 A4 C#5 E5 A5 D#6 A5 E5 C#5 |
+pattern arpM 16
+  p2 shine | A4 C#5 E5 A5 C#6 A5 E5 C#5 A4 C#5 E5 A5 C#6 A5 E5 C#5 |
+pattern arpm 16
+  p2 shine | A4 C5 E5 A5 C6 A5 E5 C5 A4 C5 E5 A5 C6 A5 E5 C5 |
+
+# --- Bass: octaves in eighths ----------------------------------------------------------
+pattern oct 16
+  tri bass | A1 . A2 . A1 . A2 . A1 . A2 . A1 . A2 . |
+
+# --- Drums -------------------------------------------------------------------------------
+pattern sky 16
+  noi | k . r . s . r . k . r k s . r . |
+pattern skyc 16
+  noi | c . r . s . r . k . r k s . r . |
+pattern sky2 16
+  noi | k r h r s r h r k r h k s r h s:8 |
+pattern sky2c 16
+  noi | c r h r s r h r k r h k s r h s:8 |
+pattern halfc 16
+  noi | c . r . . . r . s . r . . . r . |
+pattern half 16
+  noi | k . r . . . r . s . r . . . r . |
+pattern fill 16
+  noi | k . r . s . r . s:8 s:9 s:a s:b s:c s:d s:e s |
+
+order
+  # A: A B/A A B | F#m C#m B E
+  h1 pad+7 arpA oct skyc
+  h2 pad+6 arpM+2 oct sky
+  h3 pad+7 arpA oct sky
+  h4 pad+6 arpM+2 oct+2 sky
+  h5 pad+4 arpm-3 oct-3 sky
+  h6 pad+7 arpm+4 oct+4 sky
+  h7 pad+6 arpM+2 oct+2 sky
+  h8 pad+2 arpM-5 oct+7 sky
+  # A': the choir sings, she answers
+  h1@wav%choir arpA oct sky2c
+  h2@wav%choir v2 arpM+2 oct sky2
+  h3@wav%choir arpA oct sky2
+  h4@wav%choir arpM+2 oct+2 sky2
+  h5@wav%choir v5 arpm-3 oct-3 sky2
+  h6@wav%choir arpm+4 oct+4 sky2
+  h7@wav%choir arpM+2 oct+2 sky2
+  h8@wav%choir v8 arpM-5 oct+7 sky2
+  # B: the battle. A Bb/A A B/A | Dm G E E
+  b1 pad+4 arpA oct skyc
+  b2 pad+5 arpM+1 oct+1 sky
+  b3 pad+4 arpA oct sky
+  b4 arpM+2 oct sky
+  b5 pad+8 arpm-7 oct+5 sky2
+  b6 pad+2 arpM-2 oct-2 sky2
+  b7 pad-1 arpM-5 oct+7 sky2
+  b8 pad-1 arpM-5 oct+7 sky2
+  # C: heaven resurges. A B/A A B | F#m B C#m E
+  h1 h1@wav-12%choir arpA oct halfc
+  h2 h2@wav-12%choir arpM+2 oct half
+  h3 h3@wav-12%choir arpA oct half
+  h4 h4@wav-12%choir arpM+2 oct+2 half
+  r5 pad+4 arpm-3 oct-3 sky2c
+  r6 pad+6 arpM+2 oct+2 sky2
+  r7 pad+7 arpm+4 oct+4 sky2
+  r8 pad+2 arpM-5 oct+7 fill

@@ -59,7 +59,12 @@ pub struct Song {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Step {
-    Note { note: i32, drum: bool, inst: Option<usize>, vel: f32 },
+    Note {
+        note: i32,
+        drum: bool,
+        inst: Option<usize>,
+        vel: f32,
+    },
     Off,
     Cut,
 }
@@ -311,7 +316,10 @@ impl Parser {
     }
 
     fn pattern_line(&mut self, t: &[&str]) -> Result<(), String> {
-        let bar = t.iter().position(|&s| s == "|").ok_or("pattern line needs '|'")?;
+        let bar = t
+            .iter()
+            .position(|&s| s == "|")
+            .ok_or("pattern line needs '|'")?;
         let ch = channel(t[0]).ok_or_else(|| format!("unknown channel '{}'", t[0]))?;
         let inst = match &t[1..bar] {
             [] => None,
@@ -381,7 +389,11 @@ impl Parser {
         if layers.is_empty() {
             return Err("empty frame".into());
         }
-        let rows = layers.iter().map(|l| self.patterns[l.0].rows).max().unwrap_or(0);
+        let rows = layers
+            .iter()
+            .map(|l| self.patterns[l.0].rows)
+            .max()
+            .unwrap_or(0);
         let mut used = Vec::new();
         for _ in 0..repeat {
             used.clear();
@@ -453,7 +465,8 @@ impl Song {
                 .take_while(|t| !t.starts_with('#'))
                 .collect();
             if !tokens.is_empty() {
-                p.line(&tokens).map_err(|e| format!("line {}: {e}", i + 1))?;
+                p.line(&tokens)
+                    .map_err(|e| format!("line {}: {e}", i + 1))?;
             }
         }
         if p.song.rows == 0 {
@@ -476,25 +489,66 @@ impl Song {
     /// ringing notes from the end.
     pub fn render_loop(&self, sample_rate: u32) -> Vec<f32> {
         let len = self.loop_samples(sample_rate);
-        let spr = self.samples_per_row(sample_rate);
-        let mut synth = Synth::new(sample_rate, self.instruments.clone());
-        synth.set_echo(self.echo);
+        let mut synth = self.synth(sample_rate);
         let mut out = vec![0.0; len * 2];
         let mut pos = 0;
+        let spr = self.samples_per_row(sample_rate);
         for pass in 0..2 {
-            for e in &self.events {
-                let at = (pass * len + (f64::from(e.row) * spr).round() as usize).max(pos);
-                synth.render(&mut out[pos..at]);
-                pos = at;
-                match e.action {
-                    Action::On { note, inst, vel } => synth.note_on(e.ch, note, inst, vel),
-                    Action::Off => synth.note_off(e.ch),
-                    Action::Cut => synth.note_cut(e.ch),
-                }
-            }
+            self.play_pass(&mut synth, &mut out, pass * len, &mut pos, spr);
         }
         synth.render(&mut out[pos..]);
         out.split_off(len)
+    }
+
+    /// The song played once, for jingles: then the releases and the echo ring
+    /// on until a 50 ms block is silent, for at most `max_tail` seconds.
+    pub fn render_once(&self, sample_rate: u32, max_tail: f32) -> Vec<f32> {
+        const SILENCE: f32 = 1e-4;
+        let len = self.loop_samples(sample_rate);
+        let mut synth = self.synth(sample_rate);
+        let mut out = vec![0.0; len];
+        let mut pos = 0;
+        let spr = self.samples_per_row(sample_rate);
+        self.play_pass(&mut synth, &mut out, 0, &mut pos, spr);
+        synth.render(&mut out[pos..]);
+        let mut block = vec![0.0; sample_rate as usize / 20];
+        let max_len = len + (max_tail * sample_rate as f32) as usize;
+        while out.len() < max_len {
+            synth.render(&mut block);
+            out.extend_from_slice(&block);
+            if block.iter().all(|x| x.abs() < SILENCE) {
+                break;
+            }
+        }
+        out
+    }
+
+    fn synth(&self, sample_rate: u32) -> Synth {
+        let mut synth = Synth::new(sample_rate, self.instruments.clone());
+        synth.set_echo(self.echo);
+        synth
+    }
+
+    /// Plays every event once into `out`, starting `base` samples in; `pos` is
+    /// how far `out` has been rendered, `spr` the samples per row.
+    fn play_pass(
+        &self,
+        synth: &mut Synth,
+        out: &mut [f32],
+        base: usize,
+        pos: &mut usize,
+        spr: f64,
+    ) {
+        for e in &self.events {
+            let at = (base + (f64::from(e.row) * spr).round() as usize).max(*pos);
+            synth.render(&mut out[*pos..at]);
+            *pos = at;
+            match e.action {
+                Action::On { note, inst, vel } => synth.note_on(e.ch, note, inst, vel),
+                Action::Off => synth.note_off(e.ch),
+                Action::Cut => synth.note_cut(e.ch),
+            }
+        }
     }
 }
 
@@ -571,7 +625,10 @@ mod tests {
         );
         let kinds: Vec<_> = s.events.iter().map(|e| (e.row, e.ch)).collect();
         assert!(kinds.contains(&(1, Channel::Pulse1)) && kinds.contains(&(3, Channel::Pulse1)));
-        assert_eq!(s.events.iter().filter(|e| e.ch == Channel::Noise).count(), 2);
+        assert_eq!(
+            s.events.iter().filter(|e| e.ch == Channel::Noise).count(),
+            2
+        );
     }
 
     #[test]
@@ -596,10 +653,8 @@ mod tests {
         let s = song("pattern d 1\n  noi a | C#4 |\norder\n  d+5\n").unwrap();
         assert_eq!(notes(&s)[0].2, 61.0);
         // % swaps the instrument of notes but not of drums.
-        let s = song(
-            "inst b\n  vol 9\npattern m 1\n  p1 a | C4 |\n  noi | k |\norder\n  m%b\n",
-        )
-        .unwrap();
+        let s = song("inst b\n  vol 9\npattern m 1\n  p1 a | C4 |\n  noi | k |\norder\n  m%b\n")
+            .unwrap();
         let insts: Vec<_> = s
             .events
             .iter()
@@ -620,10 +675,7 @@ mod tests {
             ("pattern p 1\n  p1 a | Q4 |\n", "bad step"),
             ("pattern p 1\n  zz a | C4 |\n", "unknown channel"),
             ("order\n  nope\n", "unknown pattern"),
-            (
-                "pattern p 1\n  p1 a | C4 |\norder\n  p p\n",
-                "same channel",
-            ),
+            ("pattern p 1\n  p1 a | C4 |\norder\n  p p\n", "same channel"),
             ("pattern p 1\n  p1 a | C4 |\n", "order is empty"),
             ("bogus 1\n", "unexpected 'bogus'"),
             ("inst song\n", "bad name"),
@@ -648,12 +700,23 @@ mod tests {
     fn loop_start_carries_the_tail_of_the_end() {
         // A note only on the last row: the loop's start must already hold that
         // note and its echo, as it will when the loop repeats.
-        let s = song(
-            "echo 0.1 0.5 0.5\npattern p 8\n  p1 a | . . . . . . . C4 |\norder\n  p\n",
-        )
-        .unwrap();
+        let s = song("echo 0.1 0.5 0.5\npattern p 8\n  p1 a | . . . . . . . C4 |\norder\n  p\n")
+            .unwrap();
         let out = s.render_loop(44_100);
         let start = &out[..2_000];
         assert!(start.iter().any(|x| x.abs() > 0.01));
+    }
+
+    #[test]
+    fn render_once_rings_out_then_stops() {
+        // A released note on the last row: its echo carries past the end of
+        // the song, then the tail stops once it is silent, well before the cap.
+        let s = song("echo 0.1 0.5 0.5\npattern p 8\n  p1 a | . . . . . . C4 = |\norder\n  p\n")
+            .unwrap();
+        let len = s.loop_samples(44_100);
+        let out = s.render_once(44_100, 10.0);
+        assert!(out[len..len + 4_410].iter().any(|x| x.abs() > 0.01));
+        assert!(out.len() < len + 5 * 44_100);
+        assert!(out[out.len() - 2_205..].iter().all(|x| x.abs() < 1e-4));
     }
 }

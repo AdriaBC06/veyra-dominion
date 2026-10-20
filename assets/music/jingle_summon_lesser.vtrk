@@ -1,0 +1,28 @@
+# Summon (Lesser Circle) — a small familiar answers.
+# D Phrygian dominant, 150 BPM: a quick plucked D major arpeggio up to D6, a chip
+# bell ringing on the top, and the b2 grace note (Eb) of her sigh before it.
+
+song Lesser Summon
+tempo 150 4
+echo 0.2 0.3 0.25
+
+inst pluck
+  vol 11 9 8 7 6 5 4 3 2 1 0
+  duty 1 0
+inst bell
+  vol 11 10 9 8 8 7 7 6 6 5 5 4 4 4 3 3 3 2 2 2 2 1 1 1 1 0
+  arp | 0 19 12 24
+  duty 2
+inst tinkle
+  vol 5 3 2 1 0
+  duty 1
+
+drum h tinkle C8
+
+pattern lesser 12
+  p1 pluck | D5 F#5 A5 Eb6 D6 . . . . . . = |
+  p2 bell | . . . . D5 . . . . . . = |
+  noi | h . h . h:8 . . . . . . . |
+
+order
+  lesser

@@ -1,0 +1,140 @@
+# The Watch — boss of Ashford, the Captain of the Watch.
+# E minor, chromatic, 160 BPM 4/4 (Ashford +10): one bar = 16 rows. Ashford's
+# gallop turns into a grinding semitone bass (E-F), the Captain's theme falls
+# chromatically, and the Watch's alarm bell rings B-C: the first two notes of
+# Veyra's leitmotif in Ashford, her sigh used as the town's alarm. Her
+# leitmotif's tail (B, then the fall to F leaning into F#) closes each theme.
+# Form (24 bars, loops): A the Captain's theme over off-beat stabs | B the
+# shield charge: the alarm over a pedal rising a semitone every two bars
+# (E F F# G), then B | A' the theme doubled an octave down, busier drums.
+
+song The Watch
+tempo 160 4
+echo 0.14 0.2 0.14
+
+inst lead
+  vol 15 14 13 12 | 11 / 8 5 3 1 0
+  duty 1
+  pitch -6 -2 0
+  vib 0.2 6.5 0.2
+inst lead2
+  vol 10 9 9 8 | 8 / 5 3 1 0
+  duty 2
+  vib 0.2 6.5 0.2
+# Long notes in the charge, swelling from thin to round.
+inst long
+  vol 9 11 13 | 13 / 10 7 4 2 0
+  duty 0 0 1 1 2
+  vib 0.3 6 0.3
+
+inst stabm
+  vol 12 11 9 7 5 3 1 0
+  arp | 0 3 7
+  duty 1
+inst stabM
+  vol 12 11 9 7 5 3 1 0
+  arp | 0 4 7
+  duty 1
+
+# The alarm bell: a struck 25% pulse with a ringing tail.
+inst alarm
+  vol 11 9 8 7 6 5 5 4 4 3 3 2 2 1 1 0
+  duty 1 1 0
+
+inst grind
+  vol 15 13 11 9 8 7 6 5 | 5 / 0
+inst pedal
+  vol 13 11 10 9 | 8 / 0
+
+inst kick
+  vol 15 14 11 8 5 3 1 0
+  sweep -60
+inst snare
+  vol 15 14 12 10 8 6 5 4 3 2 1 0
+  pitch 24 0
+inst hat
+  vol 8 4 2 0
+inst crash
+  vol 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 1 0
+
+drum k kick C2
+drum s snare A5
+drum h hat C8
+drum c crash F7
+
+# --- The Captain's theme -------------------------------------------------------------
+pattern w1 16
+  p1 lead | E5 . . E5 . . G5 . F#5 . . F5 . . E5 . |
+pattern w2 16
+  p1 lead | D#5 . . . E5 . . . B4 . . . . . . . |
+pattern w4 16
+  p1 lead | D#5 . . . F#5 . . . A5 . . . B5 . . = |
+pattern w5 16
+  p1 lead | E6 . . E6 . . D6 . C#6 . . C6 . . B5 . |
+pattern w6 16
+  p1 lead | C6 . . . B5 . . . A5 . . . E5 . . . |
+pattern w7 16
+  p1 lead | F5 . . . A5 . . . C6 . . . A5 . . . |
+pattern w8 16
+  p1 lead | B5 . . . . . . . F5 . . . F#5 . . = |
+
+# --- The charge --------------------------------------------------------------------------
+pattern x1 16
+  p1 long | B5 . . . . . . . . . . . C6 . . . |
+pattern x2 16
+  p1 long | B5 . . . . . . . . . . . . . . . |
+pattern x8 16
+  p1 long | D#6 . . . . . . . . . . . . . . = |
+pattern bell 16
+  p2 alarm | B4 . C5 . B4 . C5 . . . . . . . . . |
+
+# --- Harmony and bass ------------------------------------------------------------------
+pattern stab 16
+  p2 stabm | . . E4 . . . E4 . . . E4 . . . E4 . |
+pattern grind 16
+  tri grind | E2 . E2 E2 E2 . E2 E2 F2 . F2 F2 E2 . D#2 . |
+pattern ped 16
+  tri pedal | E2 . E3 . E2 . E3 . E2 . E3 . E2 . E3 . |
+
+# --- Drums -------------------------------------------------------------------------------
+pattern beat 16
+  noi | k . h . s . h k . k h . s . h h:8 |
+pattern beatc 16
+  noi | c . h . s . h k . k h . s . h h:8 |
+pattern beat2 16
+  noi | k h:5 h k s h:5 h k h:5 k h . s h:5 h s:8 |
+pattern beat2c 16
+  noi | c h:5 h k s h:5 h k h:5 k h . s h:5 h s:8 |
+pattern charge 16
+  noi | k h k h s h k h k h k h s h s s |
+pattern fill 16
+  noi | k . s . s . s s s:9 s:a s:b s:c s:d s:e s s |
+
+order
+  # A: Em Em C B | Em Am F B
+  w1 stab grind beatc
+  w2 stab grind beat
+  w1 stab%stabM-4 grind-4 beat
+  w4 stab%stabM-5 grind-5 beat
+  w5 stab grind beat
+  w6 stab+5 grind+5 beat
+  w7 stab%stabM+1 grind+1 beat
+  w8 stab%stabM-5 grind-5 beat
+  # B: the charge over a rising pedal. E E F F | F# F# G B
+  x1 bell ped charge
+  x2 bell ped charge
+  x1+1 bell+1 ped+1 charge
+  x2+1 bell+1 ped+1 charge
+  x1+2 bell+2 ped+2 charge
+  x2+2 bell+2 ped+2 charge
+  x1+3 bell+3 ped+3 charge
+  x8 bell ped-5 fill
+  # A': doubled an octave down
+  w1 w1@p2-12%lead2 grind beat2c
+  w2 w2@p2-12%lead2 grind beat2
+  w1 w1@p2-12%lead2 grind-4 beat2
+  w4 w4@p2-12%lead2 grind-5 beat2
+  w5 w5@p2-12%lead2 grind beat2
+  w6 w6@p2-12%lead2 grind+5 beat2
+  w7 w7@p2-12%lead2 grind+1 beat2
+  w8 w8@p2-12%lead2 grind-5 fill
