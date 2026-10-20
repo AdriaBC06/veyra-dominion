@@ -31,13 +31,14 @@ pub enum SpriteId {
     Hellgate,
     ChainSpark,
     GustFeather,
+    Offering,
     Fireball,
     Smoke,
     Soul,
     Ground,
 }
 
-const SPRITE_COUNT: usize = 24;
+const SPRITE_COUNT: usize = 25;
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -126,6 +127,7 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         SpriteId::Hellgate => &[100; 4],
         SpriteId::ChainSpark => &[63; 2],
         SpriteId::GustFeather => &[83; 2],
+        SpriteId::Offering => &[167; 4],
         _ => &[],
     }
 }
@@ -177,6 +179,7 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     art!(Hellgate, "hellgate"),
     art!(ChainSpark, "chain_spark"),
     art!(GustFeather, "gust_feather"),
+    art!(Offering, "offering"),
     sheet!(Fireball, "fireball", 1, false),
     sheet!(Smoke, "smoke", 1, false),
     sheet!(Soul, "soul", 1, false),
@@ -487,6 +490,7 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/hellgate.json"),
             include_str!("../assets/sprites/arts/anims/chain_spark.json"),
             include_str!("../assets/sprites/arts/anims/gust_feather.json"),
+            include_str!("../assets/sprites/arts/anims/offering.json"),
         ];
         let arts = [
             SpriteId::TailLash,
@@ -496,6 +500,7 @@ mod tests {
             SpriteId::Hellgate,
             SpriteId::ChainSpark,
             SpriteId::GustFeather,
+            SpriteId::Offering,
         ];
         for (id, json) in VEYRA.into_iter().chain(arts).zip(json) {
             let ms: Vec<u16> = json

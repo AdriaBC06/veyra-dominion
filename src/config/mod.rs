@@ -127,7 +127,7 @@ pub const MAX_GATES: usize = 32;
 /// nearest enemy it hasn't bitten within `CHAIN_JUMP` (times area), `amount` in all.
 pub const CHAIN_RANGE: f32 = 180.0;
 pub const CHAIN_JUMP: f32 = 64.0;
-pub const MAX_CHAIN_LINKS: usize = 16;
+pub const MAX_CHAIN_LINKS: usize = 24;
 pub const MAX_CHAINS: usize = 8;
 /// How long a chain stays on screen, and the height of its links over the ground.
 pub const CHAIN_SHOW_TIME: f32 = 0.2;
@@ -151,6 +151,52 @@ pub const KNOCK_DECAY: f32 = 9.0;
 pub const GUST_FEATHERS: usize = 6;
 pub const GUST_FEATHER_LIFE: f32 = 0.4;
 pub const MAX_FEATHERS: usize = 96;
+
+// --- Evolutions (7.7), opened by Abyssal Offerings --------------------------
+/// Hellstorm: `HELLSTORM_EXTRA` more fireballs per volley, each at its own random
+/// enemy within `FIRE_RANGE`.
+pub const HELLSTORM_EXTRA: u32 = 2;
+/// Barbed Scourge: a lashed enemy bleeds for the Lash's duration, taking
+/// `BLEED_SHARE` of its damage every `BLEED_TICK`.
+pub const BLEED_TICK: f32 = 0.5;
+pub const BLEED_SHARE: f32 = 0.25;
+/// Chance per tick that a bleeding enemy with blood drips on the ground.
+pub const BLEED_DRIP: f32 = 0.05;
+/// Allurement deepens the lash's band; faint copies of the lash mark its edges.
+pub const LASH_ECHO_ALPHA: f32 = 0.45;
+/// Kiss of Death: each heart that bites heals `KISS_HEAL`, at most `KISS_HEAL_CAP` per
+/// second.
+pub const KISS_HEAL: f32 = 1.0;
+pub const KISS_HEAL_CAP: f32 = 4.0;
+/// Infernal Crown: the embers never rest; one more joins them.
+pub const CROWN_EXTRA: u32 = 1;
+/// Siren's Dominion: when a charm runs out the enemy bursts, dying and hurting the
+/// free enemies within `SIREN_BURST_RADIUS` (times area) for `SIREN_BURST_DAMAGE` times
+/// the Art's damage. The burst shows for `SIREN_BURST_TIME`.
+pub const SIREN_BURST_RADIUS: f32 = 36.0;
+pub const SIREN_BURST_DAMAGE: f32 = 6.0;
+pub const SIREN_BURST_TIME: f32 = 0.35;
+pub const SIREN_BURST_HEARTS: usize = 8;
+pub const MAX_SIREN_BURSTS: usize = 32;
+/// Abyssal Rift: enemies within `RIFT_RADIUS` (times area) of a pool are dragged to its
+/// centre at `RIFT_PULL` px/s.
+pub const RIFT_RADIUS: f32 = 56.0;
+pub const RIFT_PULL: f32 = 70.0;
+/// Torment Eternal: the chain keeps jumping, up to `MAX_CHAIN_LINKS`, to any enemy
+/// within `TORMENT_RADIUS` (times area) of the first one it bit.
+pub const TORMENT_RADIUS: f32 = 96.0;
+/// Tempest of Wings: one gust all around her, `TEMPEST_DAMAGE` times as hard, its
+/// feathers thrown in `TEMPEST_DIRS` directions.
+pub const TEMPEST_DAMAGE: f32 = 3.0;
+pub const TEMPEST_DIRS: usize = 6;
+/// Fireballs a Hellstorm volley can aim at once.
+pub const MAX_HELLSTORM: usize = 16;
+/// Abyssal Offerings: dropped by elites, opened when Veyra gets this close. One with
+/// nothing to evolve or level up heals `OFFERING_HEAL` instead.
+pub const OFFERING_PICKUP: f32 = 12.0;
+pub const MAX_OFFERINGS: usize = 16;
+pub const OFFERING_HEAL: f32 = 50.0;
+
 pub const HIT_FLASH_TIME: f32 = 0.1;
 /// Dead enemies flash as a white silhouette for this long, then burst.
 pub const DEATH_FADE_TIME: f32 = 0.12;
@@ -211,73 +257,70 @@ pub const fn xp_to_next(level: u32) -> u32 {
     8 + 6 * level
 }
 
-// --- Upgrades -------------------------------------------------------------
-/// Health restored when BloodPact is taken (clamped to the new maximum).
+// --- Sins -----------------------------------------------------------------
+/// Health restored when Blood Pact is taken (clamped to the new maximum).
 pub const BLOOD_PACT_HEAL: f32 = 30.0;
+/// Sins owned at once, like the Arts' slots.
+pub const MAX_SINS: usize = 6;
+/// Contact damage left after armour never drops below this.
+pub const MIN_CONTACT_DAMAGE: f32 = 1.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum UpgradeKind {
-    Fury,
-    Frenzy,
-    EmberLegion,
-    LightWings,
+pub enum SinKind {
+    Wrath,
+    Bloodlust,
+    Legion,
+    NightWings,
     BloodPact,
-    SoulPull,
+    SirensCall,
+    DarkSigil,
+    Allurement,
+    InfernalHide,
 }
 
-/// `step` is the per-level bonus, see `Upgrades::stats`. Fury, Frenzy and Ember Legion
-/// boost every Art.
-pub struct UpgradeDef {
-    pub kind: UpgradeKind,
+/// A passive (PLAN.md 7.7). `step` is the per-level bonus, see `Upgrades::stats`.
+/// Wrath, Bloodlust, Legion, Dark Sigil and Allurement boost every Art. Greed joins
+/// with Tribute in V20.
+pub struct SinDef {
+    pub kind: SinKind,
     pub name: Key,
     pub desc: Key,
     pub max_level: u8,
     pub step: f32,
 }
 
-pub const UPGRADES: [UpgradeDef; 6] = [
-    UpgradeDef {
-        kind: UpgradeKind::Fury,
-        name: Key::UpFury,
-        desc: Key::UpFuryDesc,
-        max_level: 5,
-        step: 0.25,
-    },
-    UpgradeDef {
-        kind: UpgradeKind::Frenzy,
-        name: Key::UpFrenzy,
-        desc: Key::UpFrenzyDesc,
-        max_level: 5,
-        step: 0.15,
-    },
-    UpgradeDef {
-        kind: UpgradeKind::EmberLegion,
-        name: Key::UpEmberLegion,
-        desc: Key::UpEmberLegionDesc,
-        max_level: 4,
-        step: 1.0,
-    },
-    UpgradeDef {
-        kind: UpgradeKind::LightWings,
-        name: Key::UpLightWings,
-        desc: Key::UpLightWingsDesc,
-        max_level: 5,
-        step: 0.10,
-    },
-    UpgradeDef {
-        kind: UpgradeKind::BloodPact,
-        name: Key::UpBloodPact,
-        desc: Key::UpBloodPactDesc,
-        max_level: 5,
-        step: 20.0,
-    },
-    UpgradeDef {
-        kind: UpgradeKind::SoulPull,
-        name: Key::UpSoulPull,
-        desc: Key::UpSoulPullDesc,
-        max_level: 5,
-        step: 0.40,
-    },
+pub const WRATH: usize = 0;
+pub const BLOODLUST: usize = 1;
+pub const LEGION: usize = 2;
+pub const NIGHT_WINGS: usize = 3;
+pub const BLOOD_PACT: usize = 4;
+pub const SIRENS_CALL: usize = 5;
+pub const DARK_SIGIL: usize = 6;
+pub const ALLUREMENT: usize = 7;
+pub const INFERNAL_HIDE: usize = 8;
+
+macro_rules! sin {
+    ($kind:ident, $name:ident, $desc:ident, $max:expr, $step:expr) => {
+        SinDef {
+            kind: SinKind::$kind,
+            name: Key::$name,
+            desc: Key::$desc,
+            max_level: $max,
+            step: $step,
+        }
+    };
+}
+
+pub const SINS: [SinDef; 9] = [
+    sin!(Wrath, SinWrath, SinWrathDesc, 5, 0.10),
+    sin!(Bloodlust, SinBloodlust, SinBloodlustDesc, 5, 0.08),
+    sin!(Legion, SinLegion, SinLegionDesc, 2, 1.0),
+    sin!(NightWings, SinNightWings, SinNightWingsDesc, 5, 0.10),
+    sin!(BloodPact, SinBloodPact, SinBloodPactDesc, 5, 20.0),
+    sin!(SirensCall, SinSirensCall, SinSirensCallDesc, 5, 0.40),
+    sin!(DarkSigil, SinDarkSigil, SinDarkSigilDesc, 5, 0.10),
+    sin!(Allurement, SinAllurement, SinAllurementDesc, 5, 0.10),
+    sin!(InfernalHide, SinInfernalHide, SinInfernalHideDesc, 5, 1.0),
 ];
 
 // --- Enemies & spawning ---------------------------------------------------

@@ -25,6 +25,24 @@ pub enum SimEvent {
     PlayerDied,
     /// Survived until VICTORY_TIME; `start_endless` keeps the run going.
     Victory,
+    /// An Abyssal Offering was opened; `reward` says what it gave.
+    Offering,
+}
+
+/// What opening an Abyssal Offering gave.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Reward {
+    /// Index into `ARTS`: it took its evolved form.
+    Evolution(usize),
+    /// Nothing could evolve: a free level of a random Art or Sin.
+    Gift(Choice),
+    /// Nothing left to level either: `OFFERING_HEAL` health.
+    Heal,
+}
+
+/// An Abyssal Offering lying where an elite died.
+pub struct Offering {
+    pub pos: Vec2,
 }
 
 /// Something audible happened this tick. The frontend drains `Game::cues` and
@@ -38,6 +56,10 @@ pub enum Cue {
     Hellgate,
     Chain,
     Gust,
+    /// A charmed enemy burst (Siren's Dominion).
+    SirenBurst,
+    /// An Abyssal Offering was opened.
+    Offering,
     /// A fireball landed; armour rings differently from flesh.
     Hit {
         armored: bool,
@@ -50,8 +72,8 @@ pub enum Cue {
     Arrival,
 }
 
-/// Every distinct cue fits: 12 plus a second hit kind and one kill per family.
-const MAX_CUES: usize = 16;
+/// Every distinct cue fits: 14 plus a second hit kind and one kill per family.
+const MAX_CUES: usize = 18;
 
 pub struct Player {
     pub pos: Vec2,
@@ -133,6 +155,9 @@ pub struct Game {
     pub enemies: Enemies,
     pub arts: Arts,
     pub souls: Vec<Soul>,
+    pub offerings: Vec<Offering>,
+    /// What the last Abyssal Offering gave, for the screen that shows it.
+    pub reward: Option<Reward>,
     pub fades: Vec<Fade>,
     /// Fixed pool (capacity `MAX_BURST_PIXELS`), never grown.
     pub bursts: Vec<BurstPixel>,
@@ -189,6 +214,8 @@ impl Game {
             enemies: Enemies::with_capacity(MAX_ENEMIES),
             arts: Arts::new(&upgrades),
             souls: Vec::with_capacity(MAX_SOULS),
+            offerings: Vec::with_capacity(MAX_OFFERINGS),
+            reward: None,
             fades: Vec::with_capacity(MAX_FADES),
             bursts: Vec::with_capacity(MAX_BURST_PIXELS),
             splats: Vec::with_capacity(MAX_SPLATS),
@@ -233,12 +260,15 @@ impl Game {
         self.relocate_far_enemies();
         self.enemies.steer(TICK_DT, center, &self.hash, self.time);
         self.use_arts(alive);
+        self.drip_bleeding();
         if alive {
             self.contact_damage();
         }
         self.remove_dead_enemies();
+        let mut opened = false;
         if alive {
             self.update_souls();
+            opened = self.collect_offering();
         }
         self.update_fades();
         self.update_bursts();
@@ -248,6 +278,8 @@ impl Game {
             if *t >= DEATH_TIME {
                 return SimEvent::PlayerDied;
             }
+        } else if opened {
+            return SimEvent::Offering;
         } else if self.pending_levels > 0 {
             if self.choices == [None; 3] {
                 self.upgrades.roll_choices(&mut self.choices);
@@ -281,6 +313,49 @@ impl Game {
         }
     }
 
+    /// Opens the first Abyssal Offering Veyra touches, if any.
+    fn collect_offering(&mut self) -> bool {
+        let p = self.player.pos;
+        let reach = OFFERING_PICKUP * OFFERING_PICKUP;
+        let Some(k) = self
+            .offerings
+            .iter()
+            .position(|o| o.pos.distance_squared(p) <= reach)
+        else {
+            return false;
+        };
+        self.offerings.swap_remove(k);
+        self.open_offering();
+        true
+    }
+
+    /// Evolves the first Art that can, or else grants a random level, or else heals.
+    pub fn open_offering(&mut self) -> Reward {
+        let reward = if let Some(art) = self.upgrades.evolvable() {
+            self.upgrades.evolve(art);
+            Reward::Evolution(art)
+        } else {
+            let mut pick = [None];
+            self.upgrades.roll_choices(&mut pick);
+            match pick[0] {
+                Some(choice) => {
+                    self.upgrades.apply(choice, &mut self.player);
+                    Reward::Gift(choice)
+                }
+                None => {
+                    let p = &mut self.player;
+                    p.hp = (p.hp + OFFERING_HEAL).min(p.max_hp);
+                    Reward::Heal
+                }
+            }
+        };
+        self.stats = self.upgrades.stats();
+        self.arts.refresh(&self.upgrades);
+        self.reward = Some(reward);
+        self.cue(Cue::Offering);
+        reward
+    }
+
     /// The strongest touching enemy hurts Veyra, then she is briefly invulnerable.
     fn contact_damage(&mut self) {
         let p = &mut self.player;
@@ -303,6 +378,7 @@ impl Game {
         if damage <= 0.0 {
             return;
         }
+        let damage = (damage - self.stats.armor).max(MIN_CONTACT_DAMAGE);
         p.hp = (p.hp - damage).max(0.0);
         p.iframes = PLAYER_IFRAMES;
         if p.hp <= 0.0 {
@@ -348,11 +424,26 @@ impl Game {
             (cues.gated, Cue::Hellgate),
             (cues.chained, Cue::Chain),
             (cues.gusted, Cue::Gust),
+            (cues.burst, Cue::SirenBurst),
             (cues.hits[0], Cue::Hit { armored: false }),
             (cues.hits[1], Cue::Hit { armored: true }),
         ] {
             if on {
                 self.cue(cue);
+            }
+        }
+    }
+
+    /// Barbed Scourge: bleeding enemies that have blood leave drops behind them.
+    fn drip_bleeding(&mut self) {
+        if !self.arts.evolved(TAIL_LASH) {
+            return;
+        }
+        let e = &self.enemies;
+        for i in 0..e.len() {
+            let def = &ENEMY_DEFS[e.kind[i] as usize];
+            if e.bleed_until[i] > self.time && def.blood && gen_range(0.0, 1.0) < BLEED_DRIP {
+                splat(&mut self.splats, e.pos(i), 0.0);
             }
         }
     }
@@ -382,6 +473,11 @@ impl Game {
             }
             self.cue(Cue::Kill(family));
             self.drop_soul(self.enemies.pos(i), xp);
+            if self.enemies.elite[i] && self.offerings.len() < MAX_OFFERINGS {
+                self.offerings.push(Offering {
+                    pos: self.enemies.pos(i),
+                });
+            }
             self.enemies.swap_remove(i);
         }
     }
@@ -624,6 +720,14 @@ impl Game {
             if e.pos(i).distance_squared(self.player.pos) <= near {
                 e.elite[i] = true;
             }
+        }
+    }
+
+    /// Debug (F8): an Abyssal Offering on the ground just ahead of Veyra.
+    pub fn debug_drop_offering(&mut self) {
+        if self.offerings.len() < MAX_OFFERINGS {
+            let pos = self.player.pos + self.player.aim * 40.0;
+            self.offerings.push(Offering { pos });
         }
     }
 
@@ -969,11 +1073,84 @@ mod tests {
         assert_eq!(g.pending_levels, 0);
         let arts: u8 = g.upgrades.arts.iter().sum();
         assert_eq!(
-            g.upgrades.levels.iter().sum::<u8>() + arts,
+            g.upgrades.sins.iter().sum::<u8>() + arts,
             3,
             "Hellflare + 2"
         );
         assert_eq!(g.tick(&InputState::default()), SimEvent::None);
+    }
+
+    #[test]
+    fn elites_drop_an_offering_that_evolves_an_art() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.upgrades.arts[HELLFLARE] = ART_MAX_LEVEL;
+        g.upgrades.sins[ARTS[HELLFLARE].evolution.sin] = 1;
+        g.arts.refresh(&g.upgrades);
+        g.arts.hold();
+        g.enemies.spawn(RAT, vec2(200.0, 0.0), 1.0);
+        g.enemies.elite[0] = true;
+        g.enemies.hp[0] = 0.0;
+        g.enemies.spawn(RAT, vec2(-200.0, 0.0), 1.0);
+        g.enemies.hp[1] = 0.0;
+        assert_eq!(g.tick(&InputState::default()), SimEvent::None);
+        assert_eq!(g.offerings.len(), 1, "only the elite drops one");
+        g.player.pos = g.offerings[0].pos;
+        assert_eq!(g.tick(&InputState::default()), SimEvent::Offering);
+        assert!(g.offerings.is_empty());
+        assert_eq!(g.reward, Some(Reward::Evolution(HELLFLARE)));
+        assert!(g.upgrades.evolved[HELLFLARE] && g.arts.evolved(HELLFLARE));
+        assert!(g.cues.contains(&Cue::Offering));
+    }
+
+    #[test]
+    fn offerings_without_an_evolution_give_a_level_or_heal() {
+        let mut g = Game::new();
+        let before = g.upgrades.arts.iter().sum::<u8>() + g.upgrades.sins.iter().sum::<u8>();
+        let Reward::Gift(_) = g.open_offering() else {
+            panic!("expected a gift")
+        };
+        let after = g.upgrades.arts.iter().sum::<u8>() + g.upgrades.sins.iter().sum::<u8>();
+        assert_eq!(after, before + 1);
+        // Everything capped: it heals.
+        g.upgrades.arts = [ART_MAX_LEVEL; ARTS.len()];
+        g.upgrades.evolved = [true; ARTS.len()];
+        g.upgrades.sins = [0; SINS.len()];
+        for (lv, def) in g.upgrades.sins.iter_mut().zip(&SINS).take(MAX_SINS) {
+            *lv = def.max_level;
+        }
+        g.player.hp = 10.0;
+        assert_eq!(g.open_offering(), Reward::Heal);
+        assert_eq!(g.player.hp, 10.0 + OFFERING_HEAL);
+    }
+
+    #[test]
+    fn infernal_hide_softens_blows_down_to_one() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.arts.hold();
+        for _ in 0..3 {
+            g.upgrades.apply(Choice::Sin(INFERNAL_HIDE), &mut g.player);
+        }
+        g.stats = g.upgrades.stats();
+        g.enemies.spawn(KNIGHT, Vec2::ZERO, 1.0);
+        g.tick(&InputState::default());
+        let dmg = ENEMY_DEFS[KNIGHT].contact_damage - 3.0;
+        assert_eq!(g.player.hp, PLAYER_MAX_HP - dmg);
+        for _ in 0..2 {
+            g.upgrades.apply(Choice::Sin(INFERNAL_HIDE), &mut g.player);
+        }
+        g.stats = g.upgrades.stats();
+        g.player.iframes = 0.0;
+        g.enemies.swap_remove(0);
+        g.enemies.spawn(RAT, Vec2::ZERO, 1.0);
+        let hp = g.player.hp;
+        g.tick(&InputState::default());
+        assert_eq!(
+            g.player.hp,
+            hp - MIN_CONTACT_DAMAGE,
+            "a rat's 5 minus 5 is still 1"
+        );
     }
 
     #[test]
@@ -1034,14 +1211,21 @@ mod tests {
     }
 
     #[test]
-    fn stress_at_enemy_cap_with_every_art_maxed() {
-        const STRESS_HP: f32 = 1000.0;
+    fn stress_at_enemy_cap_with_every_art_evolved() {
+        const STRESS_HP: f32 = 20000.0;
         macroquad::rand::srand(7);
         let mut g = Game::new();
         g.upgrades.arts = [ART_MAX_LEVEL; ARTS.len()];
+        g.upgrades.evolved = [true; ARTS.len()];
+        // Siren's Dominion kills whatever it charmed, which would thin out the horde.
+        g.upgrades.evolved[ALLURE] = false;
+        g.upgrades.sins = SINS.map(|d| d.max_level);
+        g.stats = g.upgrades.stats();
         g.arts.refresh(&g.upgrades);
         g.time = VICTORY_TIME;
+        // Kiss of Death heals up to max_hp, so both are endless.
         g.player.hp = f32::INFINITY;
+        g.player.max_hp = f32::INFINITY;
         while g.enemies.len() < MAX_ENEMIES {
             let p = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(50.0, g.spawn_ring);
             // Tough enough that the horde stays full under the maxed Arts.
@@ -1059,7 +1243,7 @@ mod tests {
             }
             if g.tick(&input) == SimEvent::LevelUp {
                 g.choose_upgrade(0);
-                g.player.hp = f32::INFINITY; // BloodPact clamps hp to max_hp
+                g.player.hp = f32::INFINITY; // Blood Pact clamps hp to max_hp
             }
             assert!(g.dying.is_none());
             assert!(g.enemies.len() <= MAX_ENEMIES);
@@ -1069,6 +1253,7 @@ mod tests {
             assert!(g.arts.gates.capacity() == MAX_GATES);
             assert!(g.arts.chains.capacity() == MAX_CHAINS);
             assert!(g.arts.feathers.capacity() == MAX_FEATHERS);
+            assert!(g.arts.siren_bursts.capacity() == MAX_SIREN_BURSTS);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);
             assert!(g.bursts.capacity() == MAX_BURST_PIXELS);

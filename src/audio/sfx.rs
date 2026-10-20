@@ -28,6 +28,8 @@ pub enum Sfx {
     Hellgate,
     Chain,
     Gust,
+    SirenBurst,
+    Offering,
     Hit,
     HitArmored,
     KillBeast,
@@ -47,7 +49,7 @@ pub enum Sfx {
 }
 
 impl Sfx {
-    pub const COUNT: usize = 23;
+    pub const COUNT: usize = 25;
     pub const ALL: [Sfx; Sfx::COUNT] = [
         Sfx::Fire,
         Sfx::Lash,
@@ -56,6 +58,8 @@ impl Sfx {
         Sfx::Hellgate,
         Sfx::Chain,
         Sfx::Gust,
+        Sfx::SirenBurst,
+        Sfx::Offering,
         Sfx::Hit,
         Sfx::HitArmored,
         Sfx::KillBeast,
@@ -83,6 +87,8 @@ impl Sfx {
             Sfx::Hellgate => "hellgate",
             Sfx::Chain => "chain",
             Sfx::Gust => "gust",
+            Sfx::SirenBurst => "siren_burst",
+            Sfx::Offering => "offering",
             Sfx::Hit => "hit",
             Sfx::HitArmored => "hit_armored",
             Sfx::KillBeast => "kill_beast",
@@ -114,7 +120,9 @@ impl Sfx {
             | Sfx::KillBeast
             | Sfx::KillHuman
             | Sfx::KillArmored => &JITTER,
-            Sfx::Hurt | Sfx::UiMove | Sfx::Kiss | Sfx::Allure | Sfx::Hellgate => &JITTER[1..4],
+            Sfx::Hurt | Sfx::UiMove | Sfx::Kiss | Sfx::Allure | Sfx::Hellgate | Sfx::SirenBurst => {
+                &JITTER[1..4]
+            }
             Sfx::Soul => &COMBO_STEPS,
             _ => &[0.0],
         }
@@ -130,6 +138,8 @@ impl Sfx {
             Sfx::Hellgate => 0.5,
             Sfx::Chain => 0.3,
             Sfx::Gust => 0.4,
+            Sfx::SirenBurst => 0.4,
+            Sfx::Offering => 2.0,
             Sfx::Hit => 0.1,
             Sfx::HitArmored => 0.16,
             Sfx::KillBeast => 0.16,
@@ -153,7 +163,13 @@ impl Sfx {
         match self {
             Sfx::Hit | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored => 4,
             Sfx::Fire | Sfx::Soul | Sfx::HitArmored => 3,
-            Sfx::Lash | Sfx::Kiss | Sfx::Allure | Sfx::Hellgate | Sfx::Chain | Sfx::Gust => 2,
+            Sfx::Lash
+            | Sfx::Kiss
+            | Sfx::Allure
+            | Sfx::Hellgate
+            | Sfx::Chain
+            | Sfx::Gust
+            | Sfx::SirenBurst => 2,
             Sfx::UiMove | Sfx::UiConfirm | Sfx::UiBack => 2,
             _ => 1,
         }
@@ -166,7 +182,7 @@ impl Sfx {
             Sfx::HitArmored | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored | Sfx::Soul => {
                 0.04
             }
-            Sfx::Fire | Sfx::Lash | Sfx::Kiss | Sfx::Chain | Sfx::Gust => 0.05,
+            Sfx::Fire | Sfx::Lash | Sfx::Kiss | Sfx::Chain | Sfx::Gust | Sfx::SirenBurst => 0.05,
             _ => 0.0,
         }
     }
@@ -181,6 +197,8 @@ impl Sfx {
             Sfx::Hellgate => 0.125,
             Sfx::Chain => 0.14,
             Sfx::Gust => 0.09,
+            Sfx::SirenBurst => 0.12,
+            Sfx::Offering => 0.42,
             Sfx::Hit => 0.22,
             Sfx::HitArmored => 0.2,
             Sfx::KillBeast => 0.35,
@@ -641,6 +659,80 @@ fn patch(sfx: Sfx) -> Patch {
                 echo: Echo {
                     delay: 0.12,
                     feedback: 0.35,
+                    mix: 0.35,
+                },
+            }
+        }
+        // Siren's Dominion: the charm snaps. A wet pop under a sine that falls from
+        // the leitmotif's tritone (G#) down to D, the spell turning on its victim.
+        Sfx::SirenBurst => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: -60.0,
+                    ..env(&[12, 9, 5, 2, 1, 0])
+                },
+                Instrument {
+                    sweep: -70.0,
+                    ..env(&[13, 8, 4, 2, 0])
+                },
+                Instrument {
+                    pitch: Macro::new(&[0, 0, -1, -2, -3, -4, -5, -6]),
+                    ..env(&[8, 10, 9, 7, 5, 4, 3, 2, 1, 1, 0])
+                },
+            ],
+            notes: vec![
+                note(0.0, Noise, 88.0, 0, 1.0),
+                note(0.0, Triangle, 52.0, 1, 1.0),
+                note(0.03, Wave, 80.0, 2, 0.9),
+            ],
+            echo: Echo {
+                delay: 0.07,
+                feedback: 0.2,
+                mix: 0.2,
+            },
+        },
+        // Abyssal Offering: a low bell tolls as the reliquary breathes open, then a
+        // slow sine climbs D minor to the leitmotif's sigh (E flat falling to D),
+        // a thin octave glinting over the last two notes. Rounder and darker than
+        // the level-up's pulses, as a gift from below should be.
+        Sfx::Offering => {
+            let step = env(&[7, 10, 10, 9, 8, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0]);
+            let mut held = vec![7, 10, 11, 11, 10, 10, 9, 9];
+            held.extend(fade(9, 60));
+            let held = Instrument {
+                vibrato: Vibrato {
+                    depth: 0.2,
+                    rate_hz: 4.5,
+                    delay: 0.25,
+                },
+                ..env(&held)
+            };
+            let mut notes = vec![
+                note(0.0, Noise, 58.0, 0, 1.0),
+                note(0.0, Triangle, 38.0, 1, 1.0),
+            ];
+            for (t, n) in [(0.12, 62.0), (0.24, 65.0), (0.36, 69.0), (0.48, 74.0)] {
+                notes.push(note(t, Wave, n, 2, 0.85));
+            }
+            notes.push(note(0.64, Wave, 75.0, 3, 1.0));
+            notes.push(note(0.64, Pulse2, 87.0, 4, 0.35));
+            notes.push(note(0.9, Wave, 74.0, 3, 1.0));
+            notes.push(note(0.9, Pulse2, 86.0, 4, 0.35));
+            Patch {
+                instruments: vec![
+                    Instrument {
+                        sweep: 8.0,
+                        ..env(&[1, 2, 3, 4, 4, 3, 3, 2, 2, 1, 1, 0])
+                    },
+                    env(&fade(15, 100)),
+                    step,
+                    held,
+                    with_duty(env(&fade(6, 40)), 0),
+                ],
+                notes,
+                echo: Echo {
+                    delay: 0.16,
+                    feedback: 0.4,
                     mix: 0.35,
                 },
             }

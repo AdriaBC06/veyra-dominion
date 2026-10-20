@@ -1,5 +1,8 @@
 //! The Arts table: per-Art base numbers and level gains (PLAN.md 7.7).
 
+use super::{
+    ALLUREMENT, BLOODLUST, BLOOD_PACT, DARK_SIGIL, LEGION, NIGHT_WINGS, SIRENS_CALL, WRATH,
+};
 use crate::i18n::Key;
 
 pub const MAX_ARTS: usize = 6;
@@ -21,11 +24,13 @@ pub enum ArtKind {
 /// - `amount`: fireballs per volley, lashes per attack, hearts per throw, embers,
 ///   enemies charmed per pulse, pools per cast, enemies a chain bites, gusts per cast;
 /// - `cooldown`: seconds between attacks (the Halo: seconds off between spells);
-/// - `area`: Halo orbit radius, Allure radius, chain jump and gust reach multiplier;
+/// - `area`: Halo orbit radius, Allure radius, chain jump, gust reach, lash depth and
+///   rift pull multiplier (the sprites never scale, and Hellgate's pools don't grow);
 /// - `speed`: projectile pixels per second (the Halo: radians per second);
 /// - `pierce`: extra enemies a heart goes through;
 /// - `duration`: projectile lifetime (the Halo: seconds each spell burns; Allure:
-///   charm; Hellgate: pool life; Wing Gust: slow).
+///   charm; Hellgate: pool life; Wing Gust: slow; Tail Lash: bleed once evolved).
+///   Dark Sigil lengthens every one but the projectile lifetimes.
 /// - `damage`: per hit (Allure: per pulse and per charmed bite; Hellgate: per burn).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ArtStats {
@@ -61,6 +66,14 @@ const NO_GAIN: ArtGain = ArtGain {
     duration: 0.0,
 };
 
+/// What an Art becomes when an Abyssal Offering is opened while it is at
+/// `ART_MAX_LEVEL` and `sin` (index into `SINS`) is owned.
+pub struct Evolution {
+    pub sin: usize,
+    pub name: Key,
+    pub desc: Key,
+}
+
 pub struct ArtDef {
     pub kind: ArtKind,
     pub name: Key,
@@ -70,6 +83,7 @@ pub struct ArtDef {
     pub base: ArtStats,
     /// Gains for levels 2..=ART_MAX_LEVEL.
     pub gains: [ArtGain; ART_MAX_LEVEL as usize - 1],
+    pub evolution: Evolution,
 }
 
 pub const HELLFLARE: usize = 0;
@@ -127,6 +141,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: LEGION,
+            name: Key::EvoHellstorm,
+            desc: Key::EvoHellstormDesc,
+        },
     },
     // A lash on the side she faces; the second one cracks behind her (Whip).
     ArtDef {
@@ -141,7 +160,7 @@ pub const ARTS: [ArtDef; 8] = [
             area: 1.0,
             speed: 0.0,
             pierce: 0,
-            duration: 0.0,
+            duration: 3.0,
         },
         gains: [
             ArtGain {
@@ -175,6 +194,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: WRATH,
+            name: Key::EvoBarbedScourge,
+            desc: Key::EvoBarbedScourgeDesc,
+        },
     },
     // Fast hearts where she moves, going through enemies (Knife).
     ArtDef {
@@ -223,6 +247,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: BLOOD_PACT,
+            name: Key::EvoKissOfDeath,
+            desc: Key::EvoKissOfDeathDesc,
+        },
     },
     // Embers circling her for a few seconds at a time (King Bible).
     ArtDef {
@@ -273,6 +302,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: DARK_SIGIL,
+            name: Key::EvoInfernalCrown,
+            desc: Key::EvoInfernalCrownDesc,
+        },
     },
     // A pulse that burns and charms the nearest few; they turn on the horde (Garlic).
     ArtDef {
@@ -322,6 +356,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: SIRENS_CALL,
+            name: Key::EvoSirensDominion,
+            desc: Key::EvoSirensDominionDesc,
+        },
     },
     // Burning pools opened under random enemies (Santa Water).
     ArtDef {
@@ -370,6 +409,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: ALLUREMENT,
+            name: Key::EvoAbyssalRift,
+            desc: Key::EvoAbyssalRiftDesc,
+        },
     },
     // A chain that bites one enemy and jumps from foe to foe (Lightning Ring).
     ArtDef {
@@ -419,6 +463,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: BLOODLUST,
+            name: Key::EvoTormentEternal,
+            desc: Key::EvoTormentEternalDesc,
+        },
     },
     // A beat of her wings: a cone that throws enemies back and slows them (control).
     ArtDef {
@@ -467,6 +516,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
         ],
+        evolution: Evolution {
+            sin: NIGHT_WINGS,
+            name: Key::EvoTempestOfWings,
+            desc: Key::EvoTempestOfWingsDesc,
+        },
     },
 ];
 

@@ -24,12 +24,15 @@ const CRITICAL_HP: f32 = 0.15;
 /// Seconds between heartbeats while low and critical.
 const HEARTBEAT_SLOW: f32 = 0.9;
 const HEARTBEAT_FAST: f32 = 0.6;
+/// The Offering screen ignores input this long, so a held key doesn't skip it.
+const OFFERING_HOLD: f32 = 0.6;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
     Playing,
     Paused,
     LevelUp,
+    Offering,
     GameOver,
     Victory,
 }
@@ -45,6 +48,8 @@ pub struct Run {
     pub update_ms: f32,
     /// Every pool and splash of blood shed in this run.
     blood: BloodLayer,
+    /// Seconds the Offering screen has been up.
+    offering_t: f32,
 }
 
 const PAUSE_MENU: [Key; 3] = [Key::MenuResume, Key::MenuSettings, Key::MenuTitle];
@@ -61,6 +66,7 @@ impl Run {
             heartbeat: 0.0,
             update_ms: 0.0,
             blood: BloodLayer::default(),
+            offering_t: 0.0,
         }
     }
 
@@ -70,7 +76,7 @@ impl Run {
             State::Paused => Some((&PAUSE_MENU, 0)),
             State::GameOver => Some((&GAME_OVER_MENU, 1)),
             State::Victory => Some((&VICTORY_MENU, 1)),
-            State::Playing | State::LevelUp => None,
+            State::Playing | State::LevelUp | State::Offering => None,
         }
     }
 
@@ -99,9 +105,13 @@ impl Run {
                 if is_key_pressed(KeyCode::F7) {
                     self.game.debug_level_arts();
                 }
+                if is_key_pressed(KeyCode::F8) {
+                    self.game.debug_drop_offering();
+                }
                 self.simulate(input, view, mouse_move);
             }
             State::LevelUp => self.level_up(input, view),
+            State::Offering => self.offering(input, view),
             _ => return self.menu_update(input, view),
         }
         None
@@ -129,6 +139,11 @@ impl Run {
                     audio::cue(Sfx::LevelUp);
                     self.state = State::LevelUp;
                     self.focus = Focus::default();
+                    break;
+                }
+                SimEvent::Offering => {
+                    self.set_state(State::Offering);
+                    self.offering_t = 0.0;
                     break;
                 }
                 SimEvent::PlayerDied => {
@@ -159,6 +174,8 @@ impl Run {
                 Cue::Hellgate => Sfx::Hellgate,
                 Cue::Chain => Sfx::Chain,
                 Cue::Gust => Sfx::Gust,
+                Cue::SirenBurst => Sfx::SirenBurst,
+                Cue::Offering => Sfx::Offering,
                 Cue::Hit { armored: false } => Sfx::Hit,
                 Cue::Hit { armored: true } => Sfx::HitArmored,
                 Cue::Kill(Family::Beast) => Sfx::KillBeast,
@@ -217,6 +234,17 @@ impl Run {
         }
     }
 
+    /// The Offering screen waits for a click or Enter once `OFFERING_HOLD` has passed.
+    fn offering(&mut self, input: &UiInput, view: Vec2) {
+        self.offering_t += get_frame_time().min(MAX_FRAME_DT);
+        let card = [hud::offering_card(view)];
+        let action = self.focus.update(input, &card);
+        if self.offering_t >= OFFERING_HOLD && matches!(action, Action::Confirm(_)) {
+            audio::cue(Sfx::UiConfirm);
+            self.set_state(State::Playing);
+        }
+    }
+
     fn menu_update(&mut self, input: &UiInput, view: Vec2) -> Option<Nav> {
         let (labels, lines) = self.menu()?;
         let rects = ui::button_column(view, hud::center_screen_buttons(lines), labels.len());
@@ -251,12 +279,14 @@ impl Run {
         self.blood.draw(origin, view);
         draw_gates(game);
         draw_souls(game);
+        draw_offerings(game);
         draw_bursts(game, true);
         draw_enemies(game);
         draw_fades(game);
         draw_bursts(game, false);
         let pos = player_pos.round();
         draw_allure_wave(game, pos);
+        draw_siren_bursts(game);
         draw_charm_marks(game);
         draw_embers(game, pos, false);
         draw_veyra(game, pos, game.time + alpha * TICK_DT);
@@ -276,6 +306,11 @@ impl Run {
             State::LevelUp => {
                 hud::draw_hud(game, view);
                 return hud::draw_level_up(game, view, &self.focus);
+            }
+            State::Offering => {
+                hud::draw_hud(game, view);
+                let ready = self.offering_t >= OFFERING_HOLD;
+                return hud::draw_offering(game, view, ready);
             }
             State::Paused => {
                 hud::draw_hud(game, view);
@@ -429,6 +464,36 @@ fn draw_allure_wave(game: &Game, pos: Vec2) {
     }
 }
 
+/// Siren's Dominion bursts: a ring of hearts thrown out from where the enemy was.
+fn draw_siren_bursts(game: &Game) {
+    for b in &game.arts.siren_bursts {
+        let k = b.t / SIREN_BURST_TIME;
+        let spread = 1.0 - (1.0 - k).powi(2);
+        let tint = Color::new(1.0, 1.0, 1.0, (2.0 * (1.0 - k)).min(1.0));
+        let frame = assets::anim_frame(SpriteId::CharmHeart, b.t, true);
+        for n in 0..SIREN_BURST_HEARTS {
+            let angle = n as f32 * TAU / SIREN_BURST_HEARTS as f32;
+            let off = Vec2::from_angle(angle) * b.radius * spread;
+            // The ground is seen at an angle: the ring is half as deep as it is wide.
+            let ground = b.pos + vec2(off.x, off.y * 0.5);
+            let corner = ground.round() - vec2(3.0, 9.0);
+            draw_sprite_tinted(SpriteId::CharmHeart, frame, corner, false, tint);
+        }
+    }
+}
+
+/// Abyssal Offerings on the ground, hovering and glowing.
+fn draw_offerings(game: &Game) {
+    let (_, src) = sprite(SpriteId::Offering, 0);
+    for (i, o) in game.offerings.iter().enumerate() {
+        let bob = (TAU * 0.8 * game.time + i as f32).sin().round();
+        draw_shadow(o.pos, 6.0, 2.0, 0.8);
+        let frame = assets::anim_frame(SpriteId::Offering, game.time + i as f32 * 0.3, true);
+        let corner = o.pos.round() - vec2((src.w * 0.5).floor(), src.h + 2.0 + bob);
+        draw_sprite(SpriteId::Offering, frame, corner, false);
+    }
+}
+
 /// Hellgate pools on the ground, fading in and out.
 fn draw_gates(game: &Game) {
     for g in &game.arts.gates {
@@ -561,6 +626,7 @@ fn draw_projectiles(game: &Game) {
 
 /// Tail lashes at Veyra's sides, the crescent's tips just above the ground.
 fn draw_lashes(game: &Game, pos: Vec2) {
+    let area = game.arts.stats[TAIL_LASH].area;
     for l in game.arts.lashes.iter().filter(|l| l.delay <= 0.0) {
         let (_, src) = sprite(SpriteId::TailLash, 0);
         let flip = l.side > 0.0;
@@ -570,12 +636,17 @@ fn draw_lashes(game: &Game, pos: Vec2) {
             pos.x - 1.0 - src.w
         };
         let frame = assets::anim_frame(SpriteId::TailLash, l.t, false);
-        draw_sprite(
-            SpriteId::TailLash,
-            frame,
-            vec2(x, pos.y - 2.0 - src.h),
-            flip,
-        );
+        let corner = vec2(x, pos.y - 2.0 - src.h);
+        // A deeper band (Allurement) shows as faint copies above and below.
+        let spread = (LASH_DEPTH * (area - 1.0) * 0.5).round();
+        if spread >= 1.0 {
+            let echo = Color::new(1.0, 1.0, 1.0, LASH_ECHO_ALPHA);
+            for dy in [-spread, spread] {
+                let at = corner + vec2(0.0, dy);
+                draw_sprite_tinted(SpriteId::TailLash, frame, at, flip, echo);
+            }
+        }
+        draw_sprite(SpriteId::TailLash, frame, corner, flip);
     }
 }
 

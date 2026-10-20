@@ -120,3 +120,26 @@ anim("gust_feather", { outline: "k", fps: 12 }, `
   .iivvvi..
   IIIIIIIqq
   .wwwww...`, frame(), frame(grid(0, 0, ".........\n..ivvvi..\nIIIIIIIqq\n..wwwwww.")))
+
+// ---- V17 ------------------------------------------------------------------
+
+// Abyssal Offering: a horned reliquary of dark plum and brimstone gold, dropped by
+// elites. Veyra's sigil (a heart crowned with horns) pulses on its face.
+pal({ g: "#e8b04a", G: "#8a5a1c" })                       // brimstone gold trim
+anim("offering", { w: 11, h: 12, frames: 4, fps: 6, outline: "k" }, (c) => {
+  const sym = (x, y, col) => { c.px(x, y, col); c.px(10 - x, y, col) }
+  sym(1, 0, "G"); sym(1, 1, "W"); sym(2, 1, "G")          // horns on the lid
+  c.hline(2, 2, 7, "G")
+  c.hline(1, 3, 9, "W"); sym(1, 3, "G")                   // lid
+  c.hline(0, 4, 11, "g"); sym(0, 4, "G")                  // gold band
+  c.rect(0, 5, 11, 6, "w")                                // body
+  c.vline(1, 5, 6, "v"); c.vline(0, 5, 6, "W"); c.vline(10, 5, 6, "W")
+  c.hline(0, 10, 11, "W")
+  sym(0, 11, "G"); sym(1, 11, "G")                        // clawed feet
+  // The sigil: dim, lit, blazing, lit.
+  const [rim, core, hot] = [["R", "r", "q"], ["r", "q", "Q"], ["q", "Q", "I"], ["r", "q", "Q"]][c.frame]
+  sym(3, 5, rim); sym(4, 6, rim)                          // its horns
+  sym(4, 7, core); c.px(5, 7, hot)                        // heart
+  sym(4, 8, rim); c.px(5, 8, core); c.px(5, 9, rim)
+  if (c.frame === 2) { sym(3, 7, "r"); c.px(5, 6, "q") }  // the glow spills over
+})

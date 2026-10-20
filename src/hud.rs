@@ -2,7 +2,7 @@
 
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
 use crate::config::*;
-use crate::game::Game;
+use crate::game::{Game, Reward};
 use crate::i18n::{tr, trf, Key};
 use crate::ui::Focus;
 use crate::upgrades::Choice;
@@ -150,20 +150,9 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
     for (slot, choice) in game.choices.iter().enumerate() {
         let Some(choice) = *choice else { continue };
         let (name, lv, desc) = card_text(game, choice);
-        let Rect { x, y, w, h } = cards[slot];
-        let border = if focus.is_highlighted(slot) {
-            TITLE_COLOR
-        } else {
-            GRAY
-        };
-        draw_rectangle(x, y, w, h, Color::new(0.08, 0.04, 0.1, 0.95));
-        draw_rectangle_lines(x, y, w, h, 2.0, border);
         let num = (slot + 1).to_string();
-        draw_ui_text(&num, x + 10.0, y + 22.0, TextStyle::Body, GRAY);
-        draw_ui_text(name, x + 28.0, y + 22.0, TextStyle::Body, WHITE);
-        let lv_w = measure_ui_text(&lv, TextStyle::Body).width;
-        draw_ui_text(&lv, x + w - lv_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
-        draw_ui_text(&desc, x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
+        let lit = focus.is_highlighted(slot);
+        draw_card(cards[slot], &num, name, &lv, &desc, lit);
     }
     draw_text_centered(
         view,
@@ -174,14 +163,31 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
     );
 }
 
-/// Name, level tag and description of a level-up card. A new Art shows what it does;
-/// an owned one shows what its next level adds.
+/// A card: `num` in the corner, name with a tag on the right, a description below.
+fn draw_card(rect: Rect, num: &str, name: &str, tag: &str, desc: &str, lit: bool) {
+    let Rect { x, y, w, h } = rect;
+    let border = if lit { TITLE_COLOR } else { GRAY };
+    draw_rectangle(x, y, w, h, Color::new(0.08, 0.04, 0.1, 0.95));
+    draw_rectangle_lines(x, y, w, h, 2.0, border);
+    draw_ui_text(num, x + 10.0, y + 22.0, TextStyle::Body, GRAY);
+    draw_ui_text(name, x + 28.0, y + 22.0, TextStyle::Body, WHITE);
+    let tag_w = measure_ui_text(tag, TextStyle::Body).width;
+    draw_ui_text(tag, x + w - tag_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
+    draw_ui_text(desc, x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
+}
+
+/// Name, level tag and description of a level-up card. A new Art or Sin shows what
+/// it does; an owned Art shows what its next level adds.
 fn card_text(game: &Game, choice: Choice) -> (&'static str, String, String) {
     match choice {
-        Choice::Upgrade(i) => {
-            let def = &UPGRADES[i];
-            let lv = &game.upgrades.levels[i];
-            let tag = trf(Key::LevelUpLevel, &[lv, &def.max_level]);
+        Choice::Sin(i) => {
+            let def = &SINS[i];
+            let lv = game.upgrades.sins[i];
+            let tag = if lv == 0 {
+                tr(Key::LevelUpNew).to_string()
+            } else {
+                trf(Key::LevelUpLevel, &[&lv, &def.max_level])
+            };
             (tr(def.name), tag, tr(def.desc).to_string())
         }
         Choice::Art(i) => {
@@ -198,6 +204,79 @@ fn card_text(game: &Game, choice: Choice) -> (&'static str, String, String) {
                 gain_text(def, &def.gains[lv as usize - 1]),
             )
         }
+    }
+}
+
+/// The card on the Abyssal Offering screen.
+pub fn offering_card(view: Vec2) -> Rect {
+    let x = Anchor::Center.x(view, CARD_W, 0.0);
+    Rect::new(x, CARDS_Y + CARD_H + CARD_GAP, CARD_W, CARD_H)
+}
+
+/// Abyssal Offering screen: what the Offering gave, on one card.
+pub fn draw_offering(game: &Game, view: Vec2, ready: bool) {
+    draw_dim(view);
+    draw_text_centered(
+        view,
+        tr(Key::OfferingTitle),
+        78.0,
+        TextStyle::Title,
+        TITLE_COLOR,
+    );
+    let Some(reward) = game.reward else { return };
+    let u = &game.upgrades;
+    let (line, name, tag, desc) = match reward {
+        Reward::Evolution(i) => {
+            let evo = &ARTS[i].evolution;
+            let line = trf(Key::OfferingEvolved, &[&tr(ARTS[i].name)]);
+            (
+                line,
+                tr(evo.name).to_string(),
+                String::new(),
+                tr(evo.desc).to_string(),
+            )
+        }
+        // The gift is already taken: show the level it reached and what that gave.
+        Reward::Gift(Choice::Art(i)) => {
+            let (def, lv) = (&ARTS[i], u.arts[i]);
+            let tag = trf(Key::LevelUpLevel, &[&lv, &ART_MAX_LEVEL]);
+            let desc = match lv {
+                1 => tr(def.desc).to_string(),
+                _ => gain_text(def, &def.gains[lv as usize - 2]),
+            };
+            (
+                tr(Key::OfferingGift).to_string(),
+                tr(def.name).to_string(),
+                tag,
+                desc,
+            )
+        }
+        Reward::Gift(Choice::Sin(i)) => {
+            let def = &SINS[i];
+            let tag = trf(Key::LevelUpLevel, &[&u.sins[i], &def.max_level]);
+            let desc = tr(def.desc).to_string();
+            (
+                tr(Key::OfferingGift).to_string(),
+                tr(def.name).to_string(),
+                tag,
+                desc,
+            )
+        }
+        Reward::Heal => {
+            let hp = trf(Key::OfferingHealDesc, &[&OFFERING_HEAL]);
+            (
+                tr(Key::OfferingHeal).to_string(),
+                hp,
+                String::new(),
+                String::new(),
+            )
+        }
+    };
+    draw_text_centered(view, &line, CARDS_Y + 22.0, TextStyle::Body, WHITE);
+    draw_card(offering_card(view), "", &name, &tag, &desc, true);
+    if ready {
+        let y = CARDS_Y + 2.0 * (CARD_H + CARD_GAP) + 22.0;
+        draw_text_centered(view, tr(Key::OfferingHelp), y, TextStyle::Body, WHITE);
     }
 }
 

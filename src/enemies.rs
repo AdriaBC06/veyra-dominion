@@ -25,6 +25,8 @@ pub struct Enemies {
     pub slow_until: Vec<f32>,
     /// Knockback velocity, dying away at `KNOCK_DECAY`.
     pub knock: Vec<Vec2>,
+    /// Game time until which it bleeds (Barbed Scourge).
+    pub bleed_until: Vec<f32>,
     next_uid: u32,
     /// Live enemies per kind, so the largest radius in play is cheap to find.
     counts: [u32; ENEMY_DEFS.len()],
@@ -45,6 +47,7 @@ impl Enemies {
             charm_until: Vec::with_capacity(n),
             slow_until: Vec::with_capacity(n),
             knock: Vec::with_capacity(n),
+            bleed_until: Vec::with_capacity(n),
             next_uid: 0,
             counts: [0; ENEMY_DEFS.len()],
         }
@@ -77,6 +80,7 @@ impl Enemies {
         self.charm_until.push(0.0);
         self.slow_until.push(0.0);
         self.knock.push(Vec2::ZERO);
+        self.bleed_until.push(0.0);
         self.counts[kind] += 1;
     }
 
@@ -94,6 +98,7 @@ impl Enemies {
         self.charm_until.swap_remove(i);
         self.slow_until.swap_remove(i);
         self.knock.swap_remove(i);
+        self.bleed_until.swap_remove(i);
     }
 
     /// Largest collision radius among the kinds currently alive (0 when empty); spatial

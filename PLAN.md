@@ -340,7 +340,7 @@ Modelled on the Vampire Survivors structure: up to **6 Arts + 6 Sins**, Arts rea
 | Kiss of Ruin | Knife | Fast piercing heart bolt in the move direction | **Kiss of Death** (+ Blood Pact): lifesteal on hit |
 | Brimstone Halo | King Bible | Orbiting embers | **Infernal Crown** (+ Dark Sigil): permanent ring |
 | Allure | Garlic (area) plus a succubus twist | Aura that **charms** enemies: they fight for Veyra for a few seconds | **Siren's Dominion** (+ Siren's Call): charmed enemies explode on expiry |
-| Hellgate | Santa Water | Burning pools at random spots near enemies | **Abyssal Rift**: pools pull enemies in |
+| Hellgate | Santa Water | Burning pools at random spots near enemies | **Abyssal Rift** (+ Allurement): pools pull enemies in |
 | Chain of Torment | Lightning Ring | Chain lightning between N enemies | **Torment Eternal** (+ Bloodlust): unlimited bounces in a radius |
 | Wing Gust | Clock Lancet / control | Cone knockback with a short slow | **Tempest of Wings** (+ Night Wings): pushes and damages |
 
@@ -354,7 +354,7 @@ Modelled on the Vampire Survivors structure: up to **6 Arts + 6 Sins**, Arts rea
 | Siren's Call | +40% pickup radius | 5 |
 | Dark Sigil | +10% duration | 5 |
 | Allurement | +10% area | 5 |
-| Greed | +20% Tribute | 5 |
+| Greed | +20% Tribute (joins with Tribute in V20) | 5 |
 | Infernal Hide | +1 armour | 5 |
 
 On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Reroll charges come from Pacts.
@@ -370,6 +370,15 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - Sounds: `Sfx::Lash` (rising air, then a crack on a high D) and `Sfx::Kiss` (a breath and a sine leaning D→Eb, her minor 2nd), both measured at about −28 dB like Hellflare. Halo hits use the normal hit sound.
 - Debug: **F7** in a run levels up every Art (new ones join at level 1).
 - Stress test: every Art at level 8 on a full 2,500 horde (×1000 HP so it stays full): 0.53 ms mean tick, was 0.50 ms with Hellflare alone.
+
+**Built in V17 (S14):**
+- `config/mod.rs`: `SINS` table (`SinDef`, `SinKind`, index consts `WRATH`..`INFERNAL_HIDE`), values as in the table above (Wrath is +10% now, not Fury's +25%; Legion caps at 2). `Choice::Sin`; `Upgrades.sins` levels; at most `MAX_SINS` (6) owned, new Sins only offered while one is free. Greed is left out until Tribute exists (V20), so no Sin is inert.
+- `PlayerStats` gained `duration`, `area`, `armor`. Dark Sigil scales every Art's `duration` except the projectile lifetimes (Hellflare, Kiss: that is their range). Infernal Hide takes 1 per level off contact damage, never below `MIN_CONTACT_DAMAGE` (1).
+- **Allurement on the Lash (decision):** area deepens the lash's band (`LASH_DEPTH × area`), not its reach; the sprite never scales, so two faint copies (`LASH_ECHO_ALPHA`) mark the band's edges. Hellgate's pools still ignore area; Abyssal Rift's pull radius uses it, hence the pairing.
+- Evolutions: `ArtDef.evolution { sin, name, desc }`, `Upgrades::evolvable()` (first slot at level 8 with its Sin owned) / `evolve`; `Arts` branches on `evolved[i]`. Hellstorm: +2 fireballs, each at its own random enemy (reservoir pick). Barbed Scourge: lashed enemies bleed for the Lash's `duration` (3 s base), `BLEED_SHARE` of its damage every `BLEED_TICK`, and drip blood (`Enemies.bleed_until`). Kiss of Death: 1 HP per heart hit, at most `KISS_HEAL_CAP`/s. Infernal Crown: never rests, +1 ember. Siren's Dominion: when a charm ends the enemy bursts (dies, `SIREN_BURST_DAMAGE` × damage around it, a ring of hearts); `charm_until` is reset to 0 on expiry. Abyssal Rift: pools drag enemies within `RIFT_RADIUS` × area to their centre. Torment Eternal: up to `MAX_CHAIN_LINKS` (now 24) bites, hopping anywhere within `TORMENT_RADIUS` of the first victim. Tempest of Wings: one gust all round, ×3 damage, feathers in 6 directions.
+- **Abyssal Offerings:** elites drop one where they die (`Game.offerings`); touching it opens it (`SimEvent::Offering`, a screen in `run.rs` that waits `OFFERING_HOLD` before accepting a click/Enter). It evolves the first evolvable Art, else grants a random level (`Reward::Gift`), else heals `OFFERING_HEAL`. Sprite `offering` (13×14 ×4, horned reliquary with a pulsing sigil) in `assets/arts.px.js`. Debug **F8** drops one ahead of Veyra (use with F5 elites / F7 levels).
+- Sounds: `Sfx::SirenBurst` (wet pop, sine falling G#→D) −28.1 dB, `Sfx::Offering` (low bell, sine climbing D minor to the Eb→D sigh, thin octave glint) about −15.5 dB like level-up.
+- Stress test now runs with every Art evolved and every Sin maxed except Siren's Dominion (it kills what it charms and would thin the horde), ×20000 HP: 0.37 ms mean tick (0.57 before on the same machine with the old setup).
 
 **Built in V16 (S13):**
 - New `Enemies` columns: `charm_until`, `slow_until`, `knock` (velocity). `steer` now takes the game time: charmed enemies head for the nearest free enemy within `CHARM_SEEK` (or stand still), slowed ones move at `GUST_SLOW`, knockback is added on top and decays at `KNOCK_DECAY`. Charmed enemies never deal contact damage to Veyra. Hellflare and the other Arts still hit charmed enemies (kept simple).
@@ -634,7 +643,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S13 — Arts II**
   - [x] V16 Remaining Arts
 - **S14 — Sins**
-  - [ ] V17 Sins and evolutions
+  - [x] V17 Sins and evolutions
 - **S15 — Enemy AI**
   - [ ] V18 Enemy behaviours and elites
 - **S16 — First boss**
@@ -733,3 +742,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Checked in game with a scratch capture harness (env hook in `App::frame`, not committed; `XDG_DATA_HOME` in a temp dir): the chain and the feathers needed a second pass to read on the grass, and a capture showed the pulse was killing what it charmed (fixed).
   - Gotchas: assert on charm expiry with a 2-tick margin (2.5 s / tick isn't exact); `cargo fmt` reflows long `query_radius` calls, so re-read before scripted edits.
   - Next: S14 (V17 Sins and evolutions).
+- **S14 (2026-10-20)** — V17 done (see 7.7 "Built in V17"). 132 tests. S11 (title screen) is still parked by the user; the S12→S14 chain the user asked for ends here.
+  - Decisions taken alone (not reviewed by the user yet): table values for the renamed Sins (Wrath +10% instead of Fury's +25%), Greed deferred to V20, Allurement deepens the lash band with echo copies, Abyssal Rift paired with Allurement, Offerings give a random level or heal when nothing can evolve, every evolved behaviour and the two new sounds (`target/audio/sfx/siren_burst.wav`, `offering.wav`).
+  - Not checked in game with a capture harness this session (a scheduled shutdown cut it short): look at the Offering sprite/screen (F5 on a group, kill it, or F8), the lash echoes and the evolutions (F7 to max, F8 to evolve) first thing in S15.
+  - Gotcha: a Python `str.replace` on a block that appears twice (test setups) edits both; assert the count first.
