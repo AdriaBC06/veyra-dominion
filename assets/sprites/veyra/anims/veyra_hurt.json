@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "veyra_hurt_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 60
+  },
+  "veyra_hurt_1": {
+   "frame": {
+    "x": 66,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 120
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "veyra_hurt.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 132,
+   "h": 50
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "veyra_hurt",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

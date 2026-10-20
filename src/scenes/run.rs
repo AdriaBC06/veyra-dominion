@@ -2,7 +2,9 @@
 //! (pause menu, level-up choice, game over and victory).
 
 use super::Nav;
-use crate::assets::{self, sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE};
+use crate::assets::{
+    self, sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE, VEYRA_FRAME, VEYRA_PIVOT,
+};
 use crate::audio::{self, Jingle, Sfx};
 use crate::config::*;
 use crate::game::{Cue, Game, InputState, SimEvent};
@@ -364,44 +366,73 @@ fn draw_fades(game: &Game) {
     }
 }
 
-/// Draws Veyra hovering over `pos` (the point on the ground below her).
+/// Draws Veyra hovering over `pos` (the point on the ground below her): wings, tail,
+/// hair and body stacked on one pivot, or the death strip while she burns away.
 fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
     let p = &game.player;
-    let opacity = game.dying.map_or(1.0, |d| (1.0 - d / DEATH_TIME).max(0.0));
-    let blink_off =
-        game.dying.is_none() && p.iframes > 0.0 && (p.iframes / BLINK_PERIOD) as u32 % 2 == 1;
-    if blink_off {
+    let bob = BOB_AMPLITUDE * (TAU * BOB_HZ * t).sin();
+    let pivot = pos
+        - vec2(
+            0.0,
+            HOVER_HEIGHT + VEYRA_FRAME.y - VEYRA_PIVOT.y + bob.round(),
+        );
+    // She faces left in the art; flipping mirrors the frame around the pivot pixel.
+    let flip = p.facing > 0.0;
+    let pivot_x = if flip {
+        VEYRA_FRAME.x - 1.0 - VEYRA_PIVOT.x
+    } else {
+        VEYRA_PIVOT.x
+    };
+    let corner = pivot - vec2(pivot_x, VEYRA_PIVOT.y);
+
+    if let Some(dying) = game.dying {
+        // The strip burns away, then its last frame fades out until the game over screen.
+        let len = assets::anim_secs(SpriteId::VeyraDeath);
+        let fade = ((DEATH_TIME - dying) / (DEATH_TIME - len)).clamp(0.0, 1.0);
+        let (w, h) = VEYRA_SHADOW;
+        draw_shadow(pos, w, h, fade);
+        let frame = assets::anim_frame(SpriteId::VeyraDeath, dying, false);
+        let tint = Color::new(1.0, 1.0, 1.0, fade);
+        draw_sprite_tinted(SpriteId::VeyraDeath, frame, corner, flip, tint);
         return;
     }
-    let tint = Color::new(1.0, 1.0, 1.0, opacity);
-    let bob = BOB_AMPLITUDE * (TAU * BOB_HZ * t).sin();
-    let shrink = 1.0 - SHADOW_SHRINK * bob / BOB_AMPLITUDE;
-    draw_shadow(pos, 6.0 * shrink, 2.0 * shrink, opacity);
 
-    let body = pos - vec2(8.0, 24.0 + HOVER_HEIGHT + bob.round());
+    let shrink = 1.0 - SHADOW_SHRINK * bob / BOB_AMPLITUDE;
+    draw_shadow(pos, VEYRA_SHADOW.0 * shrink, VEYRA_SHADOW.1 * shrink, 1.0);
+
+    let since_hurt = PLAYER_IFRAMES - p.iframes;
+    let hurt = p.iframes > 0.0 && since_hurt < assets::anim_secs(SpriteId::VeyraHurt);
+    // Past the hurt frames she blinks to translucent rather than vanishing, so she
+    // never gets lost in the horde.
+    let blink = p.iframes > 0.0 && !hurt && (p.iframes / BLINK_PERIOD) as u32 % 2 == 1;
+    let tint = Color::new(1.0, 1.0, 1.0, if blink { 0.4 } else { 1.0 });
+
     let moving = p.vel.length() > IMPULSE_SPEED;
-    let facing_left = p.facing < 0.0;
-    // The tail hangs on the side opposite to where she faces, so it trails behind.
-    let tail_x = if facing_left { 10.0 } else { -2.0 };
-    draw_sprite_tinted(
-        SpriteId::VeyraWings,
-        (t * WING_FPS) as usize,
-        body + vec2(-4.0, 6.0),
-        false,
-        tint,
-    );
-    draw_sprite_tinted(
-        SpriteId::VeyraTail,
-        0,
-        body + vec2(tail_x, 15.0) + p.tail_lag,
-        !facing_left,
-        tint,
-    );
-    draw_sprite_tinted(
-        SpriteId::VeyraBody,
-        moving as usize,
-        body,
-        facing_left,
-        tint,
-    );
+    let (body, body_t, looped) = if hurt {
+        (SpriteId::VeyraHurt, since_hurt, false)
+    } else if p.since_cast < assets::anim_secs(SpriteId::VeyraCast) {
+        (SpriteId::VeyraCast, p.since_cast, false)
+    } else if moving {
+        (SpriteId::VeyraMove, t, true)
+    } else {
+        (SpriteId::VeyraIdle, t, true)
+    };
+    let hair = if moving {
+        SpriteId::VeyraHairMove
+    } else {
+        SpriteId::VeyraHair
+    };
+    // Tail and hair trail the movement a little, the hair less so it stays on her head.
+    let tail_lag = p.tail_lag.clamp_length_max(TAIL_LAG_MAX);
+    let hair_lag = (tail_lag * 0.5).clamp_length_max(HAIR_LAG_MAX);
+    let layers = [
+        (SpriteId::VeyraWings, t, true, Vec2::ZERO),
+        (SpriteId::VeyraTail, t, true, tail_lag),
+        (hair, t, true, hair_lag),
+        (body, body_t, looped, Vec2::ZERO),
+    ];
+    for (id, secs, looped, offset) in layers {
+        let frame = assets::anim_frame(id, secs, looped);
+        draw_sprite_tinted(id, frame, corner + offset.round(), flip, tint);
+    }
 }

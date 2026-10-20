@@ -1,0 +1,85 @@
+{
+ "frames": {
+  "veyra_cast_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 80
+  },
+  "veyra_cast_1": {
+   "frame": {
+    "x": 66,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 80
+  },
+  "veyra_cast_2": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 160
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "veyra_cast.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 198,
+   "h": 50
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "veyra_cast",
+    "from": 0,
+    "to": 2,
+    "direction": "forward"
+   }
+  ]
+ }
+}

@@ -1,0 +1,148 @@
+{
+ "frames": {
+  "veyra_death_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 143
+  },
+  "veyra_death_1": {
+   "frame": {
+    "x": 66,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 143
+  },
+  "veyra_death_2": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 143
+  },
+  "veyra_death_3": {
+   "frame": {
+    "x": 198,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 143
+  },
+  "veyra_death_4": {
+   "frame": {
+    "x": 264,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 143
+  },
+  "veyra_death_5": {
+   "frame": {
+    "x": 330,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 143
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "veyra_death.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 396,
+   "h": 50
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "veyra_death",
+    "from": 0,
+    "to": 5,
+    "direction": "forward"
+   }
+  ]
+ }
+}

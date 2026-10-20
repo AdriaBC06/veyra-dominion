@@ -59,6 +59,8 @@ pub struct Player {
     pub max_hp: f32,
     /// Remaining invulnerability after a hit.
     pub iframes: f32,
+    /// Seconds since Hellflare last fired, for the cast animation.
+    pub since_cast: f32,
 }
 
 pub struct Projectile {
@@ -129,6 +131,7 @@ impl Game {
                 hp: PLAYER_MAX_HP,
                 max_hp: PLAYER_MAX_HP,
                 iframes: 0.0,
+                since_cast: f32::INFINITY,
             },
             enemies: Enemies::with_capacity(MAX_ENEMIES),
             projectiles: Vec::with_capacity(MAX_PROJECTILES),
@@ -296,6 +299,7 @@ impl Game {
                 });
             }
             self.fire_cd = self.stats.fire_interval;
+            self.player.since_cast = 0.0;
             self.cue(Cue::Fire);
         }
     }
@@ -537,6 +541,7 @@ impl Game {
         p.vel = p.vel.lerp(dir * self.stats.speed, blend);
         p.prev_pos = p.pos;
         p.pos += p.vel * TICK_DT;
+        p.since_cast += TICK_DT;
         if p.vel.x.abs() > IMPULSE_SPEED * 0.5 {
             p.facing = p.vel.x.signum();
         }

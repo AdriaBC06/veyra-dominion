@@ -1,0 +1,106 @@
+{
+ "frames": {
+  "veyra_move_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 125
+  },
+  "veyra_move_1": {
+   "frame": {
+    "x": 66,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 125
+  },
+  "veyra_move_2": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 125
+  },
+  "veyra_move_3": {
+   "frame": {
+    "x": 198,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 66,
+    "h": 50
+   },
+   "sourceSize": {
+    "w": 66,
+    "h": 50
+   },
+   "duration": 125
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "veyra_move.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 264,
+   "h": 50
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "veyra_move",
+    "from": 0,
+    "to": 3,
+    "direction": "forward"
+   }
+  ]
+ }
+}

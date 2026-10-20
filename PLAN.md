@@ -303,7 +303,8 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 
 ### 7.6 Art restyle
 
-- **Veyra:** about 48×32 reclining body (on her side, levitating) plus separate wings, tail and hair layers for secondary motion. Frames: idle float (4), move lean (4), cast (3), hurt (2), death dissolve (6). Bigger shadow and a subtle red rim light. Draw order and pivot are tuned so she reads clearly among 2,500 enemies.
+- **Veyra:** lounging on the air as if seated (pose chosen by the user in S9: face to the viewer with both eyes visible, legs crossed with the knees to one side, wings spread on both sides; *not* a side view lying down) plus separate wings, tail and hair layers for secondary motion. Frames: idle float (4), move lean (4), cast (3), hurt (2), death dissolve (6). Bigger shadow and a subtle red rim light. Draw order and pivot are tuned so she reads clearly among 2,500 enemies.
+  - **Source (S9):** `assets/veyra.px.js`, drawn with the pxl skill (`node .claude/skills/pxl-pixel-art/bin/pxl.js build assets/veyra.px.js --out assets/sprites/veyra`). Strips in `assets/sprites/veyra/anims/`: `veyra_idle` (4), `veyra_move` (4), `veyra_cast` (3, once), `veyra_hurt` (2, once), `veyra_death` (6, once, all layers burning away), `veyra_wings` (4), `veyra_tail` (4), `veyra_hair` (4) and `veyra_hair_move` (4, hair streaming back). Each frame is 66×50 and every layer shares the origin, so they stack directly; pivot (31, 36), under her hips; she faces left. Draw order: wings, tail, hair, body. Frame durations are in the `.json` next to each strip. The body leaves the head/hair seam without outline so head and hair read as one mass.
 - **Enemy sizes vary by type:** small (rat 12 px, bat 12), medium (villager 20, monk 20), large (knight 26, paladin 28), brutes 40, bosses 64–96. `EnemyDef` gets `size` and `radius` from the sprite. The spatial queries add the largest radius in play.
 - **Effects:** an outline on elites, death-burst particles in each enemy's palette, ember trail on projectiles and hit-stop of 1–2 frames on big hits.
 - **Ground:** each map has its own tileset plus scattered props (fences, graves, pews, banners, clouds). Props are not walls: they don't block movement.
@@ -568,7 +569,11 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [x] V11 Remaining music + jingles
   - [x] **CP5 Audio**
 - **S9 — Veyra** *(user approval; ask for the reference images at the start)*
-  - [ ] V12 Veyra redesign
+  - [x] V12 Veyra redesign
+    - [x] Reference images received (`assets/refs/`) and pose agreed (seated lounge, see 7.6)
+    - [x] Sprite set drawn as code (`assets/veyra.px.js`): body states idle 4 / move 4 / cast 3 / hurt 2 / death 6, wings, tail and hair layers, red rim light
+    - [x] User approves the look (2026-10-20: "está buenísima, perfecta")
+    - [x] In game: `SpriteId` + `SHEETS` rows for the new strips, layered drawing, pivot, bigger shadow
 - **S10 — Enemies look**
   - [ ] V13 Enemy restyle with variable sizes
 - **S11 — Title screen** *(user approval)*
@@ -646,4 +651,12 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - User approved everything on first listen ("me mola todo"). Listening playlist: `target/audio/s8_banda_sonora.m3u` (not committed; regenerate the WAVs with `render_audio`).
   - CP5: release binary 2.31 MB (2.08 MB stripped), up from 1.95 MB (the `.vtrk` sources are tiny; growth is code).
   - Gotchas: `@ch` only moves one-line patterns (split harmony into its own pattern); an instrument with no `wave` on the wave channel is silent; a frame lasts as long as its longest pattern, so a jingle can be one long pattern; pitch `sweep` restarts on every note of the line.
+- **S9 (2026-10-20)** — V12 art done and approved ("está buenísima, perfecta"); not in game yet. Next: finish V12 in game (see the S9 checklist), then S10.
+  - Pose: the user sent an image after rejecting a side-view "lying on her side" draft. She lounges seated on the air, face to the viewer (see 7.6). Two "body too chunky / not sexy" and three eye rounds before approval.
+  - Art is code: `assets/veyra.px.js` (pxl skill in `.claude/skills/pxl-pixel-art`), output in `assets/sprites/veyra/` (`anims/*.png` strips + `.json` durations; `_preview/` is review only). Rebuild: `node .claude/skills/pxl-pixel-art/bin/pxl.js build assets/veyra.px.js --out assets/sprites/veyra`.
+  - Gotchas: the body layer uses its own `ink()` outline that skips the head/hair seam (pxl's `outline` would draw a line between head and hair); loops share 200 ms frames (wings/tail/hair/idle) so stacked previews stay short; `glow` on cast leaves the palette (fine in game).
   - Not checked by ear in game: the ducking under victory/game over. Map/boss themes are not loaded yet (see 7.10). Next: S9 (V12 Veyra redesign — ask for the reference images first).
+- **S9 follow-up (2026-10-20)** — V12 done in game. Nine strips embedded under `SpriteId::Veyra*` (the old `veyra_body/wings/tail.png` are gone); the atlas grew to 512×512. Frame durations live in `assets::frame_ms` and a test checks them against the `.json` files. 92 tests. Release binary 2.42 MB (was 2.31 MB).
+  - Drawing (`draw_veyra` in `scenes/run.rs`): wings, tail, hair, body on one corner from `VEYRA_PIVOT`, flipped around the pivot pixel when she faces right. The pivot hovers so her lowest pixel is `HOVER_HEIGHT` above the shadow (now 15×4, `VEYRA_SHADOW`). Body by priority: hurt (first 180 ms of iframes) > cast (`Player::since_cast`, set when Hellflare fires) > move > idle; hair switches to `veyra_hair_move` while moving. Tail and hair follow `tail_lag`, capped at 2 px and 1 px so they stay attached.
+  - After the hurt frames the iframe blink goes translucent (40%) instead of invisible, so she never vanishes in the horde. Death plays `veyra_death` with the old smoke puffs on top, then fades its last frame until the game over screen.
+  - Checked in game with a scratch capture harness (not committed): idle, cast, move both ways, hurt, death and 2,500 enemies; she reads clearly over the horde. Fireballs still leave at `PROJ_DRAW_HEIGHT` (about her hips), not the raised hand. Next: S10.

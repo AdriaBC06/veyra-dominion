@@ -11,9 +11,15 @@ use std::cell::OnceCell;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SpriteId {
-    VeyraBody,
+    VeyraIdle,
+    VeyraMove,
+    VeyraCast,
+    VeyraHurt,
+    VeyraDeath,
     VeyraWings,
     VeyraTail,
+    VeyraHair,
+    VeyraHairMove,
     Rat,
     Villager,
     Knight,
@@ -23,7 +29,7 @@ pub enum SpriteId {
     Ground,
 }
 
-const SPRITE_COUNT: usize = 10;
+const SPRITE_COUNT: usize = 16;
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -31,8 +37,13 @@ pub const FLASH_FRAME_OFFSET: usize = 2;
 pub const GROUND_TILE: u16 = 32;
 pub const GROUND_VARIANTS: usize = 6;
 
-const ATLAS_W: u16 = 256;
-const ATLAS_H: u16 = 256;
+const ATLAS_W: u16 = 512;
+const ATLAS_H: u16 = 512;
+
+/// Veyra's layers (`assets/veyra.px.js`) are 66x50 frames sharing one origin; the
+/// pivot sits under her hips and she faces left.
+pub const VEYRA_FRAME: Vec2 = vec2(66.0, 50.0);
+pub const VEYRA_PIVOT: Vec2 = vec2(31.0, 36.0);
 
 /// An embedded sprite strip: `frames` equal-width frames side by side.
 struct Sheet {
@@ -54,12 +65,68 @@ macro_rules! sheet {
     };
 }
 
+/// One of Veyra's strips in `assets/sprites/veyra/anims/`.
+macro_rules! veyra {
+    ($id:ident, $file:literal) => {
+        Sheet {
+            id: SpriteId::$id,
+            png: include_bytes!(concat!("../assets/sprites/veyra/anims/", $file, ".png")),
+            frames: frame_ms(SpriteId::$id).len(),
+            flash: false,
+        }
+    };
+}
+
+/// Per-frame durations (ms) of the animated strips, as in the `.json` beside each one.
+pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
+    match id {
+        SpriteId::VeyraIdle | SpriteId::VeyraWings | SpriteId::VeyraTail | SpriteId::VeyraHair => {
+            &[200; 4]
+        }
+        SpriteId::VeyraMove | SpriteId::VeyraHairMove => &[125; 4],
+        SpriteId::VeyraCast => &[80, 80, 160],
+        SpriteId::VeyraHurt => &[60, 120],
+        SpriteId::VeyraDeath => &[143; 6],
+        _ => &[],
+    }
+}
+
+/// Length of an animated strip in seconds.
+pub fn anim_secs(id: SpriteId) -> f32 {
+    frame_ms(id).iter().map(|&ms| ms as u32).sum::<u32>() as f32 / 1000.0
+}
+
+/// Frame of an animated strip `secs` after it started; past the end it loops or
+/// holds the last frame.
+pub fn anim_frame(id: SpriteId, secs: f32, looped: bool) -> usize {
+    let ms = frame_ms(id);
+    let total: u32 = ms.iter().map(|&d| d as u32).sum();
+    let mut t = (secs.max(0.0) * 1000.0) as u32;
+    if looped {
+        t %= total;
+    }
+    let mut end = 0;
+    for (i, &d) in ms.iter().enumerate() {
+        end += d as u32;
+        if t < end {
+            return i;
+        }
+    }
+    ms.len() - 1
+}
+
 /// Packing order; enemies face left and the renderer flips them toward Veyra.
 /// Ground holds the grass (0..4) and dirt (4..6) tile variants.
 const SHEETS: [Sheet; SPRITE_COUNT] = [
-    sheet!(VeyraBody, "veyra_body", 2, false),
-    sheet!(VeyraWings, "veyra_wings", 2, false),
-    sheet!(VeyraTail, "veyra_tail", 1, false),
+    veyra!(VeyraIdle, "veyra_idle"),
+    veyra!(VeyraMove, "veyra_move"),
+    veyra!(VeyraCast, "veyra_cast"),
+    veyra!(VeyraHurt, "veyra_hurt"),
+    veyra!(VeyraDeath, "veyra_death"),
+    veyra!(VeyraWings, "veyra_wings"),
+    veyra!(VeyraTail, "veyra_tail"),
+    veyra!(VeyraHair, "veyra_hair"),
+    veyra!(VeyraHairMove, "veyra_hair_move"),
     sheet!(Rat, "rat", FLASH_FRAME_OFFSET, true),
     sheet!(Villager, "villager", FLASH_FRAME_OFFSET, true),
     sheet!(Knight, "knight", FLASH_FRAME_OFFSET, true),
@@ -326,8 +393,65 @@ mod tests {
             let r = rects[ranges[id as usize].0];
             (r.w as u16, r.h as u16)
         };
-        assert_eq!(size(SpriteId::VeyraBody), (16, 24));
+        for id in VEYRA {
+            assert_eq!(size(id), (66, 50), "{id:?}");
+        }
         assert_eq!(size(SpriteId::Ground), (GROUND_TILE, GROUND_TILE));
+    }
+
+    const VEYRA: [SpriteId; 9] = [
+        SpriteId::VeyraIdle,
+        SpriteId::VeyraMove,
+        SpriteId::VeyraCast,
+        SpriteId::VeyraHurt,
+        SpriteId::VeyraDeath,
+        SpriteId::VeyraWings,
+        SpriteId::VeyraTail,
+        SpriteId::VeyraHair,
+        SpriteId::VeyraHairMove,
+    ];
+
+    #[test]
+    fn veyra_durations_match_the_exported_json() {
+        let json = [
+            include_str!("../assets/sprites/veyra/anims/veyra_idle.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_move.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_cast.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_hurt.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_death.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_wings.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_tail.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_hair.json"),
+            include_str!("../assets/sprites/veyra/anims/veyra_hair_move.json"),
+        ];
+        for (id, json) in VEYRA.into_iter().zip(json) {
+            let ms: Vec<u16> = json
+                .split("\"duration\":")
+                .skip(1)
+                .map(|s| {
+                    let digits: String = s
+                        .trim_start()
+                        .chars()
+                        .take_while(char::is_ascii_digit)
+                        .collect();
+                    digits.parse().unwrap()
+                })
+                .collect();
+            assert_eq!(frame_ms(id), ms.as_slice(), "{id:?}");
+        }
+    }
+
+    #[test]
+    fn anim_frame_follows_durations() {
+        let cast = SpriteId::VeyraCast;
+        assert_eq!(anim_frame(cast, 0.0, false), 0);
+        assert_eq!(anim_frame(cast, 0.079, false), 0);
+        assert_eq!(anim_frame(cast, 0.081, false), 1);
+        assert_eq!(anim_frame(cast, 0.2, false), 2);
+        assert_eq!(anim_frame(cast, 5.0, false), 2);
+        assert!((anim_secs(cast) - 0.32).abs() < 1e-6);
+        assert_eq!(anim_frame(SpriteId::VeyraIdle, 0.85, true), 0);
+        assert_eq!(anim_frame(SpriteId::VeyraIdle, 0.65, true), 3);
     }
 
     #[test]
