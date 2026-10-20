@@ -7,6 +7,7 @@ use crate::game::Player;
 use crate::spatial::SpatialHash;
 use crate::upgrades::{PlayerStats, Upgrades};
 use macroquad::math::{vec2, Vec2};
+use macroquad::rand::gen_range;
 use std::f32::consts::TAU;
 
 /// A Hellflare fireball.
@@ -44,12 +45,63 @@ pub struct Halo {
     pub angle: f32,
 }
 
+/// Allure: time since the last pulse and the radius it reached (for its ring of
+/// hearts), and the clock of the charmed enemies' bites.
+pub struct Allure {
+    pub since_pulse: f32,
+    pub radius: f32,
+    bite: f32,
+}
+
+/// A Hellgate pool burning at `pos` for `life` seconds; `t` is its age and `burn` the
+/// time left to its next burn.
+pub struct Gate {
+    pub pos: Vec2,
+    pub t: f32,
+    pub life: f32,
+    burn: f32,
+}
+
+impl Gate {
+    /// Opacity: pools open and close over `HELLGATE_FADE`.
+    pub fn alpha(&self) -> f32 {
+        (self.t.min(self.life - self.t) / HELLGATE_FADE).clamp(0.0, 1.0)
+    }
+}
+
+/// A Chain of Torment strike: Veyra, then every enemy it bit, in order. `seed` keeps
+/// its jagged shape the same while it shows.
+pub struct Chain {
+    links: [Vec2; MAX_CHAIN_LINKS + 1],
+    len: usize,
+    pub t: f32,
+    pub seed: u32,
+}
+
+impl Chain {
+    pub fn links(&self) -> &[Vec2] {
+        &self.links[..self.len]
+    }
+}
+
+/// A feather riding a Wing Gust, `height` above its ground point.
+pub struct Feather {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub height: f32,
+    pub t: f32,
+}
+
 /// What the Arts did this tick, turned into sound cues by the caller.
 #[derive(Default)]
 pub struct ArtCues {
     pub fired: bool,
     pub lashed: bool,
     pub kissed: bool,
+    pub charmed: bool,
+    pub gated: bool,
+    pub chained: bool,
+    pub gusted: bool,
     /// A hit landed on flesh / on armour.
     pub hits: [bool; 2],
 }
@@ -67,6 +119,10 @@ pub struct Arts {
     pub lashes: Vec<Lash>,
     pub bolts: Vec<Bolt>,
     pub halo: Halo,
+    pub allure: Allure,
+    pub gates: Vec<Gate>,
+    pub chains: Vec<Chain>,
+    pub feathers: Vec<Feather>,
     /// Level of each Art (0 = not owned), copied from `Upgrades` on `refresh`.
     levels: [u8; ARTS.len()],
     /// Effective numbers: level stats with the passive upgrades applied.
@@ -81,6 +137,14 @@ impl Arts {
             lashes: Vec::with_capacity(MAX_LASHES),
             bolts: Vec::with_capacity(MAX_BOLTS),
             halo: Halo::default(),
+            allure: Allure {
+                since_pulse: f32::INFINITY,
+                radius: 0.0,
+                bite: 0.0,
+            },
+            gates: Vec::with_capacity(MAX_GATES),
+            chains: Vec::with_capacity(MAX_CHAINS),
+            feathers: Vec::with_capacity(MAX_FEATHERS),
             levels: [0; ARTS.len()],
             stats: ARTS.map(|d| d.base),
             cooldown: [0.0; ARTS.len()],
@@ -144,6 +208,10 @@ impl Arts {
                     ArtKind::TailLash => self.lash(w, &mut cues),
                     ArtKind::KissOfRuin => self.kiss(w, &mut cues),
                     ArtKind::BrimstoneHalo => false,
+                    ArtKind::Allure => self.pulse(w, &mut cues),
+                    ArtKind::Hellgate => self.open_gates(w, &mut cues),
+                    ArtKind::ChainOfTorment => self.chain(w, &mut cues),
+                    ArtKind::WingGust => self.gust(w, &mut cues),
                 };
                 if attacked {
                     self.cooldown[art] = self.stats[art].cooldown;
@@ -154,6 +222,17 @@ impl Arts {
         self.update_lashes(w, &mut cues);
         self.update_bolts(w, &mut cues);
         self.update_halo(w, alive, &mut cues);
+        self.update_charmed(w, &mut cues);
+        self.update_gates(w, &mut cues);
+        self.chains.retain_mut(|c| {
+            c.t += TICK_DT;
+            c.t < CHAIN_SHOW_TIME
+        });
+        self.feathers.retain_mut(|f| {
+            f.t += TICK_DT;
+            f.pos += f.vel * TICK_DT;
+            f.t < GUST_FEATHER_LIFE
+        });
         cues
     }
 
@@ -221,6 +300,213 @@ impl Arts {
         w.player.since_cast = 0.0;
         cues.kissed = true;
         true
+    }
+
+    /// Allure: charms the first `amount` free enemies within reach and burns the rest
+    /// (the charmed are spared).
+    /// Waits while nobody is in reach.
+    fn pulse(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let s = self.stats[ALLURE];
+        let (center, time) = (w.player.pos, w.time);
+        let radius = ALLURE_RADIUS * s.area;
+        let enemies = &mut *w.enemies;
+        let (mut any, mut charms) = (false, s.amount);
+        w.hash
+            .query_radius(center, radius + enemies.max_radius(), |j, _| {
+                if !touches(enemies, j, center, radius) {
+                    return;
+                }
+                any = true;
+                if enemies.charmed(j, time) {
+                    return;
+                }
+                if charms > 0 {
+                    // Seduced, not burned: she wants it alive and fighting for her.
+                    enemies.charm_until[j] = time + s.duration;
+                    charms -= 1;
+                    return;
+                }
+                strike(enemies, j, s.damage, &mut cues.hits);
+            });
+        if any {
+            self.allure.since_pulse = 0.0;
+            self.allure.radius = radius;
+            cues.charmed = true;
+        }
+        any
+    }
+
+    /// Hellgate: a pool under `amount` random enemies in range.
+    fn open_gates(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let s = self.stats[HELLGATE];
+        let mut opened = false;
+        for _ in 0..s.amount {
+            if self.gates.len() >= MAX_GATES {
+                break;
+            }
+            let Some(j) = random_enemy(w, HELLGATE_RANGE) else {
+                break;
+            };
+            let jitter = vec2(gen_range(-6.0, 6.0), gen_range(-3.0, 3.0));
+            self.gates.push(Gate {
+                pos: w.enemies.pos(j) + jitter,
+                t: 0.0,
+                life: s.duration,
+                burn: 0.0,
+            });
+            opened = true;
+        }
+        cues.gated |= opened;
+        opened
+    }
+
+    /// Chain of Torment: bites a random enemy in range, then jumps to the nearest one
+    /// it hasn't bitten, `amount` enemies in all.
+    fn chain(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        if self.chains.len() >= MAX_CHAINS {
+            return false;
+        }
+        let Some(first) = random_enemy(w, CHAIN_RANGE) else {
+            return false;
+        };
+        let s = self.stats[CHAIN_OF_TORMENT];
+        let (bites, jump) = (
+            (s.amount as usize).min(MAX_CHAIN_LINKS),
+            CHAIN_JUMP * s.area,
+        );
+        let mut c = Chain {
+            links: [w.player.pos; MAX_CHAIN_LINKS + 1],
+            len: 1,
+            t: 0.0,
+            seed: gen_range(0, u32::MAX),
+        };
+        let mut bitten = [u32::MAX; MAX_CHAIN_LINKS];
+        let enemies = &mut *w.enemies;
+        let mut next = Some(first);
+        while let Some(j) = next {
+            bitten[c.len - 1] = enemies.uid[j];
+            c.links[c.len] = enemies.pos(j);
+            c.len += 1;
+            strike(enemies, j, s.damage, &mut cues.hits);
+            if c.len > bites {
+                break;
+            }
+            let from = enemies.pos(j);
+            let mut best: Option<(f32, usize)> = None;
+            w.hash.query_radius(from, jump, |k, q| {
+                let d = q.distance_squared(from);
+                let free = enemies.hp[k] > 0.0 && !bitten.contains(&enemies.uid[k]);
+                if free && best.is_none_or(|b| d < b.0) {
+                    best = Some((d, k));
+                }
+            });
+            next = best.map(|b| b.1);
+        }
+        self.chains.push(c);
+        w.player.since_cast = 0.0;
+        cues.chained = true;
+        true
+    }
+
+    /// Wing Gust: a cone toward the nearest enemy in reach (more gusts share the circle)
+    /// throws enemies back, slows and hurts them.
+    fn gust(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let s = self.stats[WING_GUST];
+        let (from, time) = (w.player.pos, w.time);
+        let reach = GUST_REACH * s.area;
+        let Some(target) = w.hash.nearest(from, reach) else {
+            return false;
+        };
+        let aim = (w.enemies.pos(target) - from).normalize_or(Vec2::X);
+        let cos_half = GUST_HALF_ANGLE.cos();
+        let enemies = &mut *w.enemies;
+        let query = reach + enemies.max_radius();
+        for k in 0..s.amount {
+            let dir = Vec2::from_angle(k as f32 * TAU / s.amount as f32).rotate(aim);
+            w.hash.query_radius(from, query, |j, _| {
+                let r = ENEMY_DEFS[enemies.kind[j] as usize].radius();
+                let off = enemies.pos(j) - from;
+                let len = off.length();
+                // In the cone, or right against her where the gust starts.
+                let inside = len <= r || off.dot(dir) >= len * cos_half;
+                if enemies.hp[j] <= 0.0 || len > reach + r || !inside {
+                    return;
+                }
+                let push = GUST_PUSH * (GUST_REF_RADIUS / r).min(1.0);
+                enemies.knock[j] = off.normalize_or(dir) * push;
+                enemies.slow_until[j] = time + s.duration;
+                strike(enemies, j, s.damage, &mut cues.hits);
+            });
+            self.throw_feathers(from, dir, reach);
+        }
+        cues.gusted = true;
+        true
+    }
+
+    fn throw_feathers(&mut self, from: Vec2, dir: Vec2, reach: f32) {
+        for _ in 0..GUST_FEATHERS {
+            if self.feathers.len() >= MAX_FEATHERS {
+                return;
+            }
+            let angle = gen_range(-GUST_HALF_ANGLE, GUST_HALF_ANGLE);
+            let speed = reach / GUST_FEATHER_LIFE * gen_range(0.6, 1.0);
+            self.feathers.push(Feather {
+                pos: from + dir * 6.0,
+                vel: Vec2::from_angle(angle).rotate(dir) * speed,
+                height: gen_range(6.0, 26.0),
+                t: 0.0,
+            });
+        }
+    }
+
+    /// Every `CHARM_BITE` each charmed enemy bites the free enemies it touches.
+    fn update_charmed(&mut self, w: &mut World, cues: &mut ArtCues) {
+        let a = &mut self.allure;
+        a.since_pulse += TICK_DT;
+        a.bite -= TICK_DT;
+        if a.bite > 0.0 {
+            return;
+        }
+        a.bite = CHARM_BITE;
+        let (damage, time) = (self.stats[ALLURE].damage, w.time);
+        let enemies = &mut *w.enemies;
+        let extra = enemies.max_radius();
+        for i in 0..enemies.len() {
+            if !enemies.charmed(i, time) || enemies.hp[i] <= 0.0 {
+                continue;
+            }
+            let p = enemies.pos(i);
+            let reach = ENEMY_DEFS[enemies.kind[i] as usize].radius() + CHARM_REACH;
+            w.hash.query_radius(p, reach + extra, |j, _| {
+                if j != i && !enemies.charmed(j, time) && touches(enemies, j, p, reach) {
+                    strike(enemies, j, damage, &mut cues.hits);
+                }
+            });
+        }
+    }
+
+    /// Pools burn everything inside their ellipse every `HELLGATE_TICK`.
+    fn update_gates(&mut self, w: &mut World, cues: &mut ArtCues) {
+        let damage = self.stats[HELLGATE].damage;
+        let enemies = &mut *w.enemies;
+        let extra = enemies.max_radius();
+        let (rx, ry) = (HELLGATE_RADIUS, HELLGATE_RADIUS * 0.5);
+        self.gates.retain_mut(|g| {
+            g.t += TICK_DT;
+            g.burn -= TICK_DT;
+            if g.burn <= 0.0 {
+                g.burn += HELLGATE_TICK;
+                w.hash.query_radius(g.pos, rx + extra, |j, _| {
+                    let r = ENEMY_DEFS[enemies.kind[j] as usize].radius();
+                    let d = enemies.pos(j) - g.pos;
+                    let (ex, ey) = (d.x / (rx + r), d.y / (ry + r));
+                    if enemies.hp[j] > 0.0 && ex * ex + ey * ey <= 1.0 {
+                        strike(enemies, j, damage, &mut cues.hits);
+                    }
+                });
+            }
+            g.t < g.life
+        });
     }
 
     /// Moves fireballs and applies hits. Dead enemies stay in place (hp <= 0) until
@@ -366,6 +652,20 @@ fn ember_offsets(angle: f32, s: &ArtStats) -> impl Iterator<Item = Vec2> {
     (0..n).map(move |k| Vec2::from_angle(angle + k as f32 * TAU / n as f32) * radius)
 }
 
+/// A random live enemy within `range` of Veyra.
+fn random_enemy(w: &World, range: f32) -> Option<usize> {
+    let (mut seen, mut pick) = (0, None);
+    w.hash.query_radius(w.player.pos, range, |j, _| {
+        if w.enemies.hp[j] > 0.0 {
+            seen += 1;
+            if gen_range(0, seen) == 0 {
+                pick = Some(j);
+            }
+        }
+    });
+    pick
+}
+
 /// Enemy `j` is alive and its body overlaps a circle of `radius` at `pos`.
 fn touches(enemies: &Enemies, j: usize, pos: Vec2, radius: f32) -> bool {
     let reach = radius + ENEMY_DEFS[enemies.kind[j] as usize].radius();
@@ -495,5 +795,112 @@ mod tests {
         tick(&mut g, (s.duration / TICK_DT) as usize);
         assert!(!g.arts.halo.on && g.arts.embers().count() == 0);
         assert_eq!(g.arts.halo_alpha(), 0.0);
+    }
+
+    #[test]
+    fn allure_charms_the_first_few_in_reach_and_burns_the_rest() {
+        let mut g = game_with(ALLURE, 1);
+        for p in [vec2(20.0, 0.0), vec2(0.0, 20.0), vec2(-20.0, 0.0)] {
+            g.enemies.spawn(KNIGHT, p, 100.0);
+        }
+        g.enemies
+            .spawn(KNIGHT, vec2(0.0, ALLURE_RADIUS + 30.0), 100.0);
+        tick(&mut g, 1);
+        let charmed: Vec<usize> = (0..4).filter(|&i| g.enemies.charmed(i, g.time)).collect();
+        assert_eq!(charmed.len(), ARTS[ALLURE].base.amount as usize);
+        assert!(!charmed.contains(&3), "out of reach");
+        // The one left free in reach burns; the charmed are spared.
+        for i in 0..4 {
+            assert_eq!(hurt(&g, i), i != 3 && !charmed.contains(&i), "{i}");
+        }
+        assert!(g.cues.contains(&Cue::Allure));
+        assert!(
+            g.arts.allure.since_pulse <= TICK_DT,
+            "the ring just started"
+        );
+        // The charm wears off.
+        tick(&mut g, (ARTS[ALLURE].base.duration / TICK_DT) as usize + 2);
+        assert!((0..4).all(|i| !g.enemies.charmed(i, g.time)));
+    }
+
+    #[test]
+    fn charmed_enemies_spare_her_and_hunt_the_horde() {
+        let mut g = game_with(ALLURE, 1);
+        g.arts.hold();
+        // On top of Veyra, but charmed: no contact damage.
+        g.enemies.spawn(KNIGHT, Vec2::ZERO, 100.0);
+        g.enemies.charm_until[0] = 100.0;
+        // Far from her: a charmed knight next to a free rat.
+        g.enemies.spawn(KNIGHT, vec2(200.0, 0.0), 100.0);
+        g.enemies.charm_until[1] = 100.0;
+        g.enemies.spawn(RAT, vec2(230.0, 0.0), 100.0);
+        tick(&mut g, 5);
+        assert_eq!(g.player.hp, PLAYER_MAX_HP);
+        assert!(g.enemies.x[1] > 200.0, "goes for the rat, not for her");
+        tick(&mut g, 60);
+        assert!(g.enemies.hp[2] < ENEMY_DEFS[RAT].hp * 100.0, "bitten");
+        assert_eq!(g.enemies.hp[1], ENEMY_DEFS[KNIGHT].hp * 100.0);
+    }
+
+    #[test]
+    fn hellgate_opens_under_an_enemy_and_burns_until_it_closes() {
+        let mut g = game_with(HELLGATE, 1);
+        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        g.enemies
+            .spawn(KNIGHT, vec2(HELLGATE_RANGE + 100.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        assert_eq!(g.arts.gates.len(), 1);
+        assert!(g.arts.gates[0].pos.distance(vec2(100.0, 0.0)) < 8.0);
+        assert!(hurt(&g, 0) && !hurt(&g, 1));
+        assert!(g.cues.contains(&Cue::Hellgate));
+        let after_first = g.enemies.hp[0];
+        tick(&mut g, (HELLGATE_TICK / TICK_DT) as usize + 1);
+        assert!(g.enemies.hp[0] < after_first, "burns again");
+        g.arts.hold();
+        tick(&mut g, (ARTS[HELLGATE].base.duration / TICK_DT) as usize);
+        assert!(g.arts.gates.is_empty());
+    }
+
+    #[test]
+    fn chain_of_torment_bites_amount_enemies_jumping_between_them() {
+        let mut g = game_with(CHAIN_OF_TORMENT, 1);
+        for x in [100.0, 130.0, 160.0, 190.0] {
+            g.enemies.spawn(KNIGHT, vec2(x, 0.0), 100.0);
+        }
+        g.enemies.spawn(KNIGHT, vec2(400.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        let bites = ARTS[CHAIN_OF_TORMENT].base.amount as usize;
+        assert_eq!((0..5).filter(|&i| hurt(&g, i)).count(), bites);
+        assert!(!hurt(&g, 4));
+        assert_eq!(g.arts.chains.len(), 1);
+        assert_eq!(g.arts.chains[0].links().len(), bites + 1);
+        assert_eq!(g.arts.chains[0].links()[0], g.player.pos);
+        assert!(g.cues.contains(&Cue::Chain));
+        tick(&mut g, (CHAIN_SHOW_TIME / TICK_DT) as usize + 1);
+        assert!(g.arts.chains.len() <= 1, "the old chain is gone");
+    }
+
+    #[test]
+    fn wing_gust_throws_back_and_slows_the_cone() {
+        let mut g = game_with(WING_GUST, 1);
+        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(-50.0, 0.0), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(0.0, 60.0), 100.0);
+        tick(&mut g, 1);
+        assert!(hurt(&g, 0) && !hurt(&g, 1) && !hurt(&g, 2));
+        assert!(g.enemies.knock[0].x > 0.0 && g.enemies.slow_until[0] > g.time);
+        assert!(g.cues.contains(&Cue::Gust));
+        assert_eq!(g.arts.feathers.len(), GUST_FEATHERS);
+        tick(&mut g, 20);
+        assert!(g.enemies.x[0] > 55.0, "thrown back: {}", g.enemies.x[0]);
+        tick(&mut g, 30);
+        assert_eq!(g.enemies.knock[0], Vec2::ZERO, "and the push dies away");
+
+        // A second gust covers her back.
+        let mut g = game_with(WING_GUST, 2);
+        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(-50.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        assert!(hurt(&g, 0) && hurt(&g, 1));
     }
 }

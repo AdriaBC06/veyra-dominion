@@ -98,6 +98,59 @@ pub const HALO_IMMUNE: f32 = 0.6;
 pub const HALO_KNOCKBACK: f32 = 6.0;
 /// Embers fade in and out over this long at the ends of each burning spell.
 pub const HALO_FADE: f32 = 0.2;
+/// Allure: each pulse burns every enemy within `ALLURE_RADIUS` (times the Art's area)
+/// and charms up to `amount` of them for the Art's duration. Charmed enemies hunt the
+/// nearest free enemy within `CHARM_SEEK`, bite the free ones they touch every
+/// `CHARM_BITE` seconds for the Art's damage, and never hurt Veyra.
+pub const ALLURE_RADIUS: f32 = 56.0;
+pub const CHARM_SEEK: f32 = 110.0;
+pub const CHARM_BITE: f32 = 0.5;
+/// A charmed enemy bites free enemies up to this far beyond its body (separation keeps
+/// bodies a little apart).
+pub const CHARM_REACH: f32 = 4.0;
+/// The pulse's ring of hearts takes this long to reach its edge, then fades as long.
+pub const ALLURE_WAVE_TIME: f32 = 0.35;
+/// Hearts on the pulse ring, and how high the charm mark floats over a head.
+pub const ALLURE_WAVE_HEARTS: usize = 14;
+pub const CHARM_MARK_HEIGHT: f32 = 6.0;
+/// Charmed enemies are drawn tinted toward this colour.
+pub const CHARM_TINT: u32 = 0xff9ac8;
+/// Hellgate pools: ellipses `HELLGATE_RADIUS` wide and half as deep, centred on a
+/// random enemy within `HELLGATE_RANGE`. Everything inside burns every `HELLGATE_TICK`.
+pub const HELLGATE_RADIUS: f32 = 16.0;
+pub const HELLGATE_RANGE: f32 = 200.0;
+pub const HELLGATE_TICK: f32 = 0.35;
+/// Pools fade in and out over this long at the ends of their life.
+pub const HELLGATE_FADE: f32 = 0.2;
+pub const MAX_GATES: usize = 32;
+/// Chain of Torment: it bites a random enemy within `CHAIN_RANGE`, then jumps to the
+/// nearest enemy it hasn't bitten within `CHAIN_JUMP` (times area), `amount` in all.
+pub const CHAIN_RANGE: f32 = 180.0;
+pub const CHAIN_JUMP: f32 = 64.0;
+pub const MAX_CHAIN_LINKS: usize = 16;
+pub const MAX_CHAINS: usize = 8;
+/// How long a chain stays on screen, and the height of its links over the ground.
+pub const CHAIN_SHOW_TIME: f32 = 0.2;
+pub const CHAIN_DRAW_HEIGHT: f32 = 9.0;
+/// The drawn chain kinks every this many pixels.
+pub const CHAIN_KINK: f32 = 8.0;
+/// Chain colours: dark glow, body, white-hot core.
+pub const CHAIN_COLORS: [u32; 3] = [0x5c0c1c, 0xe04454, 0xffd0dc];
+/// Wing Gust: a cone `GUST_REACH` long (times area) and `GUST_HALF_ANGLE` radians to
+/// each side, toward the nearest enemy in reach (more gusts share the circle). It
+/// throws enemies out at `GUST_PUSH` px/s, less for big ones (times `GUST_REF_RADIUS /
+/// radius`, at most 1), and slows them to `GUST_SLOW` of their speed for the Art's
+/// duration. Knockback dies away at `KNOCK_DECAY` per second.
+pub const GUST_REACH: f32 = 72.0;
+pub const GUST_HALF_ANGLE: f32 = 0.6;
+pub const GUST_PUSH: f32 = 260.0;
+pub const GUST_REF_RADIUS: f32 = 6.0;
+pub const GUST_SLOW: f32 = 0.45;
+pub const KNOCK_DECAY: f32 = 9.0;
+/// Feathers thrown along each gust, and how long they fly.
+pub const GUST_FEATHERS: usize = 6;
+pub const GUST_FEATHER_LIFE: f32 = 0.4;
+pub const MAX_FEATHERS: usize = 96;
 pub const HIT_FLASH_TIME: f32 = 0.1;
 /// Dead enemies flash as a white silhouette for this long, then burst.
 pub const DEATH_FADE_TIME: f32 = 0.12;

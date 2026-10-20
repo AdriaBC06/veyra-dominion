@@ -24,6 +24,10 @@ pub enum Sfx {
     Fire,
     Lash,
     Kiss,
+    Allure,
+    Hellgate,
+    Chain,
+    Gust,
     Hit,
     HitArmored,
     KillBeast,
@@ -43,11 +47,15 @@ pub enum Sfx {
 }
 
 impl Sfx {
-    pub const COUNT: usize = 19;
+    pub const COUNT: usize = 23;
     pub const ALL: [Sfx; Sfx::COUNT] = [
         Sfx::Fire,
         Sfx::Lash,
         Sfx::Kiss,
+        Sfx::Allure,
+        Sfx::Hellgate,
+        Sfx::Chain,
+        Sfx::Gust,
         Sfx::Hit,
         Sfx::HitArmored,
         Sfx::KillBeast,
@@ -71,6 +79,10 @@ impl Sfx {
             Sfx::Fire => "fire",
             Sfx::Lash => "lash",
             Sfx::Kiss => "kiss",
+            Sfx::Allure => "allure",
+            Sfx::Hellgate => "hellgate",
+            Sfx::Chain => "chain",
+            Sfx::Gust => "gust",
             Sfx::Hit => "hit",
             Sfx::HitArmored => "hit_armored",
             Sfx::KillBeast => "kill_beast",
@@ -95,12 +107,14 @@ impl Sfx {
         match self {
             Sfx::Fire
             | Sfx::Lash
+            | Sfx::Chain
+            | Sfx::Gust
             | Sfx::Hit
             | Sfx::HitArmored
             | Sfx::KillBeast
             | Sfx::KillHuman
             | Sfx::KillArmored => &JITTER,
-            Sfx::Hurt | Sfx::UiMove | Sfx::Kiss => &JITTER[1..4],
+            Sfx::Hurt | Sfx::UiMove | Sfx::Kiss | Sfx::Allure | Sfx::Hellgate => &JITTER[1..4],
             Sfx::Soul => &COMBO_STEPS,
             _ => &[0.0],
         }
@@ -112,6 +126,10 @@ impl Sfx {
             Sfx::Fire => 0.2,
             Sfx::Lash => 0.24,
             Sfx::Kiss => 0.34,
+            Sfx::Allure => 0.7,
+            Sfx::Hellgate => 0.5,
+            Sfx::Chain => 0.3,
+            Sfx::Gust => 0.4,
             Sfx::Hit => 0.1,
             Sfx::HitArmored => 0.16,
             Sfx::KillBeast => 0.16,
@@ -135,7 +153,7 @@ impl Sfx {
         match self {
             Sfx::Hit | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored => 4,
             Sfx::Fire | Sfx::Soul | Sfx::HitArmored => 3,
-            Sfx::Lash | Sfx::Kiss => 2,
+            Sfx::Lash | Sfx::Kiss | Sfx::Allure | Sfx::Hellgate | Sfx::Chain | Sfx::Gust => 2,
             Sfx::UiMove | Sfx::UiConfirm | Sfx::UiBack => 2,
             _ => 1,
         }
@@ -148,7 +166,7 @@ impl Sfx {
             Sfx::HitArmored | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored | Sfx::Soul => {
                 0.04
             }
-            Sfx::Fire | Sfx::Lash | Sfx::Kiss => 0.05,
+            Sfx::Fire | Sfx::Lash | Sfx::Kiss | Sfx::Chain | Sfx::Gust => 0.05,
             _ => 0.0,
         }
     }
@@ -159,6 +177,10 @@ impl Sfx {
             Sfx::Fire => 0.09,
             Sfx::Lash => 0.12,
             Sfx::Kiss => 0.075,
+            Sfx::Allure => 0.1,
+            Sfx::Hellgate => 0.125,
+            Sfx::Chain => 0.14,
+            Sfx::Gust => 0.09,
             Sfx::Hit => 0.22,
             Sfx::HitArmored => 0.2,
             Sfx::KillBeast => 0.35,
@@ -288,6 +310,95 @@ fn patch(sfx: Sfx) -> Patch {
                 feedback: 0.25,
                 mix: 0.25,
             },
+        },
+        // Allure: her voice scooping up into a D with a slow, coaxing vibrato, the
+        // leitmotif's tritone (G#) whispered above on a thin pulse, over a breath.
+        Sfx::Allure => Patch {
+            instruments: vec![
+                env(&[2, 4, 3, 2, 1, 0]),
+                Instrument {
+                    pitch: Macro::new(&[-24, -16, -10, -6, -3, -1, 0]),
+                    vibrato: Vibrato {
+                        depth: 0.3,
+                        rate_hz: 5.0,
+                        delay: 0.12,
+                    },
+                    ..env(&[3, 6, 9, 10, 10, 9, 8, 7, 6, 5, 4, 3, 3, 2, 2, 1, 1, 0])
+                },
+                with_duty(env(&[2, 4, 5, 4, 3, 2, 2, 1, 1, 0]), 0),
+                env(&fade(6, 24)),
+            ],
+            notes: vec![
+                note(0.0, Noise, 88.0, 0, 1.0),
+                note(0.0, Wave, 74.0, 1, 1.0),
+                note(0.0, Triangle, 50.0, 3, 0.7),
+                note(0.12, Pulse2, 80.0, 2, 0.5),
+            ],
+            echo: Echo {
+                delay: 0.11,
+                feedback: 0.3,
+                mix: 0.3,
+            },
+        },
+        // Hellgate: the ground tearing open with a low whoomph, then the fire roaring
+        // up out of it and settling to a crackle.
+        Sfx::Hellgate => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: -30.0,
+                    ..env(&[15, 14, 11, 8, 5, 3, 1, 0])
+                },
+                Instrument {
+                    sweep: 30.0,
+                    ..env(&[2, 5, 8, 9, 8, 7, 6, 5, 4, 3, 3, 2, 2, 1, 1, 0])
+                },
+                with_duty(env(&[4, 0, 3, 0, 0, 2, 0, 0, 1, 0]), 1),
+            ],
+            notes: vec![
+                note(0.0, Triangle, 40.0, 0, 1.0),
+                note(0.0, Noise, 60.0, 1, 1.0),
+                note(0.12, Noise, 100.0, 2, 1.0),
+            ],
+            echo: dry,
+        },
+        // Chain of Torment: links snapping taut, a bright zap that jumps a tritone
+        // and falls, rattling twice more as it leaps between victims.
+        Sfx::Chain => Patch {
+            instruments: vec![
+                with_duty(env(&[12, 6, 2, 0]), 1),
+                Instrument {
+                    arp: Macro::new(&[0, 6, 12, 6, 0]),
+                    sweep: -48.0,
+                    ..with_duty(env(&[11, 9, 7, 5, 3, 2, 1, 0]), 0)
+                },
+                with_duty(env(&[7, 3, 0]), 1),
+            ],
+            notes: vec![
+                note(0.0, Noise, 104.0, 0, 1.0),
+                note(0.0, Pulse1, 86.0, 1, 1.0),
+                note(0.06, Noise, 108.0, 2, 1.0),
+                note(0.12, Noise, 102.0, 2, 0.8),
+            ],
+            echo: dry,
+        },
+        // Wing Gust: one heavy beat of her wings, a soft thump and the air rushing
+        // past and falling away.
+        Sfx::Gust => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: -40.0,
+                    ..env(&[9, 6, 3, 1, 0])
+                },
+                Instrument {
+                    sweep: -36.0,
+                    ..env(&[3, 6, 8, 9, 8, 6, 5, 4, 3, 2, 2, 1, 1, 0])
+                },
+            ],
+            notes: vec![
+                note(0.0, Triangle, 43.0, 0, 1.0),
+                note(0.02, Noise, 84.0, 1, 1.0),
+            ],
+            echo: dry,
         },
         Sfx::Hit => Patch {
             instruments: vec![

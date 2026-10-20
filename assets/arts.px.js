@@ -53,3 +53,70 @@ anim("ember", { w: 7, h: 8, frames: 2, fps: 10 }, (c) => {
   if (c.frame === 0) { c.px(3, 1, "x"); c.px(3, 0, "f"); c.px(2, 2, "f") }
   else { c.px(4, 1, "x"); c.px(3, 2, "f"); c.px(4, 0, "x") }
 })
+
+// ---- V16 ------------------------------------------------------------------
+
+// Allure: a small heart that beats. It rings the charm pulse and floats over the
+// heads of charmed enemies.
+const CHARM = `
+  .h.h.
+  hIhhh
+  hihhh
+  .hhH.
+  ..H..`
+anim("charm_heart", { outline: "k", fps: 6 }, CHARM, frame(), frame(grid(1, 1, "Ii\nii"), grid(3, 1, "i")))
+
+// Hellgate: a pool of hellfire torn open in the ground, flames licking up from it.
+// 36x22; the pool's centre is at (18, 16), on the ground point.
+const GW = 36, GH = 22
+pal({ A: "#2a0612" })                                     // the abyss under the pool
+// A teardrop tongue standing on (x, y): 3 px wide at the base, a 1 px tip that sways.
+function flame(c, x, y, h, sway) {
+  for (let i = 0; i < h; i++) {
+    const t = i / Math.max(1, h - 1)
+    const xx = x + (t > 0.55 ? sway : 0)
+    if (t < 0.4) { c.px(xx - 1, y - i, "x"); c.px(xx + 1, y - i, "x") }
+    else if (t < 0.7) c.px(xx + 1, y - i, "X")
+    c.px(xx, y - i, t < 0.3 ? "F" : t < 0.6 ? "f" : t < 0.85 ? "x" : "X")
+  }
+}
+anim("hellgate", { w: GW, h: GH, frames: 4, fps: 10 }, (c) => {
+  c.ellipse(18, 16, 17, 5, "k")
+  c.ellipse(18, 16, 16, 4, "X")
+  c.ellipse(18, 16, 14, 4, "x")
+  c.ellipse(18, 16, 11, 3, "R")
+  c.ellipse(18, 16, 9, 2, "A")
+  c.hline(13, 17, 4, "x"); c.px(17, 18, "x"); c.hline(20, 15, 3, "x")   // glowing cracks
+  // Tongues on the back rim, tall ones in the middle; each on its own beat.
+  const back = [[5, 15, 5], [9, 13, 8], [14, 12, 7], [19, 12, 11], [24, 12, 8], [28, 13, 7], [32, 15, 4]]
+  back.forEach(([x, y, top], k) => {
+    const beat = [0.6, 0.85, 1, 0.75][(c.frame + k * 3) % 4]
+    flame(c, x, y, Math.max(2, Math.round(top * beat)), (c.frame + k) % 2 ? 1 : 0)
+  })
+  // Short ones on the front rim, over the abyss.
+  ;[[11, 20, 3], [19, 21, 3], [26, 20, 3]].forEach(([x, y, top], k) => {
+    flame(c, x, y, top - ((c.frame + k) % 2), 0)
+  })
+})
+
+// Chain of Torment: the spark where the chain bites into an enemy.
+anim("chain_spark", { w: 9, h: 9, frames: 2, fps: 16 }, (c) => {
+  if (c.frame === 0) {
+    c.hline(0, 4, 9, "q"); c.vline(4, 0, 9, "q")
+    c.hline(2, 4, 5, "Q"); c.vline(4, 2, 5, "Q")
+    c.px(4, 4, "I")
+  } else {
+    for (const [x, y] of [[2, 2], [6, 2], [2, 6], [6, 6]]) c.px(x, y, "q")
+    for (const [x, y] of [[3, 3], [5, 3], [3, 5], [5, 5]]) c.px(x, y, "Q")
+    c.px(4, 4, "I"); c.px(4, 3, "Q"); c.px(3, 4, "Q"); c.px(5, 4, "Q"); c.px(4, 5, "Q")
+  }
+})
+
+// Wing Gust: one of her feathers riding the gust, fluttering. Flies left; the game
+// flips it by its direction.
+pal({ W: "#2e0c2a", w: "#5c1c4a", v: "#7e2c64" })   // her wings
+anim("gust_feather", { outline: "k", fps: 12 }, `
+  ....ii...
+  .iivvvi..
+  IIIIIIIqq
+  .wwwww...`, frame(), frame(grid(0, 0, ".........\n..ivvvi..\nIIIIIIIqq\n..wwwwww.")))

@@ -11,15 +11,22 @@ pub enum ArtKind {
     TailLash,
     KissOfRuin,
     BrimstoneHalo,
+    Allure,
+    Hellgate,
+    ChainOfTorment,
+    WingGust,
 }
 
 /// An Art's numbers at some level. Each Art reads the ones it uses:
-/// - `amount`: fireballs per volley, lashes per attack, hearts per throw, embers;
+/// - `amount`: fireballs per volley, lashes per attack, hearts per throw, embers,
+///   enemies charmed per pulse, pools per cast, enemies a chain bites, gusts per cast;
 /// - `cooldown`: seconds between attacks (the Halo: seconds off between spells);
-/// - `area`: Halo orbit radius multiplier;
+/// - `area`: Halo orbit radius, Allure radius, chain jump and gust reach multiplier;
 /// - `speed`: projectile pixels per second (the Halo: radians per second);
 /// - `pierce`: extra enemies a heart goes through;
-/// - `duration`: projectile lifetime (the Halo: seconds each spell burns).
+/// - `duration`: projectile lifetime (the Halo: seconds each spell burns; Allure:
+///   charm; Hellgate: pool life; Wing Gust: slow).
+/// - `damage`: per hit (Allure: per pulse and per charmed bite; Hellgate: per burn).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ArtStats {
     pub damage: f32,
@@ -69,8 +76,12 @@ pub const HELLFLARE: usize = 0;
 pub const TAIL_LASH: usize = 1;
 pub const KISS_OF_RUIN: usize = 2;
 pub const BRIMSTONE_HALO: usize = 3;
+pub const ALLURE: usize = 4;
+pub const HELLGATE: usize = 5;
+pub const CHAIN_OF_TORMENT: usize = 6;
+pub const WING_GUST: usize = 7;
 
-pub const ARTS: [ArtDef; 4] = [
+pub const ARTS: [ArtDef; 8] = [
     // Homing fireballs at the nearest enemy (Magic Wand).
     ArtDef {
         kind: ArtKind::Hellflare,
@@ -259,6 +270,200 @@ pub const ARTS: [ArtDef; 4] = [
             },
             ArtGain {
                 amount: 1,
+                ..NO_GAIN
+            },
+        ],
+    },
+    // A pulse that burns and charms the nearest few; they turn on the horde (Garlic).
+    ArtDef {
+        kind: ArtKind::Allure,
+        name: Key::ArtAllure,
+        desc: Key::ArtAllureDesc,
+        amount_key: Key::ArtMoreCharmed,
+        base: ArtStats {
+            damage: 5.0,
+            cooldown: 3.0,
+            amount: 2,
+            area: 1.0,
+            speed: 0.0,
+            pierce: 0,
+            duration: 2.5,
+        },
+        gains: [
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 3.0,
+                duration: 0.5,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.2,
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 3.0,
+                duration: 0.5,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 2,
+                ..NO_GAIN
+            },
+        ],
+    },
+    // Burning pools opened under random enemies (Santa Water).
+    ArtDef {
+        kind: ArtKind::Hellgate,
+        name: Key::ArtHellgate,
+        desc: Key::ArtHellgateDesc,
+        amount_key: Key::ArtMorePools,
+        base: ArtStats {
+            damage: 7.0,
+            cooldown: 4.0,
+            amount: 1,
+            area: 1.0,
+            speed: 0.0,
+            pierce: 0,
+            duration: 2.5,
+        },
+        gains: [
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 3.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                duration: 0.5,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 3.0,
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                duration: 0.5,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                damage: 3.0,
+                ..NO_GAIN
+            },
+        ],
+    },
+    // A chain that bites one enemy and jumps from foe to foe (Lightning Ring).
+    ArtDef {
+        kind: ArtKind::ChainOfTorment,
+        name: Key::ArtChainOfTorment,
+        desc: Key::ArtChainOfTormentDesc,
+        amount_key: Key::ArtMoreJumps,
+        base: ArtStats {
+            damage: 12.0,
+            cooldown: 1.6,
+            amount: 3,
+            area: 1.0,
+            speed: 0.0,
+            pierce: 0,
+            duration: 0.0,
+        },
+        gains: [
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 4.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 4.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                area: 0.25,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 2,
+                damage: 6.0,
+                ..NO_GAIN
+            },
+        ],
+    },
+    // A beat of her wings: a cone that throws enemies back and slows them (control).
+    ArtDef {
+        kind: ArtKind::WingGust,
+        name: Key::ArtWingGust,
+        desc: Key::ArtWingGustDesc,
+        amount_key: Key::ArtMoreGusts,
+        base: ArtStats {
+            damage: 5.0,
+            cooldown: 2.2,
+            amount: 1,
+            area: 1.0,
+            speed: 0.0,
+            pierce: 0,
+            duration: 1.0,
+        },
+        gains: [
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 3.0,
+                duration: 0.5,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 3.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                duration: 0.5,
+                cooldown: 0.1,
                 ..NO_GAIN
             },
         ],

@@ -371,6 +371,17 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - Debug: **F7** in a run levels up every Art (new ones join at level 1).
 - Stress test: every Art at level 8 on a full 2,500 horde (×1000 HP so it stays full): 0.53 ms mean tick, was 0.50 ms with Hellflare alone.
 
+**Built in V16 (S13):**
+- New `Enemies` columns: `charm_until`, `slow_until`, `knock` (velocity). `steer` now takes the game time: charmed enemies head for the nearest free enemy within `CHARM_SEEK` (or stand still), slowed ones move at `GUST_SLOW`, knockback is added on top and decays at `KNOCK_DECAY`. Charmed enemies never deal contact damage to Veyra. Hellflare and the other Arts still hit charmed enemies (kept simple).
+- Allure (4): a pulse every 3 s, only when an enemy is within `ALLURE_RADIUS` (56 × area). The first `amount` free enemies in reach are **charmed for `duration`, not hurt** (at first the pulse burned them too and killed the weak ones as soon as they were charmed); the rest take the damage. Every `CHARM_BITE` (0.5 s) each charmed enemy bites the free enemies within its radius + `CHARM_REACH` for the Art's damage. Base 5 dmg, 2 charmed, 2.5 s; levels add charmed (2, 5, 8 ×2), area (3, 6), damage + duration (4, 7). Drawn: a ring of `charm_heart`s spreading over `ALLURE_WAVE_TIME`, charmed enemies tinted `CHARM_TINT` with a beating heart over their heads.
+- Hellgate (5): every 4 s `amount` pools on random enemies within `HELLGATE_RANGE` (reservoir pick, `random_enemy`). A pool is an ellipse (`HELLGATE_RADIUS` wide, half as deep, plus the enemy radius) that burns everything inside every `HELLGATE_TICK` (0.35 s) for `duration` (2.5 s). Base 7 dmg, 1 pool. No area gains (sprite can't scale). Drawn on the ground right after the blood, fading in and out.
+- Chain of Torment (6): every 1.6 s it bites a random enemy within `CHAIN_RANGE`, then jumps to the nearest unbitten enemy within `CHAIN_JUMP` × area, `amount` enemies in all (base 3, 12 dmg). It counts as a cast (cast animation). Drawn as a jagged line from her hand (a kink every `CHAIN_KINK` px, reshaped every 0.05 s): 5 px dark glow, 3 px crimson, 1 px white-hot core (`CHAIN_COLORS`), plus a `chain_spark` on each victim. The first try (1 px line, 4 kinks per link) was invisible on the grass.
+- Wing Gust (7): every 2.2 s, if an enemy is within `GUST_REACH` (72 × area), `amount` cones (±`GUST_HALF_ANGLE`, the first toward that enemy, the rest spread around the circle) throw enemies out at `GUST_PUSH` (less for big ones), slow them for `duration` and deal 5 dmg. Each gust throws `GUST_FEATHERS` of her feathers (pink, they read as brown dots once faded, so they fade only in the last 30%).
+- Ember Legion's +amount reaches all four (one more charmed / pool / bitten enemy / gust). With 8 Arts and 6 slots, F7 now only fills the free slots.
+- Art: `charm_heart` 7×7 ×2, `hellgate` 36×22 ×4 (pool centre at (18, 16)), `chain_spark` 9×9 ×2, `gust_feather` 11×6 ×2, in `assets/arts.px.js`.
+- Sounds (peak 50 ms RMS): `Sfx::Allure` -27.8 (a sine scooping up into D with a slow vibrato, the tritone G# whispered on a thin pulse), `Hellgate` -25.5 (low whoomph, fire roar, crackle), `Chain` -28.3 (snap and a zap leaping a tritone, rattles), `Gust` -27.2 (wing thump and a falling whoosh).
+- Stress test with all 8 Arts at level 8: 0.56 ms mean tick (was 0.53 with 4).
+
 ### 7.8 Enemies, difficulty, maps and story
 
 - New behaviours on top of `Chase`:
@@ -621,7 +632,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S12 — Arts I**
   - [x] V15 Arts framework + first Arts
 - **S13 — Arts II**
-  - [ ] V16 Remaining Arts
+  - [x] V16 Remaining Arts
 - **S14 — Sins**
   - [ ] V17 Sins and evolutions
 - **S15 — Enemy AI**
@@ -717,3 +728,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Checked in game with a scratch capture harness (`VEYRA_CAPTURE`, not committed): lashes, hearts, embers and the level-up cards (ES). A heart trail copy read as muddy brown on the grass and was dropped.
   - Gotchas: run capture harnesses with `XDG_DATA_HOME` pointing at a temp dir, or the run lands in the real lifetime stats (it happened once this session). `get_screen_data()` is not flipped (unlike the render target). The stress test only measures the horde if the enemies survive the maxed Arts, hence the ×1000 HP.
   - Next: S13 (V16 remaining Arts).
+- **S13 (2026-10-20)** — V16 done: Allure, Hellgate, Chain of Torment, Wing Gust (see 7.7 "Built in V16"). 117 tests. S11 (title screen) is still parked by the user.
+  - Decisions taken alone (not reviewed by the user yet): charmed enemies are spared by the pulse and only bite free enemies; other Arts still hit them; Hellgate has no area gains; Wing Gust aims at the nearest enemy and only fires when one is in reach; the four sounds (`target/audio/sfx/allure.wav`, `hellgate.wav`, `chain.wav`, `gust.wav`).
+  - Checked in game with a scratch capture harness (env hook in `App::frame`, not committed; `XDG_DATA_HOME` in a temp dir): the chain and the feathers needed a second pass to read on the grass, and a capture showed the pulse was killing what it charmed (fixed).
+  - Gotchas: assert on charm expiry with a 2-tick margin (2.5 s / tick isn't exact); `cargo fmt` reflows long `query_radius` calls, so re-read before scripted edits.
+  - Next: S14 (V17 Sins and evolutions).

@@ -27,13 +27,17 @@ pub enum SpriteId {
     TailLash,
     HeartBolt,
     Ember,
+    CharmHeart,
+    Hellgate,
+    ChainSpark,
+    GustFeather,
     Fireball,
     Smoke,
     Soul,
     Ground,
 }
 
-const SPRITE_COUNT: usize = 20;
+const SPRITE_COUNT: usize = 24;
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -118,6 +122,10 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         SpriteId::TailLash => &[63; 3],
         SpriteId::HeartBolt => &[125; 2],
         SpriteId::Ember => &[100; 2],
+        SpriteId::CharmHeart => &[167; 2],
+        SpriteId::Hellgate => &[100; 4],
+        SpriteId::ChainSpark => &[63; 2],
+        SpriteId::GustFeather => &[83; 2],
         _ => &[],
     }
 }
@@ -165,6 +173,10 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     art!(TailLash, "tail_lash"),
     art!(HeartBolt, "heart_bolt"),
     art!(Ember, "ember"),
+    art!(CharmHeart, "charm_heart"),
+    art!(Hellgate, "hellgate"),
+    art!(ChainSpark, "chain_spark"),
+    art!(GustFeather, "gust_feather"),
     sheet!(Fireball, "fireball", 1, false),
     sheet!(Smoke, "smoke", 1, false),
     sheet!(Soul, "soul", 1, false),
@@ -471,8 +483,20 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/tail_lash.json"),
             include_str!("../assets/sprites/arts/anims/heart_bolt.json"),
             include_str!("../assets/sprites/arts/anims/ember.json"),
+            include_str!("../assets/sprites/arts/anims/charm_heart.json"),
+            include_str!("../assets/sprites/arts/anims/hellgate.json"),
+            include_str!("../assets/sprites/arts/anims/chain_spark.json"),
+            include_str!("../assets/sprites/arts/anims/gust_feather.json"),
         ];
-        let arts = [SpriteId::TailLash, SpriteId::HeartBolt, SpriteId::Ember];
+        let arts = [
+            SpriteId::TailLash,
+            SpriteId::HeartBolt,
+            SpriteId::Ember,
+            SpriteId::CharmHeart,
+            SpriteId::Hellgate,
+            SpriteId::ChainSpark,
+            SpriteId::GustFeather,
+        ];
         for (id, json) in VEYRA.into_iter().chain(arts).zip(json) {
             let ms: Vec<u16> = json
                 .split("\"duration\":")

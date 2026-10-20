@@ -19,6 +19,12 @@ pub struct Enemies {
     pub uid: Vec<u32>,
     /// Game time until which the Brimstone Halo can't burn it again.
     pub halo_until: Vec<f32>,
+    /// Game time until which it fights for Veyra (Allure).
+    pub charm_until: Vec<f32>,
+    /// Game time until which it moves at `GUST_SLOW` speed (Wing Gust).
+    pub slow_until: Vec<f32>,
+    /// Knockback velocity, dying away at `KNOCK_DECAY`.
+    pub knock: Vec<Vec2>,
     next_uid: u32,
     /// Live enemies per kind, so the largest radius in play is cheap to find.
     counts: [u32; ENEMY_DEFS.len()],
@@ -36,6 +42,9 @@ impl Enemies {
             elite: Vec::with_capacity(n),
             uid: Vec::with_capacity(n),
             halo_until: Vec::with_capacity(n),
+            charm_until: Vec::with_capacity(n),
+            slow_until: Vec::with_capacity(n),
+            knock: Vec::with_capacity(n),
             next_uid: 0,
             counts: [0; ENEMY_DEFS.len()],
         }
@@ -65,6 +74,9 @@ impl Enemies {
         self.uid.push(self.next_uid);
         self.next_uid = self.next_uid.wrapping_add(1);
         self.halo_until.push(0.0);
+        self.charm_until.push(0.0);
+        self.slow_until.push(0.0);
+        self.knock.push(Vec2::ZERO);
         self.counts[kind] += 1;
     }
 
@@ -79,6 +91,9 @@ impl Enemies {
         self.elite.swap_remove(i);
         self.uid.swap_remove(i);
         self.halo_until.swap_remove(i);
+        self.charm_until.swap_remove(i);
+        self.slow_until.swap_remove(i);
+        self.knock.swap_remove(i);
     }
 
     /// Largest collision radius among the kinds currently alive (0 when empty); spatial
@@ -88,15 +103,45 @@ impl Enemies {
         alive.map(|(d, _)| d.radius()).fold(0.0, f32::max)
     }
 
+    pub fn charmed(&self, i: usize, time: f32) -> bool {
+        self.charm_until[i] > time
+    }
+
+    /// Where charmed enemy `i` heads: the nearest free enemy within `CHARM_SEEK`, or
+    /// nowhere (it stands guard).
+    fn charm_target(&self, i: usize, hash: &SpatialHash, time: f32) -> Option<Vec2> {
+        let p = self.pos(i);
+        let mut best: Option<(f32, Vec2)> = None;
+        hash.query_radius(p, CHARM_SEEK, |j, q| {
+            let d = q.distance_squared(p);
+            if j != i && !self.charmed(j, time) && self.hp[j] > 0.0 && best.is_none_or(|b| d < b.0)
+            {
+                best = Some((d, q));
+            }
+        });
+        best.map(|b| b.1)
+    }
+
     /// Moves every enemy according to its behaviour plus soft separation, using the
-    /// position snapshot in `hash` for neighbours.
-    pub fn steer(&mut self, dt: f32, target: Vec2, hash: &SpatialHash) {
+    /// position snapshot in `hash` for neighbours. Charmed enemies hunt the horde,
+    /// slowed ones crawl and knockback carries them on top. `time` is the game time.
+    pub fn steer(&mut self, dt: f32, target: Vec2, hash: &SpatialHash, time: f32) {
+        let knock_keep = (-KNOCK_DECAY * dt).exp();
         for i in 0..self.len() {
             let def = &ENEMY_DEFS[self.kind[i] as usize];
             let p = self.pos(i);
-            let desired = match def.behavior {
-                Behavior::Chase => (target - p).normalize_or_zero() * def.speed,
+            let goal = if self.charmed(i, time) {
+                self.charm_target(i, hash, time)
+            } else {
+                Some(target)
             };
+            let mut desired = match (def.behavior, goal) {
+                (_, None) => Vec2::ZERO,
+                (Behavior::Chase, Some(g)) => (g - p).normalize_or_zero() * def.speed,
+            };
+            if self.slow_until[i] > time {
+                desired *= GUST_SLOW;
+            }
             let mut push = Vec2::ZERO;
             let mut n = 0;
             hash.try_query_radius(p, SEPARATION_RADIUS, |j, q| {
@@ -115,7 +160,13 @@ impl Enemies {
                 n += 1;
                 n < SEPARATION_MAX_NEIGHBOURS
             });
-            self.set_pos(i, p + (desired + push * SEPARATION_PUSH) * dt);
+            let knock = self.knock[i];
+            self.set_pos(i, p + (desired + push * SEPARATION_PUSH + knock) * dt);
+            self.knock[i] = if knock.length_squared() < 1.0 {
+                Vec2::ZERO
+            } else {
+                knock * knock_keep
+            };
             self.flash[i] = (self.flash[i] - dt).max(0.0);
         }
     }
@@ -134,7 +185,7 @@ mod tests {
         }
         for _ in 0..60 {
             hash.rebuild(Vec2::ZERO, &e.x, &e.y);
-            e.steer(TICK_DT, Vec2::ZERO, &hash);
+            e.steer(TICK_DT, Vec2::ZERO, &hash, 0.0);
         }
         for i in 0..e.len() {
             assert!(e.pos(i).x < 60.0);

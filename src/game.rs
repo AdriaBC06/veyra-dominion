@@ -34,6 +34,10 @@ pub enum Cue {
     Fire,
     Lash,
     Kiss,
+    Allure,
+    Hellgate,
+    Chain,
+    Gust,
     /// A fireball landed; armour rings differently from flesh.
     Hit {
         armored: bool,
@@ -46,8 +50,8 @@ pub enum Cue {
     Arrival,
 }
 
-/// Every distinct cue fits: 8 plus a second hit kind and one kill per family.
-const MAX_CUES: usize = 12;
+/// Every distinct cue fits: 12 plus a second hit kind and one kill per family.
+const MAX_CUES: usize = 16;
 
 pub struct Player {
     pub pos: Vec2,
@@ -227,7 +231,7 @@ impl Game {
         self.hash.rebuild(center, &self.enemies.x, &self.enemies.y);
         self.spawn_enemies();
         self.relocate_far_enemies();
-        self.enemies.steer(TICK_DT, center, &self.hash);
+        self.enemies.steer(TICK_DT, center, &self.hash, self.time);
         self.use_arts(alive);
         if alive {
             self.contact_damage();
@@ -285,12 +289,14 @@ impl Game {
             return;
         }
         let enemies = &self.enemies;
+        let time = self.time;
         let mut damage = 0.0f32;
         let query = PLAYER_RADIUS + enemies.max_radius();
         self.hash.query_radius(p.pos, query, |j, _| {
             let def = &ENEMY_DEFS[enemies.kind[j] as usize];
             let reach = PLAYER_RADIUS + def.radius();
-            if enemies.hp[j] > 0.0 && enemies.pos(j).distance_squared(p.pos) <= reach * reach {
+            let close = enemies.pos(j).distance_squared(p.pos) <= reach * reach;
+            if enemies.hp[j] > 0.0 && !enemies.charmed(j, time) && close {
                 damage = damage.max(def.contact_damage);
             }
         });
@@ -338,6 +344,10 @@ impl Game {
             (cues.fired, Cue::Fire),
             (cues.lashed, Cue::Lash),
             (cues.kissed, Cue::Kiss),
+            (cues.charmed, Cue::Allure),
+            (cues.gated, Cue::Hellgate),
+            (cues.chained, Cue::Chain),
+            (cues.gusted, Cue::Gust),
             (cues.hits[0], Cue::Hit { armored: false }),
             (cues.hits[1], Cue::Hit { armored: true }),
         ] {
@@ -1056,6 +1066,9 @@ mod tests {
             assert!(g.arts.projectiles.len() <= MAX_PROJECTILES);
             assert!(g.arts.bolts.capacity() == MAX_BOLTS);
             assert!(g.arts.lashes.capacity() == MAX_LASHES);
+            assert!(g.arts.gates.capacity() == MAX_GATES);
+            assert!(g.arts.chains.capacity() == MAX_CHAINS);
+            assert!(g.arts.feathers.capacity() == MAX_FEATHERS);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);
             assert!(g.bursts.capacity() == MAX_BURST_PIXELS);

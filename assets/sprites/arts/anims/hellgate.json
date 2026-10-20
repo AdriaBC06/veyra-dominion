@@ -1,0 +1,106 @@
+{
+ "frames": {
+  "hellgate_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 22
+   },
+   "duration": 100
+  },
+  "hellgate_1": {
+   "frame": {
+    "x": 36,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 22
+   },
+   "duration": 100
+  },
+  "hellgate_2": {
+   "frame": {
+    "x": 72,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 22
+   },
+   "duration": 100
+  },
+  "hellgate_3": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 22
+   },
+   "duration": 100
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "hellgate.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 144,
+   "h": 22
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "hellgate",
+    "from": 0,
+    "to": 3,
+    "direction": "forward"
+   }
+  ]
+ }
+}

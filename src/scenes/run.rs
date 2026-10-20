@@ -155,6 +155,10 @@ impl Run {
                 Cue::Fire => Sfx::Fire,
                 Cue::Lash => Sfx::Lash,
                 Cue::Kiss => Sfx::Kiss,
+                Cue::Allure => Sfx::Allure,
+                Cue::Hellgate => Sfx::Hellgate,
+                Cue::Chain => Sfx::Chain,
+                Cue::Gust => Sfx::Gust,
                 Cue::Hit { armored: false } => Sfx::Hit,
                 Cue::Hit { armored: true } => Sfx::HitArmored,
                 Cue::Kill(Family::Beast) => Sfx::KillBeast,
@@ -245,18 +249,23 @@ impl Run {
         clear_background(BLACK);
         draw_ground(origin, view);
         self.blood.draw(origin, view);
+        draw_gates(game);
         draw_souls(game);
         draw_bursts(game, true);
         draw_enemies(game);
         draw_fades(game);
         draw_bursts(game, false);
         let pos = player_pos.round();
+        draw_allure_wave(game, pos);
+        draw_charm_marks(game);
         draw_embers(game, pos, false);
         draw_veyra(game, pos, game.time + alpha * TICK_DT);
         draw_embers(game, pos, true);
         draw_lashes(game, pos);
+        draw_chains(game);
         draw_bolts(game, alpha);
         draw_projectiles(game);
+        draw_feathers(game);
     }
 
     /// HUD and overlays; call with the UI camera set.
@@ -376,7 +385,132 @@ fn draw_enemies(game: &Game) {
                 game.time,
             );
         }
-        draw_sprite(def.sprite, frame, corner, flip);
+        let tint = if e.charmed(i, game.time) {
+            Color::from_hex(CHARM_TINT)
+        } else {
+            WHITE
+        };
+        draw_sprite_tinted(def.sprite, frame, corner, flip, tint);
+    }
+}
+
+/// A beating heart over every charmed enemy's head.
+fn draw_charm_marks(game: &Game) {
+    let e = &game.enemies;
+    let frame = assets::anim_frame(SpriteId::CharmHeart, game.time, true);
+    for i in (0..e.len()).filter(|&i| e.charmed(i, game.time)) {
+        let h = ENEMY_DEFS[e.kind[i] as usize].size.1 as f32;
+        let bob = (TAU * 2.0 * game.time + e.phase[i]).sin().round();
+        let corner = e.pos(i).round() - vec2(3.0, h + CHARM_MARK_HEIGHT + 7.0 + bob);
+        draw_sprite(SpriteId::CharmHeart, frame, corner, false);
+    }
+}
+
+/// Allure's pulse: a ring of hearts that spreads to its edge, then fades there.
+fn draw_allure_wave(game: &Game, pos: Vec2) {
+    let a = &game.arts.allure;
+    let k = a.since_pulse / ALLURE_WAVE_TIME;
+    if k >= 2.0 {
+        return;
+    }
+    let spread = 1.0 - (1.0 - k.min(1.0)).powi(3);
+    let tint = Color::new(1.0, 1.0, 1.0, (2.0 - k).min(1.0));
+    let frame = assets::anim_frame(SpriteId::CharmHeart, a.since_pulse, true);
+    for n in 0..ALLURE_WAVE_HEARTS {
+        let angle = n as f32 * TAU / ALLURE_WAVE_HEARTS as f32 + a.since_pulse * 0.8;
+        let ground = pos + Vec2::from_angle(angle) * a.radius * spread;
+        draw_sprite_tinted(
+            SpriteId::CharmHeart,
+            frame,
+            ground.round() - vec2(3.0, 9.0),
+            false,
+            tint,
+        );
+    }
+}
+
+/// Hellgate pools on the ground, fading in and out.
+fn draw_gates(game: &Game) {
+    for g in &game.arts.gates {
+        let frame = assets::anim_frame(SpriteId::Hellgate, g.t, true);
+        let tint = Color::new(1.0, 1.0, 1.0, g.alpha());
+        draw_sprite_tinted(
+            SpriteId::Hellgate,
+            frame,
+            g.pos.round() - vec2(18.0, 16.0),
+            false,
+            tint,
+        );
+    }
+}
+
+/// Chains of Torment: a jagged bolt from her hand through every enemy bitten, that
+/// crackles into a new shape every few frames, with a spark on each victim.
+fn draw_chains(game: &Game) {
+    let [glow, body, core] = CHAIN_COLORS.map(Color::from_hex);
+    let spark = assets::anim_frame(SpriteId::ChainSpark, game.time, true);
+    for c in &game.arts.chains {
+        let fade = ((CHAIN_SHOW_TIME - c.t) / (CHAIN_SHOW_TIME * 0.5)).min(1.0);
+        let with = |mut col: Color, a: f32| {
+            col.a = a * fade;
+            col
+        };
+        let flicker = (c.t / 0.05) as u32;
+        let links = c.links();
+        let lift = |k: usize| {
+            let h = if k == 0 {
+                PROJ_DRAW_HEIGHT
+            } else {
+                CHAIN_DRAW_HEIGHT
+            };
+            links[k].round() - vec2(0.0, h)
+        };
+        for k in 1..links.len() {
+            let (a, b) = (lift(k - 1), lift(k));
+            let across = (b - a).perp().normalize_or_zero();
+            // A kink every `CHAIN_KINK` pixels, the ends pinned.
+            let steps = ((a.distance(b) / CHAIN_KINK).ceil() as usize).clamp(2, 32);
+            let mut points = [a; 33];
+            for (m, p) in points.iter_mut().enumerate().take(steps + 1).skip(1) {
+                let jag = if m == steps {
+                    0.0
+                } else {
+                    let seed = c.seed ^ ((k as u32) << 12) ^ ((m as u32) << 4) ^ flicker;
+                    (jitter(seed) % 7) as f32 - 3.0
+                };
+                let t = m as f32 / steps as f32;
+                *p = (a.lerp(b, t) + across * jag).round() + vec2(0.5, 0.5);
+            }
+            let points = &points[..=steps];
+            for (width, col) in [(5.0, glow), (3.0, body), (1.0, core)] {
+                for w in points.windows(2) {
+                    draw_line(w[0].x, w[0].y, w[1].x, w[1].y, width, with(col, 1.0));
+                }
+            }
+            let corner = lift(k) - vec2(4.0, 4.0);
+            draw_sprite_tinted(SpriteId::ChainSpark, spark, corner, false, with(WHITE, 1.0));
+        }
+    }
+}
+
+/// A cheap integer hash for the chain's jagged shape.
+fn jitter(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x7feb_352d);
+    x ^= x >> 15;
+    x = x.wrapping_mul(0x846c_a68b);
+    x ^ (x >> 16)
+}
+
+/// Wing Gust feathers, fluttering away and fading.
+fn draw_feathers(game: &Game) {
+    for f in &game.arts.feathers {
+        let frame = assets::anim_frame(SpriteId::GustFeather, f.t, true);
+        // Solid for most of the flight; a long fade turns them to brown dots on the grass.
+        let fade = ((1.0 - f.t / GUST_FEATHER_LIFE) / 0.3).min(1.0);
+        let tint = Color::new(1.0, 1.0, 1.0, fade);
+        let corner = f.pos.round() - vec2(5.0, 3.0 + f.height.round());
+        draw_sprite_tinted(SpriteId::GustFeather, frame, corner, f.vel.x > 0.0, tint);
     }
 }
 
