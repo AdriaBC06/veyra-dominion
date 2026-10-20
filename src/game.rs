@@ -1,10 +1,11 @@
 //! Simulation state. Pure logic: no drawing, input or window calls.
 
+use crate::arts::{Arts, World};
 use crate::assets::{SpriteId, FLASH_FRAME_OFFSET};
 use crate::config::*;
 use crate::enemies::Enemies;
 use crate::spatial::SpatialHash;
-use crate::upgrades::{PlayerStats, Upgrades};
+use crate::upgrades::{Choice, PlayerStats, Upgrades};
 use macroquad::math::{vec2, Vec2};
 use macroquad::rand::gen_range;
 use std::f32::consts::TAU;
@@ -31,6 +32,8 @@ pub enum SimEvent {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Cue {
     Fire,
+    Lash,
+    Kiss,
     /// A fireball landed; armour rings differently from flesh.
     Hit {
         armored: bool,
@@ -43,8 +46,8 @@ pub enum Cue {
     Arrival,
 }
 
-/// Every distinct cue fits: 6 plus a second hit kind and one kill per family.
-const MAX_CUES: usize = 10;
+/// Every distinct cue fits: 8 plus a second hit kind and one kill per family.
+const MAX_CUES: usize = 12;
 
 pub struct Player {
     pub pos: Vec2,
@@ -53,20 +56,17 @@ pub struct Player {
     pub vel: Vec2,
     /// -1.0 facing left, 1.0 facing right.
     pub facing: f32,
+    /// Unit vector of the last direction moved in (Kiss of Ruin aims along it).
+    pub aim: Vec2,
     /// Smoothed tail offset trailing behind the movement.
     pub tail_lag: Vec2,
     pub hp: f32,
     pub max_hp: f32,
     /// Remaining invulnerability after a hit.
     pub iframes: f32,
-    /// Seconds since Hellflare last fired, for the cast animation.
+    /// Seconds since a hand-thrown Art (Hellflare, Kiss of Ruin) last fired, for the
+    /// cast animation.
     pub since_cast: f32,
-}
-
-pub struct Projectile {
-    pub pos: Vec2,
-    pub vel: Vec2,
-    pub life: f32,
 }
 
 /// A dropped soul worth `xp`; drifts to Veyra once she is within `PICKUP_RADIUS`.
@@ -127,7 +127,7 @@ pub struct Game {
     pub endless: bool,
     pub player: Player,
     pub enemies: Enemies,
-    pub projectiles: Vec<Projectile>,
+    pub arts: Arts,
     pub souls: Vec<Soul>,
     pub fades: Vec<Fade>,
     /// Fixed pool (capacity `MAX_BURST_PIXELS`), never grown.
@@ -143,8 +143,8 @@ pub struct Game {
     pub pending_levels: u32,
     pub upgrades: Upgrades,
     pub stats: PlayerStats,
-    /// Upgrade indices offered on the level-up screen.
-    pub choices: [Option<usize>; 3],
+    /// Cards offered on the level-up screen.
+    pub choices: [Option<Choice>; 3],
     /// Seconds since the killing blow, while the death animation plays.
     pub dying: Option<f32>,
     /// Cues since the frontend last drained them, without repeats.
@@ -152,8 +152,7 @@ pub struct Game {
     hash: SpatialHash,
     /// Spawn ring radius, derived from the view size (see `set_view`).
     spawn_ring: f32,
-    spawn_acc: f32,
-    fire_cd: f32,
+    pub(crate) spawn_acc: f32,
     next_event: usize,
     unlocked: [bool; ENEMY_DEFS.len()],
 }
@@ -167,6 +166,7 @@ fn splat(splats: &mut Vec<Splat>, pos: Vec2, radius: f32) {
 
 impl Game {
     pub fn new() -> Self {
+        let upgrades = Upgrades::default();
         Self {
             time: 0.0,
             endless: false,
@@ -175,6 +175,7 @@ impl Game {
                 prev_pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
                 facing: -1.0,
+                aim: vec2(-1.0, 0.0),
                 tail_lag: Vec2::ZERO,
                 hp: PLAYER_MAX_HP,
                 max_hp: PLAYER_MAX_HP,
@@ -182,7 +183,7 @@ impl Game {
                 since_cast: f32::INFINITY,
             },
             enemies: Enemies::with_capacity(MAX_ENEMIES),
-            projectiles: Vec::with_capacity(MAX_PROJECTILES),
+            arts: Arts::new(&upgrades),
             souls: Vec::with_capacity(MAX_SOULS),
             fades: Vec::with_capacity(MAX_FADES),
             bursts: Vec::with_capacity(MAX_BURST_PIXELS),
@@ -191,15 +192,14 @@ impl Game {
             level: 1,
             xp: 0,
             pending_levels: 0,
-            upgrades: Upgrades::default(),
-            stats: Upgrades::default().stats(),
+            stats: upgrades.stats(),
+            upgrades,
             choices: [None; 3],
             dying: None,
             cues: Vec::with_capacity(MAX_CUES),
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
             spawn_ring: Self::ring_radius(Vec2::new(DEFAULT_VIEW_W, LOGICAL_H)),
             spawn_acc: 0.0,
-            fire_cd: 0.0,
             next_event: 0,
             unlocked: [false; ENEMY_DEFS.len()],
         }
@@ -228,10 +228,7 @@ impl Game {
         self.spawn_enemies();
         self.relocate_far_enemies();
         self.enemies.steer(TICK_DT, center, &self.hash);
-        if alive {
-            self.fire();
-        }
-        self.update_projectiles();
+        self.use_arts(alive);
         if alive {
             self.contact_damage();
         }
@@ -272,6 +269,7 @@ impl Game {
         };
         self.upgrades.apply(idx, &mut self.player);
         self.stats = self.upgrades.stats();
+        self.arts.refresh(&self.upgrades);
         self.pending_levels = self.pending_levels.saturating_sub(1);
         self.choices = [None; 3];
         if self.pending_levels > 0 {
@@ -328,69 +326,24 @@ impl Game {
         }
     }
 
-    /// Hellflare: shoots at the nearest enemy whenever the cooldown allows.
-    fn fire(&mut self) {
-        self.fire_cd = (self.fire_cd - TICK_DT).max(0.0);
-        if self.fire_cd > 0.0 || self.projectiles.len() >= MAX_PROJECTILES {
-            return;
-        }
-        let from = self.player.pos;
-        if let Some(target) = self.hash.nearest(from, FIRE_RANGE) {
-            let aim = (self.enemies.pos(target) - from).normalize_or(Vec2::X);
-            let n = self.stats.projectiles;
-            for k in 0..n {
-                if self.projectiles.len() >= MAX_PROJECTILES {
-                    break;
-                }
-                let angle = (k as f32 - (n - 1) as f32 * 0.5) * PROJ_SPREAD;
-                self.projectiles.push(Projectile {
-                    pos: from,
-                    vel: Vec2::from_angle(angle).rotate(aim) * PROJ_SPEED,
-                    life: PROJ_LIFETIME,
-                });
+    fn use_arts(&mut self, alive: bool) {
+        let mut world = World {
+            player: &mut self.player,
+            enemies: &mut self.enemies,
+            hash: &self.hash,
+            time: self.time,
+        };
+        let cues = self.arts.update(&mut world, alive);
+        for (on, cue) in [
+            (cues.fired, Cue::Fire),
+            (cues.lashed, Cue::Lash),
+            (cues.kissed, Cue::Kiss),
+            (cues.hits[0], Cue::Hit { armored: false }),
+            (cues.hits[1], Cue::Hit { armored: true }),
+        ] {
+            if on {
+                self.cue(cue);
             }
-            self.fire_cd = self.stats.fire_interval;
-            self.player.since_cast = 0.0;
-            self.cue(Cue::Fire);
-        }
-    }
-
-    /// Moves fireballs and applies hits. Dead enemies stay in place (hp <= 0) until
-    /// `remove_dead_enemies`, so hash indices stay valid for the whole pass.
-    fn update_projectiles(&mut self) {
-        let enemies = &mut self.enemies;
-        let damage = self.stats.damage;
-        // Hit seen this tick on flesh and on armour.
-        let mut hits = [false; 2];
-        let query = PROJ_RADIUS + enemies.max_radius();
-        let mut k = self.projectiles.len();
-        while k > 0 {
-            k -= 1;
-            let pr = &mut self.projectiles[k];
-            pr.pos += pr.vel * TICK_DT;
-            pr.life -= TICK_DT;
-            let mut hit = None;
-            self.hash.query_radius(pr.pos, query, |j, _| {
-                let reach = PROJ_RADIUS + ENEMY_DEFS[enemies.kind[j] as usize].radius();
-                if hit.is_none()
-                    && enemies.hp[j] > 0.0
-                    && enemies.pos(j).distance_squared(pr.pos) <= reach * reach
-                {
-                    hit = Some(j);
-                }
-            });
-            if let Some(j) = hit {
-                enemies.hp[j] -= damage;
-                enemies.flash[j] = HIT_FLASH_TIME;
-                let family = ENEMY_DEFS[enemies.kind[j] as usize].family;
-                hits[(family == Family::Armored) as usize] = true;
-            }
-            if hit.is_some() || pr.life <= 0.0 {
-                self.projectiles.swap_remove(k);
-            }
-        }
-        for (armored, _) in [false, true].into_iter().zip(hits).filter(|h| h.1) {
-            self.cue(Cue::Hit { armored });
         }
     }
 
@@ -664,6 +617,14 @@ impl Game {
         }
     }
 
+    /// Debug (F7): every Art gains a level (new ones join at level 1).
+    pub fn debug_level_arts(&mut self) {
+        for art in 0..ARTS.len() {
+            self.upgrades.apply(Choice::Art(art), &mut self.player);
+        }
+        self.arts.refresh(&self.upgrades);
+    }
+
     /// Debug (F6): every enemy inside a view of `view` size around Veyra dies on the
     /// next tick, with its burst, blood and soul.
     pub fn debug_kill_visible(&mut self, view: Vec2) {
@@ -694,6 +655,9 @@ impl Game {
     fn move_player(&mut self, input: &InputState) {
         let p = &mut self.player;
         let dir = input.move_dir.normalize_or_zero();
+        if dir != Vec2::ZERO {
+            p.aim = dir;
+        }
         let blend = 1.0 - (-PLAYER_ACCEL * TICK_DT).exp();
         p.vel = p.vel.lerp(dir * self.stats.speed, blend);
         p.prev_pos = p.pos;
@@ -778,7 +742,7 @@ mod tests {
         // The query must widen by the largest radius in play, not the nearest kind's.
         let mut g = Game::new();
         g.spawn_acc = f32::NEG_INFINITY;
-        g.fire_cd = f32::INFINITY;
+        g.arts.hold();
         g.enemies
             .spawn(BRUTE, vec2(PLAYER_RADIUS + 10.5, 0.0), 1000.0);
         g.enemies.spawn(RAT, vec2(-200.0, 0.0), 1.0);
@@ -793,7 +757,7 @@ mod tests {
     fn death_burst_falls_lands_and_fades() {
         let mut g = Game::new();
         g.spawn_acc = f32::NEG_INFINITY;
-        g.fire_cd = f32::INFINITY;
+        g.arts.hold();
         g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 1.0);
         g.enemies.hp[0] = 0.0;
         g.tick(&InputState::default());
@@ -821,7 +785,7 @@ mod tests {
     fn bleeding_deaths_leave_a_pool_and_drop_splashes() {
         let mut g = Game::new();
         g.spawn_acc = f32::NEG_INFINITY;
-        g.fire_cd = f32::INFINITY;
+        g.arts.hold();
         g.enemies.spawn(VILLAGER, vec2(60.0, 0.0), 1.0);
         g.enemies.hp[0] = 0.0;
         g.tick(&InputState::default());
@@ -869,7 +833,7 @@ mod tests {
     fn debug_kill_takes_only_the_visible_enemies() {
         let mut g = Game::new();
         g.spawn_acc = f32::NEG_INFINITY;
-        g.fire_cd = f32::INFINITY;
+        g.arts.hold();
         let view = vec2(DEFAULT_VIEW_W, LOGICAL_H);
         g.enemies.spawn(RAT, vec2(300.0, 170.0), 1.0);
         g.enemies.spawn(BRUTE, vec2(-250.0, -100.0), 1.0);
@@ -916,14 +880,14 @@ mod tests {
         for _ in 0..90 {
             g.tick(&InputState::default());
         }
-        assert!(g.fades.is_empty() && g.bursts.is_empty() && g.projectiles.is_empty());
+        assert!(g.fades.is_empty() && g.bursts.is_empty() && g.arts.projectiles.is_empty());
     }
 
     #[test]
     fn contact_hurts_once_per_iframe_window_then_kills() {
         let mut g = Game::new();
         g.spawn_acc = f32::NEG_INFINITY;
-        g.fire_cd = f32::INFINITY; // keep the attacker alive
+        g.arts.hold(); // keep the attacker alive
         g.enemies.spawn(VILLAGER, Vec2::ZERO, 1000.0);
         g.tick(&InputState::default());
         let dmg = ENEMY_DEFS[VILLAGER].contact_damage;
@@ -993,7 +957,12 @@ mod tests {
         assert!(g.choices[0].is_some());
         g.choose_upgrade(2);
         assert_eq!(g.pending_levels, 0);
-        assert_eq!(g.upgrades.levels.iter().sum::<u8>(), 2);
+        let arts: u8 = g.upgrades.arts.iter().sum();
+        assert_eq!(
+            g.upgrades.levels.iter().sum::<u8>() + arts,
+            3,
+            "Hellflare + 2"
+        );
         assert_eq!(g.tick(&InputState::default()), SimEvent::None);
     }
 
@@ -1027,7 +996,7 @@ mod tests {
     fn spawning_respects_enemy_cap() {
         let mut g = Game::new();
         g.time = 290.0;
-        g.fire_cd = f32::INFINITY;
+        g.arts.hold();
         g.player.hp = f32::INFINITY;
         while g.enemies.len() < MAX_ENEMIES - 3 {
             g.enemies.spawn(RAT, vec2(g.spawn_ring, 0.0), 1.0);
@@ -1055,17 +1024,23 @@ mod tests {
     }
 
     #[test]
-    fn stress_at_enemy_cap() {
+    fn stress_at_enemy_cap_with_every_art_maxed() {
+        const STRESS_HP: f32 = 1000.0;
         macroquad::rand::srand(7);
         let mut g = Game::new();
+        g.upgrades.arts = [ART_MAX_LEVEL; ARTS.len()];
+        g.arts.refresh(&g.upgrades);
         g.time = VICTORY_TIME;
         g.player.hp = f32::INFINITY;
         while g.enemies.len() < MAX_ENEMIES {
             let p = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(50.0, g.spawn_ring);
-            g.enemies.spawn(gen_range(0, ENEMY_DEFS.len()), p, 1.0);
+            // Tough enough that the horde stays full under the maxed Arts.
+            g.enemies
+                .spawn(gen_range(0, ENEMY_DEFS.len()), p, STRESS_HP);
         }
+        let hp_before: f32 = g.enemies.hp.iter().sum();
         let mut input = InputState::default();
-        let mut peak = 0;
+        let (mut peak, mut total) = (0, 0);
         let ticks = 20_000;
         let started = std::time::Instant::now();
         for i in 0..ticks {
@@ -1078,21 +1053,26 @@ mod tests {
             }
             assert!(g.dying.is_none());
             assert!(g.enemies.len() <= MAX_ENEMIES);
-            assert!(g.projectiles.len() <= MAX_PROJECTILES);
+            assert!(g.arts.projectiles.len() <= MAX_PROJECTILES);
+            assert!(g.arts.bolts.capacity() == MAX_BOLTS);
+            assert!(g.arts.lashes.capacity() == MAX_LASHES);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);
             assert!(g.bursts.capacity() == MAX_BURST_PIXELS);
             assert!(g.splats.capacity() == MAX_SPLATS);
             g.splats.clear(); // the renderer drains them every frame
             peak = peak.max(g.enemies.len());
+            total += g.enemies.len();
         }
         let mean_ms = started.elapsed().as_secs_f64() * 1000.0 / ticks as f64;
         println!(
-            "stress: mean tick {mean_ms:.3} ms, peak enemies {peak}, kills {}",
+            "stress: mean tick {mean_ms:.3} ms, enemies peak {peak} mean {}, kills {}",
+            total / ticks,
             g.kills
         );
         assert_eq!(peak, MAX_ENEMIES);
-        assert!(g.kills > 0 && g.upgrades.levels.iter().sum::<u8>() > 0);
+        let hp_after: f32 = g.enemies.hp.iter().sum();
+        assert!(hp_after < hp_before, "the Arts keep hitting the horde");
         assert!(mean_ms < 16.0, "mean tick {mean_ms:.3} ms");
     }
 

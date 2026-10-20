@@ -15,6 +15,11 @@ pub struct Enemies {
     pub phase: Vec<f32>,
     /// Elites wear a bright outline (only the flag and the look so far; V18 gives them stats).
     pub elite: Vec<bool>,
+    /// Stable id, so a piercing heart can tell the enemies it already went through.
+    pub uid: Vec<u32>,
+    /// Game time until which the Brimstone Halo can't burn it again.
+    pub halo_until: Vec<f32>,
+    next_uid: u32,
     /// Live enemies per kind, so the largest radius in play is cheap to find.
     counts: [u32; ENEMY_DEFS.len()],
 }
@@ -29,6 +34,9 @@ impl Enemies {
             flash: Vec::with_capacity(n),
             phase: Vec::with_capacity(n),
             elite: Vec::with_capacity(n),
+            uid: Vec::with_capacity(n),
+            halo_until: Vec::with_capacity(n),
+            next_uid: 0,
             counts: [0; ENEMY_DEFS.len()],
         }
     }
@@ -54,6 +62,9 @@ impl Enemies {
         self.flash.push(0.0);
         self.phase.push(macroquad::rand::gen_range(0.0, 2.0));
         self.elite.push(false);
+        self.uid.push(self.next_uid);
+        self.next_uid = self.next_uid.wrapping_add(1);
+        self.halo_until.push(0.0);
         self.counts[kind] += 1;
     }
 
@@ -66,6 +77,8 @@ impl Enemies {
         self.flash.swap_remove(i);
         self.phase.swap_remove(i);
         self.elite.swap_remove(i);
+        self.uid.swap_remove(i);
+        self.halo_until.swap_remove(i);
     }
 
     /// Largest collision radius among the kinds currently alive (0 when empty); spatial

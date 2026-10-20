@@ -5,6 +5,7 @@ use crate::config::*;
 use crate::game::Game;
 use crate::i18n::{tr, trf, Key};
 use crate::ui::Focus;
+use crate::upgrades::Choice;
 use macroquad::prelude::*;
 
 pub const TITLE_COLOR: Color = Color::new(0.88, 0.19, 0.29, 1.0);
@@ -90,7 +91,7 @@ pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
     }
     lines.push(format!(
         "proj {}  souls {}  fades {}",
-        game.projectiles.len(),
+        game.arts.projectiles.len(),
         game.souls.len(),
         game.fades.len()
     ));
@@ -147,8 +148,8 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
     );
     let cards = level_up_cards(view);
     for (slot, choice) in game.choices.iter().enumerate() {
-        let Some(idx) = *choice else { continue };
-        let def = &UPGRADES[idx];
+        let Some(choice) = *choice else { continue };
+        let (name, lv, desc) = card_text(game, choice);
         let Rect { x, y, w, h } = cards[slot];
         let border = if focus.is_highlighted(slot) {
             TITLE_COLOR
@@ -159,14 +160,10 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
         draw_rectangle_lines(x, y, w, h, 2.0, border);
         let num = (slot + 1).to_string();
         draw_ui_text(&num, x + 10.0, y + 22.0, TextStyle::Body, GRAY);
-        draw_ui_text(tr(def.name), x + 28.0, y + 22.0, TextStyle::Body, WHITE);
-        let lv = trf(
-            Key::LevelUpLevel,
-            &[&game.upgrades.levels[idx], &def.max_level],
-        );
+        draw_ui_text(name, x + 28.0, y + 22.0, TextStyle::Body, WHITE);
         let lv_w = measure_ui_text(&lv, TextStyle::Body).width;
         draw_ui_text(&lv, x + w - lv_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
-        draw_ui_text(tr(def.desc), x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
+        draw_ui_text(&desc, x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
     }
     draw_text_centered(
         view,
@@ -175,4 +172,59 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
         TextStyle::Body,
         WHITE,
     );
+}
+
+/// Name, level tag and description of a level-up card. A new Art shows what it does;
+/// an owned one shows what its next level adds.
+fn card_text(game: &Game, choice: Choice) -> (&'static str, String, String) {
+    match choice {
+        Choice::Upgrade(i) => {
+            let def = &UPGRADES[i];
+            let lv = &game.upgrades.levels[i];
+            let tag = trf(Key::LevelUpLevel, &[lv, &def.max_level]);
+            (tr(def.name), tag, tr(def.desc).to_string())
+        }
+        Choice::Art(i) => {
+            let def = &ARTS[i];
+            let lv = game.upgrades.arts[i];
+            if lv == 0 {
+                let new = tr(Key::LevelUpNew).to_string();
+                return (tr(def.name), new, tr(def.desc).to_string());
+            }
+            let tag = trf(Key::LevelUpLevel, &[&lv, &ART_MAX_LEVEL]);
+            (
+                tr(def.name),
+                tag,
+                gain_text(def, &def.gains[lv as usize - 1]),
+            )
+        }
+    }
+}
+
+/// "+1 heart, +4 damage": every non-zero part of a level gain.
+fn gain_text(def: &ArtDef, g: &ArtGain) -> String {
+    let pct = |f: f32| (f * 100.0).round() as u32;
+    let parts = [
+        (g.amount > 0, def.amount_key, g.amount.to_string()),
+        (g.damage > 0.0, Key::ArtGainDamage, g.damage.to_string()),
+        (
+            g.cooldown > 0.0,
+            Key::ArtGainCooldown,
+            pct(g.cooldown).to_string(),
+        ),
+        (g.area > 0.0, Key::ArtGainArea, pct(g.area).to_string()),
+        (g.speed > 0.0, Key::ArtGainSpeed, pct(g.speed).to_string()),
+        (g.pierce > 0, Key::ArtGainPierce, g.pierce.to_string()),
+        (
+            g.duration > 0.0,
+            Key::ArtGainDuration,
+            g.duration.to_string(),
+        ),
+    ];
+    let texts: Vec<String> = parts
+        .iter()
+        .filter(|p| p.0)
+        .map(|(_, key, n)| trf(*key, &[n]))
+        .collect();
+    texts.join(", ")
 }

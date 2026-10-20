@@ -24,13 +24,16 @@ pub enum SpriteId {
     Villager,
     Knight,
     Brute,
+    TailLash,
+    HeartBolt,
+    Ember,
     Fireball,
     Smoke,
     Soul,
     Ground,
 }
 
-const SPRITE_COUNT: usize = 17;
+const SPRITE_COUNT: usize = 20;
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -90,6 +93,18 @@ macro_rules! enemy {
     };
 }
 
+/// One of the Arts' effect strips in `assets/sprites/arts/anims/` (`assets/arts.px.js`).
+macro_rules! art {
+    ($id:ident, $file:literal) => {
+        Sheet {
+            id: SpriteId::$id,
+            png: include_bytes!(concat!("../assets/sprites/arts/anims/", $file, ".png")),
+            frames: frame_ms(SpriteId::$id).len(),
+            flash: false,
+        }
+    };
+}
+
 /// Per-frame durations (ms) of the animated strips, as in the `.json` beside each one.
 pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
     match id {
@@ -100,6 +115,9 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         SpriteId::VeyraCast => &[80, 80, 160],
         SpriteId::VeyraHurt => &[60, 120],
         SpriteId::VeyraDeath => &[143; 6],
+        SpriteId::TailLash => &[63; 3],
+        SpriteId::HeartBolt => &[125; 2],
+        SpriteId::Ember => &[100; 2],
         _ => &[],
     }
 }
@@ -144,6 +162,9 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     enemy!(Villager, "villager"),
     enemy!(Knight, "knight"),
     enemy!(Brute, "brute"),
+    art!(TailLash, "tail_lash"),
+    art!(HeartBolt, "heart_bolt"),
+    art!(Ember, "ember"),
     sheet!(Fireball, "fireball", 1, false),
     sheet!(Smoke, "smoke", 1, false),
     sheet!(Soul, "soul", 1, false),
@@ -436,7 +457,7 @@ mod tests {
     ];
 
     #[test]
-    fn veyra_durations_match_the_exported_json() {
+    fn strip_durations_match_the_exported_json() {
         let json = [
             include_str!("../assets/sprites/veyra/anims/veyra_idle.json"),
             include_str!("../assets/sprites/veyra/anims/veyra_move.json"),
@@ -447,8 +468,12 @@ mod tests {
             include_str!("../assets/sprites/veyra/anims/veyra_tail.json"),
             include_str!("../assets/sprites/veyra/anims/veyra_hair.json"),
             include_str!("../assets/sprites/veyra/anims/veyra_hair_move.json"),
+            include_str!("../assets/sprites/arts/anims/tail_lash.json"),
+            include_str!("../assets/sprites/arts/anims/heart_bolt.json"),
+            include_str!("../assets/sprites/arts/anims/ember.json"),
         ];
-        for (id, json) in VEYRA.into_iter().zip(json) {
+        let arts = [SpriteId::TailLash, SpriteId::HeartBolt, SpriteId::Ember];
+        for (id, json) in VEYRA.into_iter().chain(arts).zip(json) {
             let ms: Vec<u16> = json
                 .split("\"duration\":")
                 .skip(1)

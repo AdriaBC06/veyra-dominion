@@ -96,6 +96,9 @@ impl Run {
                 if is_key_pressed(KeyCode::F6) {
                     self.game.debug_kill_visible(view);
                 }
+                if is_key_pressed(KeyCode::F7) {
+                    self.game.debug_level_arts();
+                }
                 self.simulate(input, view, mouse_move);
             }
             State::LevelUp => self.level_up(input, view),
@@ -150,6 +153,8 @@ impl Run {
         for cue in self.game.cues.drain(..) {
             audio::cue(match cue {
                 Cue::Fire => Sfx::Fire,
+                Cue::Lash => Sfx::Lash,
+                Cue::Kiss => Sfx::Kiss,
                 Cue::Hit { armored: false } => Sfx::Hit,
                 Cue::Hit { armored: true } => Sfx::HitArmored,
                 Cue::Kill(Family::Beast) => Sfx::KillBeast,
@@ -245,7 +250,12 @@ impl Run {
         draw_enemies(game);
         draw_fades(game);
         draw_bursts(game, false);
-        draw_veyra(game, player_pos.round(), game.time + alpha * TICK_DT);
+        let pos = player_pos.round();
+        draw_embers(game, pos, false);
+        draw_veyra(game, pos, game.time + alpha * TICK_DT);
+        draw_embers(game, pos, true);
+        draw_lashes(game, pos);
+        draw_bolts(game, alpha);
         draw_projectiles(game);
     }
 
@@ -405,13 +415,64 @@ fn draw_souls(game: &Game) {
 }
 
 fn draw_projectiles(game: &Game) {
-    for p in &game.projectiles {
+    for p in &game.arts.projectiles {
         draw_sprite(
             SpriteId::Fireball,
             0,
             p.pos - vec2(4.0, 4.0 + PROJ_DRAW_HEIGHT),
             false,
         );
+    }
+}
+
+/// Tail lashes at Veyra's sides, the crescent's tips just above the ground.
+fn draw_lashes(game: &Game, pos: Vec2) {
+    for l in game.arts.lashes.iter().filter(|l| l.delay <= 0.0) {
+        let (_, src) = sprite(SpriteId::TailLash, 0);
+        let flip = l.side > 0.0;
+        let x = if flip {
+            pos.x + 1.0
+        } else {
+            pos.x - 1.0 - src.w
+        };
+        let frame = assets::anim_frame(SpriteId::TailLash, l.t, false);
+        draw_sprite(
+            SpriteId::TailLash,
+            frame,
+            vec2(x, pos.y - 2.0 - src.h),
+            flip,
+        );
+    }
+}
+
+/// Kiss of Ruin hearts, pulsing as they fly.
+fn draw_bolts(game: &Game, alpha: f32) {
+    let frame = assets::anim_frame(SpriteId::HeartBolt, game.time, true);
+    for b in &game.arts.bolts {
+        let pos = b.pos + b.vel * (alpha - 1.0) * TICK_DT;
+        draw_sprite(
+            SpriteId::HeartBolt,
+            frame,
+            pos - vec2(4.0, 4.0 + BOLT_DRAW_HEIGHT),
+            false,
+        );
+    }
+}
+
+/// Brimstone Halo embers circling Veyra: the ones on the far side (`front` false)
+/// go behind her, the near ones in front.
+fn draw_embers(game: &Game, pos: Vec2, front: bool) {
+    let a = game.arts.halo_alpha();
+    if a <= 0.0 {
+        return;
+    }
+    let frame = assets::anim_frame(SpriteId::Ember, game.time, true);
+    let tint = Color::new(1.0, 1.0, 1.0, a);
+    for off in game.arts.embers().filter(|o| (o.y >= 0.0) == front) {
+        let ground = (pos + off).round();
+        draw_shadow(ground, 2.5, 1.0, 0.6 * a);
+        let corner = ground - vec2(3.0, 4.0 + EMBER_DRAW_HEIGHT);
+        draw_sprite_tinted(SpriteId::Ember, frame, corner, false, tint);
     }
 }
 

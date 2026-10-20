@@ -1,3 +1,4 @@
+mod arts;
 mod assets;
 mod audio;
 mod blood;

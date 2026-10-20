@@ -128,17 +128,36 @@ keys! {
     On => "On", "Sí";
     Off => "Off", "No";
     UpFury => "Fury", "Furia";
-    UpFuryDesc => "+25% fireball damage", "+25% daño de bola de fuego";
+    UpFuryDesc => "+25% damage to every Art", "+25% de daño a todas las Artes";
     UpFrenzy => "Frenzy", "Frenesí";
-    UpFrenzyDesc => "+15% fire rate", "+15% cadencia de fuego";
+    UpFrenzyDesc => "Every Art attacks 15% faster", "Todas las Artes atacan un 15% más rápido";
     UpEmberLegion => "Ember Legion", "Legión de ascuas";
-    UpEmberLegionDesc => "+1 fireball per volley", "+1 bola de fuego por ráfaga";
+    UpEmberLegionDesc => "+1 to every Art's amount", "+1 de cantidad a todas las Artes";
     UpLightWings => "Light Wings", "Alas ligeras";
     UpLightWingsDesc => "+10% move speed", "+10% velocidad";
     UpBloodPact => "Blood Pact", "Pacto de sangre";
     UpBloodPactDesc => "+20 max HP, heal 30", "+20 PV máx., cura 30";
     UpSoulPull => "Soul Pull", "Atracción de almas";
     UpSoulPullDesc => "+40% soul pickup radius", "+40% radio de atracción";
+    LevelUpNew => "New", "Nueva";
+    ArtHellflare => "Hellflare", "Llamarada infernal";
+    ArtHellflareDesc => "Fireballs at the nearest foe", "Bolas de fuego al enemigo más cercano";
+    ArtTailLash => "Tail Lash", "Latigazo de cola";
+    ArtTailLashDesc => "Lashes the side she faces", "Azota el lado al que mira";
+    ArtKissOfRuin => "Kiss of Ruin", "Beso de la ruina";
+    ArtKissOfRuinDesc => "Piercing hearts where she flies", "Corazones que atraviesan, hacia donde vuela";
+    ArtBrimstoneHalo => "Brimstone Halo", "Halo de azufre";
+    ArtBrimstoneHaloDesc => "Embers circle around her", "Ascuas que giran a su alrededor";
+    ArtMoreFireballs => "+{} fireball", "+{} bola de fuego";
+    ArtMoreLashes => "+{} lash", "+{} latigazo";
+    ArtMoreHearts => "+{} heart", "+{} corazón";
+    ArtMoreEmbers => "+{} ember", "+{} ascua";
+    ArtGainDamage => "+{} damage", "+{} de daño";
+    ArtGainCooldown => "-{}% cooldown", "-{}% de recarga";
+    ArtGainArea => "+{}% area", "+{}% de área";
+    ArtGainSpeed => "+{}% speed", "+{}% de velocidad";
+    ArtGainPierce => "+{} pierce", "+{} de perforación";
+    ArtGainDuration => "+{}s duration", "+{} s de duración";
 }
 
 /// The string for `key` in the current language.

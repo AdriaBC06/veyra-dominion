@@ -22,6 +22,8 @@ pub const COMBO_STEPS: [f32; 8] = [0.0, 3.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0];
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Sfx {
     Fire,
+    Lash,
+    Kiss,
     Hit,
     HitArmored,
     KillBeast,
@@ -41,9 +43,11 @@ pub enum Sfx {
 }
 
 impl Sfx {
-    pub const COUNT: usize = 17;
+    pub const COUNT: usize = 19;
     pub const ALL: [Sfx; Sfx::COUNT] = [
         Sfx::Fire,
+        Sfx::Lash,
+        Sfx::Kiss,
         Sfx::Hit,
         Sfx::HitArmored,
         Sfx::KillBeast,
@@ -65,6 +69,8 @@ impl Sfx {
     pub fn name(self) -> &'static str {
         match self {
             Sfx::Fire => "fire",
+            Sfx::Lash => "lash",
+            Sfx::Kiss => "kiss",
             Sfx::Hit => "hit",
             Sfx::HitArmored => "hit_armored",
             Sfx::KillBeast => "kill_beast",
@@ -88,12 +94,13 @@ impl Sfx {
     pub fn variants(self) -> &'static [f32] {
         match self {
             Sfx::Fire
+            | Sfx::Lash
             | Sfx::Hit
             | Sfx::HitArmored
             | Sfx::KillBeast
             | Sfx::KillHuman
             | Sfx::KillArmored => &JITTER,
-            Sfx::Hurt | Sfx::UiMove => &JITTER[1..4],
+            Sfx::Hurt | Sfx::UiMove | Sfx::Kiss => &JITTER[1..4],
             Sfx::Soul => &COMBO_STEPS,
             _ => &[0.0],
         }
@@ -103,6 +110,8 @@ impl Sfx {
     pub fn length(self) -> f32 {
         match self {
             Sfx::Fire => 0.2,
+            Sfx::Lash => 0.24,
+            Sfx::Kiss => 0.34,
             Sfx::Hit => 0.1,
             Sfx::HitArmored => 0.16,
             Sfx::KillBeast => 0.16,
@@ -126,6 +135,7 @@ impl Sfx {
         match self {
             Sfx::Hit | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored => 4,
             Sfx::Fire | Sfx::Soul | Sfx::HitArmored => 3,
+            Sfx::Lash | Sfx::Kiss => 2,
             Sfx::UiMove | Sfx::UiConfirm | Sfx::UiBack => 2,
             _ => 1,
         }
@@ -138,7 +148,7 @@ impl Sfx {
             Sfx::HitArmored | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored | Sfx::Soul => {
                 0.04
             }
-            Sfx::Fire => 0.05,
+            Sfx::Fire | Sfx::Lash | Sfx::Kiss => 0.05,
             _ => 0.0,
         }
     }
@@ -147,6 +157,8 @@ impl Sfx {
     pub fn gain(self) -> f32 {
         match self {
             Sfx::Fire => 0.09,
+            Sfx::Lash => 0.12,
+            Sfx::Kiss => 0.075,
             Sfx::Hit => 0.22,
             Sfx::HitArmored => 0.2,
             Sfx::KillBeast => 0.35,
@@ -233,6 +245,49 @@ fn patch(sfx: Sfx) -> Patch {
                 note(0.02, Wave, 86.0, 2, 1.0),
             ],
             echo: dry,
+        },
+        // Tail Lash: air rushing up as the tail swings, then the crack on a high D
+        // falling fast, so it snaps without the weight of a hit.
+        Sfx::Lash => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: 70.0,
+                    ..env(&[1, 2, 4, 6, 4, 0])
+                },
+                with_duty(env(&[15, 9, 4, 1, 0]), 1),
+                Instrument {
+                    sweep: -90.0,
+                    ..with_duty(env(&[9, 5, 2, 0]), 0)
+                },
+            ],
+            notes: vec![
+                note(0.0, Noise, 70.0, 0, 1.0),
+                note(0.075, Noise, 104.0, 1, 1.0),
+                note(0.075, Pulse1, 86.0, 2, 0.8),
+            ],
+            echo: dry,
+        },
+        // Kiss of Ruin: a breath, then a soft sine that leans up a minor 2nd
+        // (D to Eb, her hook) and lingers in a short echo.
+        Sfx::Kiss => Patch {
+            instruments: vec![
+                env(&[2, 3, 2, 1, 0]),
+                Instrument {
+                    pitch: Macro::new(&[-6, -3, 0, 0, 4, 8, 12, 16]),
+                    ..env(&[4, 8, 10, 9, 8, 6, 5, 4, 3, 2, 1, 1, 0])
+                },
+                env(&[3, 2, 1, 1, 0]),
+            ],
+            notes: vec![
+                note(0.0, Noise, 92.0, 0, 1.0),
+                note(0.02, Wave, 86.0, 1, 1.0),
+                note(0.02, Triangle, 74.0, 2, 0.6),
+            ],
+            echo: Echo {
+                delay: 0.08,
+                feedback: 0.25,
+                mix: 0.25,
+            },
         },
         Sfx::Hit => Patch {
             instruments: vec![

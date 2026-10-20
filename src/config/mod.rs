@@ -1,5 +1,9 @@
 //! All tunable numbers and data tables live here.
 
+mod arts;
+
+pub use arts::*;
+
 use crate::assets::SpriteId;
 use crate::i18n::Key;
 
@@ -55,17 +59,45 @@ pub const TAIL_SMOOTHING: f32 = 6.0;
 pub const TAIL_LAG_MAX: f32 = 2.0;
 pub const HAIR_LAG_MAX: f32 = 1.0;
 
-// --- Weapon: Hellflare ---------------------------------------------------
-pub const FIRE_DAMAGE: f32 = 10.0;
-pub const FIRE_INTERVAL: f32 = 0.6;
-/// Only enemies within this distance are targeted.
+// --- Arts (weapons), see `ARTS` -------------------------------------------
+/// Hellflare only targets enemies within this distance.
 pub const FIRE_RANGE: f32 = 340.0;
-pub const PROJ_SPEED: f32 = 320.0;
-pub const PROJ_LIFETIME: f32 = 1.4;
 pub const PROJ_RADIUS: f32 = 4.0;
 /// Fireballs are launched from Veyra's hands, this high above her ground point.
 pub const PROJ_DRAW_HEIGHT: f32 = 18.0;
 pub const MAX_PROJECTILES: usize = 256;
+/// Spread between Hellflare fireballs of one volley.
+pub const PROJ_SPREAD: f32 = 0.16;
+/// Tail Lash hits a box on one side of Veyra: it starts `LASH_NEAR` from her ground
+/// point, reaches `LASH_REACH` out and covers `LASH_DEPTH` of ground depth.
+pub const LASH_NEAR: f32 = 4.0;
+pub const LASH_REACH: f32 = 52.0;
+pub const LASH_DEPTH: f32 = 24.0;
+/// Extra lashes of one attack follow this long after each other, alternating sides.
+pub const LASH_DELAY: f32 = 0.12;
+/// How long a lash stays on screen (its 3-frame strip).
+pub const LASH_SHOW_TIME: f32 = 0.19;
+/// Lashes queued or on screen at once.
+pub const MAX_LASHES: usize = 16;
+/// Kiss of Ruin hearts fly side by side this far apart.
+pub const BOLT_SPACING: f32 = 7.0;
+pub const BOLT_RADIUS: f32 = 4.0;
+/// Hearts fly at this height above the ground, like the fireballs.
+pub const BOLT_DRAW_HEIGHT: f32 = 16.0;
+pub const MAX_BOLTS: usize = 128;
+/// A heart remembers this many enemies it went through (more pierce than this
+/// just stops counting).
+pub const BOLT_MAX_HITS: usize = 8;
+/// Brimstone Halo: embers circle at this radius (times the Art's area), at height
+/// `EMBER_DRAW_HEIGHT`, and burn an enemy at most once per `HALO_IMMUNE` seconds,
+/// pushing it `HALO_KNOCKBACK` pixels outwards.
+pub const HALO_RADIUS: f32 = 36.0;
+pub const EMBER_RADIUS: f32 = 5.0;
+pub const EMBER_DRAW_HEIGHT: f32 = 12.0;
+pub const HALO_IMMUNE: f32 = 0.6;
+pub const HALO_KNOCKBACK: f32 = 6.0;
+/// Embers fade in and out over this long at the ends of each burning spell.
+pub const HALO_FADE: f32 = 0.2;
 pub const HIT_FLASH_TIME: f32 = 0.1;
 /// Dead enemies flash as a white silhouette for this long, then burst.
 pub const DEATH_FADE_TIME: f32 = 0.12;
@@ -127,8 +159,6 @@ pub const fn xp_to_next(level: u32) -> u32 {
 }
 
 // --- Upgrades -------------------------------------------------------------
-/// Spread between Hellflare fireballs when EmberLegion adds more of them.
-pub const PROJ_SPREAD: f32 = 0.16;
 /// Health restored when BloodPact is taken (clamped to the new maximum).
 pub const BLOOD_PACT_HEAL: f32 = 30.0;
 
@@ -142,7 +172,8 @@ pub enum UpgradeKind {
     SoulPull,
 }
 
-/// `step` is the per-level bonus, see `Upgrades::stats`.
+/// `step` is the per-level bonus, see `Upgrades::stats`. Fury, Frenzy and Ember Legion
+/// boost every Art.
 pub struct UpgradeDef {
     pub kind: UpgradeKind,
     pub name: Key,

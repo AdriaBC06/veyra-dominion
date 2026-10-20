@@ -1,0 +1,85 @@
+{
+ "frames": {
+  "tail_lash_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 56,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 56,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 56,
+    "h": 20
+   },
+   "duration": 63
+  },
+  "tail_lash_1": {
+   "frame": {
+    "x": 56,
+    "y": 0,
+    "w": 56,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 56,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 56,
+    "h": 20
+   },
+   "duration": 63
+  },
+  "tail_lash_2": {
+   "frame": {
+    "x": 112,
+    "y": 0,
+    "w": 56,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 56,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 56,
+    "h": 20
+   },
+   "duration": 63
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "tail_lash.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 168,
+   "h": 20
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "tail_lash",
+    "from": 0,
+    "to": 2,
+    "direction": "forward"
+   }
+  ]
+ }
+}

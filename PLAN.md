@@ -359,6 +359,18 @@ Modelled on the Vampire Survivors structure: up to **6 Arts + 6 Sins**, Arts rea
 
 On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Reroll charges come from Pacts.
 
+**Built in V15 (S12):**
+- `src/arts.rs` (not `weapons.rs`): `Arts` owns the fixed pools (fireballs, lashes, hearts) and the Halo state, the cooldowns and the effective stats; `Game::tick` calls `arts.update(World { player, enemies, hash, time }, alive)` where Hellflare used to fire. Levels live in `Upgrades` (`arts[i]`, 0 = not owned, plus `slots`, 6 max); every run starts with Hellflare at level 1. Call `arts.refresh(&upgrades)` after any change.
+- Data in `config/arts.rs` (`config.rs` became `config/mod.rs` once it passed 600 lines): `ArtDef { base: ArtStats, gains: [ArtGain; 7] }`, `ArtDef::stats(level)`. `ArtStats` fields mean different things per Art (see its doc: e.g. the Halo's `cooldown` is its rest time and `speed` its radians per second). Cooldown, area and speed gains are fractions of the base.
+- Level-up choices are mixed already (`upgrades::Choice::{Art, Upgrade}`): owned Arts below level 8, new Arts while a slot is free, and the 6 old upgrades. Cards show "New" + what the Art does, or what its next level adds (built from the gain, `hud::gain_text`). V17 only has to rename the upgrades into the Sins table and add the new Sins.
+- Fury, Frenzy and Ember Legion now boost **every** Art (damage ×, cooldown ÷, +amount); their texts say so.
+- Hellflare: 10 dmg, 0.6 s, levels add fireballs (2, 4, 7), −10% cooldown (3, 6), +5 damage (5, 8). Tail Lash: 14 dmg every 1.35 s on a 52×24 box on the side she faces; level 2 adds a second lash behind her 0.12 s later (extra amount keeps alternating sides); then +5 damage per level and −10% cooldown at 4 and 6. Kiss of Ruin: 8 dmg hearts at 420 px/s along the last move direction (`Player::aim`), pierce 1, 0.9 s life; +1 heart at 2, 3, 4, 6, 7, +4 damage at 3 and 7, +1 pierce at 5 and 8. A heart never hits the same enemy twice (enemies have a stable `uid` now). Brimstone Halo: 1 ember at radius 36 for 3 s, then 3 s off; 10 dmg, each enemy burned at most every 0.6 s (`Enemies::halo_until`) and pushed 6 px out; +1 ember at 2, 5, 8, +25% radius and +30% spin at 3 and 6, +5 damage and +0.5 s at 4 and 7.
+- No Art scales its sprite (area only grows the Halo's radius), since non-integer scaling breaks the pixel art. Decide in V17 what Allurement (+area) does for the Lash.
+- Art: `assets/arts.px.js` → `assets/sprites/arts/anims/` (tail_lash 56×20 ×3, heart_bolt 9×9 ×2, ember 7×8 ×2). The lash is drawn with its tips 2 px above her ground point, flipped by side; embers behind her when on the far side of the orbit.
+- Sounds: `Sfx::Lash` (rising air, then a crack on a high D) and `Sfx::Kiss` (a breath and a sine leaning D→Eb, her minor 2nd), both measured at about −28 dB like Hellflare. Halo hits use the normal hit sound.
+- Debug: **F7** in a run levels up every Art (new ones join at level 1).
+- Stress test: every Art at level 8 on a full 2,500 horde (×1000 HP so it stays full): 0.53 ms mean tick, was 0.50 ms with Hellflare alone.
+
 ### 7.8 Enemies, difficulty, maps and story
 
 - New behaviours on top of `Chase`:
@@ -482,7 +494,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - `scenes/` (title, map_select, run, settings, credits, altar, circles, codex)
   - `i18n.rs` (`Key` enum → `[&str; 2]`; a test fails if any string is empty)
   - `save.rs`, `meta.rs` (pacts, tribute, familiars)
-  - `weapons.rs` (Arts as data + per-archetype update fn)
+  - `arts.rs` (Arts runtime: pools + per-archetype update fn; data in `config/arts.rs`)
   - `familiars.rs`, `maps.rs` (`MapDef { ground, props, enemies, events, objective, music, duration }`)
   - `audio/` (synth, sfx, music, tracks)
 - `config.rs` keeps the balance numbers but is split per domain if it grows past about 600 lines.
@@ -607,7 +619,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - [ ] V14 Animated title scene
   - [ ] **CP6 Look & feel**
 - **S12 — Arts I**
-  - [ ] V15 Arts framework + first Arts
+  - [x] V15 Arts framework + first Arts
 - **S13 — Arts II**
   - [ ] V16 Remaining Arts
 - **S14 — Sins**
@@ -700,3 +712,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Gotchas: 1 px particles vanish on the speckled grass at 360p, use 2×2; the dark end of the enemy ramps is invisible on grass, bursts use the light end; `EnemyDef` is `Copy` now (tests build variants with `..ENEMY_DEFS[k]`).
   - Open: F5's 90 px radius rarely reaches F4 groups (they spawn ~240 px away) until they close in; 150 px was proposed, not decided. Next: S11 (V14 animated title scene, user approval).
 - **S11 (2026-10-20)** — V14 in progress, nothing committed. Phase 1 (composition) approved; decisions in 7.5 "V14 decisions". "VEYRA" logo approved as text (engraved Roman capitals, `assets/title.px.js`), "DOMINION" not. Two code-drawn portrait heads rejected for not following the reference; next session draws the whole portrait by tracing the reference (see 7.5). The user prefers one session per phase to save tokens. Next: S11 phase 2 (Veyra portrait).
+- **S12 (2026-10-20)** — V15 done (see 7.7 "Built in V15"). The user parked S11 (title screen, still open at phase 2) and asked to go on with S12 meanwhile; S13 and S14 follow in their own sessions. 112 tests.
+  - Decisions taken alone (not reviewed by the user yet): mixed Art/upgrade choices now instead of in V17; old upgrades boost every Art; Art sprites never scale; the lash/kiss sounds. Art and sounds can be checked with F7 in a run and in `target/audio/sfx/lash.wav`, `kiss.wav`.
+  - Checked in game with a scratch capture harness (`VEYRA_CAPTURE`, not committed): lashes, hearts, embers and the level-up cards (ES). A heart trail copy read as muddy brown on the grass and was dropped.
+  - Gotchas: run capture harnesses with `XDG_DATA_HOME` pointing at a temp dir, or the run lands in the real lifetime stats (it happened once this session). `get_screen_data()` is not flipped (unlike the render target). The stress test only measures the horde if the enemies survive the maxed Arts, hence the ×1000 HP.
+  - Next: S13 (V16 remaining Arts).
