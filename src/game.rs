@@ -5,7 +5,7 @@ use crate::config::*;
 use crate::enemies::Enemies;
 use crate::spatial::SpatialHash;
 use crate::upgrades::{PlayerStats, Upgrades};
-use macroquad::math::Vec2;
+use macroquad::math::{vec2, Vec2};
 use macroquad::rand::gen_range;
 use std::f32::consts::TAU;
 
@@ -85,6 +85,42 @@ pub struct Fade {
     pub duration: f32,
 }
 
+/// One pixel of an enemy's death burst. It flies from `pos` (its spot on the ground) at
+/// height `z`, lands, and lies there fading for `BURST_REST_TIME`.
+pub struct BurstPixel {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub z: f32,
+    pub vz: f32,
+    /// RGB from the enemy's `EnemyDef::burst`.
+    pub color: u32,
+    /// Time spent on the ground; negative while airborne.
+    pub rest: f32,
+    /// A blood drop: it splashes the ground where it touches and is gone when it lands.
+    pub blood: bool,
+}
+
+impl BurstPixel {
+    pub fn landed(&self) -> bool {
+        self.rest >= 0.0
+    }
+
+    /// Opacity: full in the air, fading out on the ground.
+    pub fn alpha(&self) -> f32 {
+        1.0 - (self.rest / BURST_REST_TIME).clamp(0.0, 1.0)
+    }
+}
+
+/// Blood reaching the ground, queued for the renderer to bake (see `BloodLayer`).
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Splat {
+    pub pos: Vec2,
+    /// Pool radius in pixels; 0 for the small splash of a drop.
+    pub radius: f32,
+    /// Picks the shape, so no two pools look the same.
+    pub seed: u32,
+}
+
 pub struct Game {
     pub time: f32,
     /// Playing on after victory, with ever tougher enemies.
@@ -94,6 +130,11 @@ pub struct Game {
     pub projectiles: Vec<Projectile>,
     pub souls: Vec<Soul>,
     pub fades: Vec<Fade>,
+    /// Fixed pool (capacity `MAX_BURST_PIXELS`), never grown.
+    pub bursts: Vec<BurstPixel>,
+    /// Blood that hit the ground since the renderer last drained it (capacity
+    /// `MAX_SPLATS`; more are dropped).
+    pub splats: Vec<Splat>,
     pub kills: u32,
     pub level: u32,
     /// XP gathered toward the next level.
@@ -117,6 +158,13 @@ pub struct Game {
     unlocked: [bool; ENEMY_DEFS.len()],
 }
 
+fn splat(splats: &mut Vec<Splat>, pos: Vec2, radius: f32) {
+    if splats.len() < MAX_SPLATS {
+        let seed = gen_range(0, u32::MAX);
+        splats.push(Splat { pos, radius, seed });
+    }
+}
+
 impl Game {
     pub fn new() -> Self {
         Self {
@@ -137,6 +185,8 @@ impl Game {
             projectiles: Vec::with_capacity(MAX_PROJECTILES),
             souls: Vec::with_capacity(MAX_SOULS),
             fades: Vec::with_capacity(MAX_FADES),
+            bursts: Vec::with_capacity(MAX_BURST_PIXELS),
+            splats: Vec::with_capacity(MAX_SPLATS),
             kills: 0,
             level: 1,
             xp: 0,
@@ -190,6 +240,7 @@ impl Game {
             self.update_souls();
         }
         self.update_fades();
+        self.update_bursts();
 
         if let Some(t) = &mut self.dying {
             *t += TICK_DT;
@@ -237,14 +288,14 @@ impl Game {
         }
         let enemies = &self.enemies;
         let mut damage = 0.0f32;
-        self.hash
-            .query_radius(p.pos, PLAYER_RADIUS + MAX_ENEMY_RADIUS + 4.0, |j, _| {
-                let def = &ENEMY_DEFS[enemies.kind[j] as usize];
-                let reach = PLAYER_RADIUS + def.radius;
-                if enemies.hp[j] > 0.0 && enemies.pos(j).distance_squared(p.pos) <= reach * reach {
-                    damage = damage.max(def.contact_damage);
-                }
-            });
+        let query = PLAYER_RADIUS + enemies.max_radius();
+        self.hash.query_radius(p.pos, query, |j, _| {
+            let def = &ENEMY_DEFS[enemies.kind[j] as usize];
+            let reach = PLAYER_RADIUS + def.radius();
+            if enemies.hp[j] > 0.0 && enemies.pos(j).distance_squared(p.pos) <= reach * reach {
+                damage = damage.max(def.contact_damage);
+            }
+        });
         if damage <= 0.0 {
             return;
         }
@@ -311,6 +362,7 @@ impl Game {
         let damage = self.stats.damage;
         // Hit seen this tick on flesh and on armour.
         let mut hits = [false; 2];
+        let query = PROJ_RADIUS + enemies.max_radius();
         let mut k = self.projectiles.len();
         while k > 0 {
             k -= 1;
@@ -318,16 +370,15 @@ impl Game {
             pr.pos += pr.vel * TICK_DT;
             pr.life -= TICK_DT;
             let mut hit = None;
-            self.hash
-                .query_radius(pr.pos, PROJ_RADIUS + MAX_ENEMY_RADIUS + 4.0, |j, _| {
-                    let reach = PROJ_RADIUS + ENEMY_DEFS[enemies.kind[j] as usize].radius;
-                    if hit.is_none()
-                        && enemies.hp[j] > 0.0
-                        && enemies.pos(j).distance_squared(pr.pos) <= reach * reach
-                    {
-                        hit = Some(j);
-                    }
-                });
+            self.hash.query_radius(pr.pos, query, |j, _| {
+                let reach = PROJ_RADIUS + ENEMY_DEFS[enemies.kind[j] as usize].radius();
+                if hit.is_none()
+                    && enemies.hp[j] > 0.0
+                    && enemies.pos(j).distance_squared(pr.pos) <= reach * reach
+                {
+                    hit = Some(j);
+                }
+            });
             if let Some(j) = hit {
                 enemies.hp[j] -= damage;
                 enemies.flash[j] = HIT_FLASH_TIME;
@@ -362,10 +413,76 @@ impl Game {
             self.kills += 1;
             let def = &ENEMY_DEFS[self.enemies.kind[i] as usize];
             let (xp, family) = (def.soul_xp, def.family);
+            self.spawn_burst(def, self.enemies.pos(i));
+            if def.blood {
+                splat(&mut self.splats, self.enemies.pos(i), def.pool_radius());
+            }
             self.cue(Cue::Kill(family));
             self.drop_soul(self.enemies.pos(i), xp);
             self.enemies.swap_remove(i);
         }
+    }
+
+    /// Scatters `def.burst_count()` bits from the body, thrown away from Veyra, plus
+    /// half as many blood drops when the enemy bleeds.
+    fn spawn_burst(&mut self, def: &EnemyDef, pos: Vec2) {
+        let away = (pos.x - self.player.pos.x).signum();
+        let h = def.size.1 as f32;
+        let bits = def.burst_count();
+        let drops = if def.blood { bits / 2 } else { 0 };
+        for k in 0..bits + drops {
+            if self.bursts.len() >= MAX_BURST_PIXELS {
+                return;
+            }
+            let blood = k >= bits;
+            let (color, jump) = if blood {
+                (BLOOD[k % BLOOD.len()], BLOOD_JUMP_SCALE)
+            } else {
+                (def.burst[k % def.burst.len()], 1.0)
+            };
+            let dir = Vec2::from_angle(gen_range(0.0, TAU));
+            let speed = gen_range(BURST_SPEED.0, BURST_SPEED.1);
+            // The ground plane is seen at an angle: depth moves at half speed.
+            let vel = vec2(dir.x * speed + away * BURST_AWAY, dir.y * speed * 0.5);
+            self.bursts.push(BurstPixel {
+                pos,
+                vel,
+                z: h * gen_range(0.3, 0.75),
+                vz: gen_range(BURST_JUMP.0, BURST_JUMP.1) * jump,
+                color,
+                rest: -1.0,
+                blood,
+            });
+        }
+    }
+
+    /// Ballistic flight, one small bounce on a hard landing, then rest and fade.
+    /// Blood drops splash the ground at each contact and vanish on landing.
+    fn update_bursts(&mut self) {
+        let splats = &mut self.splats;
+        self.bursts.retain_mut(|b| {
+            if b.landed() {
+                b.rest += TICK_DT;
+                return b.rest < BURST_REST_TIME;
+            }
+            b.vz -= BURST_GRAVITY * TICK_DT;
+            b.z += b.vz * TICK_DT;
+            b.pos += b.vel * TICK_DT;
+            if b.z <= 0.0 {
+                b.z = 0.0;
+                if b.blood {
+                    splat(splats, b.pos, 0.0);
+                }
+                if b.vz < -BURST_JUMP.0 * 1.5 {
+                    b.vz *= -0.3;
+                    b.vel *= 0.5;
+                } else {
+                    b.rest = 0.0;
+                    return !b.blood;
+                }
+            }
+            true
+        });
     }
 
     fn drop_soul(&mut self, pos: Vec2, xp: u32) {
@@ -536,6 +653,30 @@ impl Game {
         }
     }
 
+    /// Debug (F5): enemies near Veyra become elites (real elites spawn from V18).
+    pub fn debug_make_elites(&mut self) {
+        let e = &mut self.enemies;
+        let near = DEBUG_ELITE_RADIUS * DEBUG_ELITE_RADIUS;
+        for i in 0..e.len() {
+            if e.pos(i).distance_squared(self.player.pos) <= near {
+                e.elite[i] = true;
+            }
+        }
+    }
+
+    /// Debug (F6): every enemy inside a view of `view` size around Veyra dies on the
+    /// next tick, with its burst, blood and soul.
+    pub fn debug_kill_visible(&mut self, view: Vec2) {
+        let e = &mut self.enemies;
+        let half = view * 0.5;
+        for i in 0..e.len() {
+            let off = (e.pos(i) - self.player.pos).abs();
+            if off.x <= half.x && off.y <= half.y {
+                e.hp[i] = 0.0;
+            }
+        }
+    }
+
     /// Enemies left far behind reappear on the ring ahead of the player.
     fn relocate_far_enemies(&mut self) {
         let center = self.player.pos;
@@ -569,7 +710,10 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use macroquad::math::vec2;
+
+    fn largest_radius() -> f32 {
+        ENEMY_DEFS.iter().map(|d| d.radius()).fold(0.0, f32::max)
+    }
 
     #[test]
     fn diagonal_speed_is_capped() {
@@ -611,14 +755,141 @@ mod tests {
             let view = vec2(w, LOGICAL_H);
             g.set_view(view);
             assert!(g.spawn_ring > view.length() * 0.5);
-            let reach = 2.0 * (g.spawn_ring + RELOCATE_MARGIN + MAX_ENEMY_RADIUS);
+            let reach = 2.0 * (g.spawn_ring + RELOCATE_MARGIN + largest_radius());
             assert!(reach <= HASH_CELL * HASH_COLS.min(HASH_ROWS) as f32);
         }
     }
 
     #[test]
-    fn max_enemy_radius_covers_every_def() {
-        assert!(ENEMY_DEFS.iter().all(|d| d.radius <= MAX_ENEMY_RADIUS));
+    fn radii_and_bursts_follow_sprite_size() {
+        // Derived from the sprites, these match the hand-tuned radii they replace.
+        let radii: Vec<f32> = ENEMY_DEFS.iter().map(|d| d.radius()).collect();
+        assert_eq!(radii, [5.0, 6.0, 7.0, 11.0]);
+        assert_eq!(largest_radius(), 11.0);
+        assert!(ENEMY_DEFS
+            .iter()
+            .all(|d| (6..=10).contains(&d.burst_count())));
+        assert_eq!(ENEMY_DEFS[RAT].burst_count(), 6);
+        assert_eq!(ENEMY_DEFS[BRUTE].burst_count(), 10);
+    }
+
+    #[test]
+    fn brute_edge_is_hit_with_only_rats_nearby() {
+        // The query must widen by the largest radius in play, not the nearest kind's.
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.fire_cd = f32::INFINITY;
+        g.enemies
+            .spawn(BRUTE, vec2(PLAYER_RADIUS + 10.5, 0.0), 1000.0);
+        g.enemies.spawn(RAT, vec2(-200.0, 0.0), 1.0);
+        g.tick(&InputState::default());
+        assert_eq!(
+            g.player.hp,
+            PLAYER_MAX_HP - ENEMY_DEFS[BRUTE].contact_damage
+        );
+    }
+
+    #[test]
+    fn death_burst_falls_lands_and_fades() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.fire_cd = f32::INFINITY;
+        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 1.0);
+        g.enemies.hp[0] = 0.0;
+        g.tick(&InputState::default());
+        let def = &ENEMY_DEFS[KNIGHT];
+        let (bits, drops) = (def.burst_count(), def.burst_count() / 2);
+        assert_eq!(g.bursts.len(), bits + drops);
+        let own = |b: &BurstPixel| def.burst.contains(&b.color) as usize;
+        assert_eq!(g.bursts.iter().map(own).sum::<usize>(), bits);
+        assert!(g.bursts[bits..].iter().all(|b| BLOOD.contains(&b.color)));
+        assert!(g.bursts.iter().all(|b| b.z > 0.0));
+        assert!(g
+            .bursts
+            .iter()
+            .all(|b| b.vel.x > -BURST_SPEED.1 + BURST_AWAY));
+        let mut landed = false;
+        for _ in 0..120 {
+            g.tick(&InputState::default());
+            landed |= g.bursts.iter().any(|b| b.landed() && b.z == 0.0);
+        }
+        assert!(landed && g.bursts.is_empty());
+        assert!(g.bursts.capacity() == MAX_BURST_PIXELS);
+    }
+
+    #[test]
+    fn bleeding_deaths_leave_a_pool_and_drop_splashes() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.fire_cd = f32::INFINITY;
+        g.enemies.spawn(VILLAGER, vec2(60.0, 0.0), 1.0);
+        g.enemies.hp[0] = 0.0;
+        g.tick(&InputState::default());
+        // Where it fell: it still stepped toward Veyra during the tick.
+        assert_eq!(g.splats.len(), 1);
+        assert!(g.splats[0].pos.distance(vec2(60.0, 0.0)) < 2.0);
+        assert_eq!(g.splats[0].radius, ENEMY_DEFS[VILLAGER].pool_radius());
+        let drops = g.bursts.iter().filter(|b| b.blood).count();
+        assert!(drops > 0);
+        for _ in 0..120 {
+            g.tick(&InputState::default());
+        }
+        assert!(g.bursts.iter().all(|b| !b.blood));
+        let splashes = g.splats[1..].iter().filter(|s| s.radius == 0.0).count();
+        assert!(splashes >= drops, "one splash per contact");
+    }
+
+    #[test]
+    fn splat_queue_is_capped() {
+        let mut g = Game::new();
+        for _ in 0..MAX_SPLATS + 5 {
+            splat(&mut g.splats, Vec2::ZERO, 1.0);
+        }
+        assert_eq!(g.splats.len(), MAX_SPLATS);
+        assert_eq!(g.splats.capacity(), MAX_SPLATS);
+    }
+
+    #[test]
+    fn bloodless_enemies_leave_no_blood() {
+        let mut g = Game::new();
+        let def = EnemyDef {
+            blood: false,
+            ..ENEMY_DEFS[KNIGHT]
+        };
+        g.spawn_burst(&def, Vec2::ZERO);
+        assert_eq!(g.bursts.len(), def.burst_count());
+        assert!(g.bursts.iter().all(|b| !BLOOD.contains(&b.color)));
+        for _ in 0..120 {
+            g.update_bursts();
+        }
+        assert!(g.splats.is_empty());
+    }
+
+    #[test]
+    fn debug_kill_takes_only_the_visible_enemies() {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.fire_cd = f32::INFINITY;
+        let view = vec2(DEFAULT_VIEW_W, LOGICAL_H);
+        g.enemies.spawn(RAT, vec2(300.0, 170.0), 1.0);
+        g.enemies.spawn(BRUTE, vec2(-250.0, -100.0), 1.0);
+        g.enemies.spawn(RAT, vec2(330.0, 0.0), 1.0);
+        g.debug_kill_visible(view);
+        g.tick(&InputState::default());
+        assert_eq!(g.kills, 2);
+        assert_eq!(g.enemies.len(), 1);
+        assert_eq!(g.souls.len(), 2);
+    }
+
+    #[test]
+    fn debug_elites_are_the_nearby_ones() {
+        let mut g = Game::new();
+        g.enemies
+            .spawn(RAT, vec2(DEBUG_ELITE_RADIUS - 1.0, 0.0), 1.0);
+        g.enemies
+            .spawn(RAT, vec2(DEBUG_ELITE_RADIUS + 1.0, 0.0), 1.0);
+        g.debug_make_elites();
+        assert_eq!(g.enemies.elite, [true, false]);
     }
 
     #[test]
@@ -628,6 +899,9 @@ mod tests {
         g.enemies.spawn(RAT, vec2(80.0, 0.0), 1.0);
         for _ in 0..30 {
             g.tick(&InputState::default());
+            if g.kills > 0 {
+                break;
+            }
         }
         assert_eq!(g.kills, 1);
         assert_eq!(g.enemies.len(), 0);
@@ -636,11 +910,13 @@ mod tests {
             assert_eq!(g.cues.iter().filter(|&&c| c == cue).count(), 1, "{cue:?}");
         }
         assert_eq!(g.fades.len(), 1);
+        let bits = ENEMY_DEFS[RAT].burst_count();
+        assert_eq!(g.bursts.len(), bits + bits / 2);
         assert_eq!(g.souls.len(), 1);
-        for _ in 0..60 {
+        for _ in 0..90 {
             g.tick(&InputState::default());
         }
-        assert!(g.fades.is_empty() && g.projectiles.is_empty());
+        assert!(g.fades.is_empty() && g.bursts.is_empty() && g.projectiles.is_empty());
     }
 
     #[test]
@@ -805,6 +1081,9 @@ mod tests {
             assert!(g.projectiles.len() <= MAX_PROJECTILES);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);
+            assert!(g.bursts.capacity() == MAX_BURST_PIXELS);
+            assert!(g.splats.capacity() == MAX_SPLATS);
+            g.splats.clear(); // the renderer drains them every frame
             peak = peak.max(g.enemies.len());
         }
         let mean_ms = started.elapsed().as_secs_f64() * 1000.0 / ticks as f64;

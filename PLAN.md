@@ -308,6 +308,14 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 - **Enemy sizes vary by type:** small (rat 12 px, bat 12), medium (villager 20, monk 20), large (knight 26, paladin 28), brutes 40, bosses 64–96. `EnemyDef` gets `size` and `radius` from the sprite. The spatial queries add the largest radius in play.
   - **Source (S10):** `assets/enemies.px.js` (pxl), approved by the user. Rebuild: `node .claude/skills/pxl-pixel-art/bin/pxl.js build assets/enemies.px.js --out assets/sprites/enemies --no-preview`. Strips of 2 walk frames in `assets/sprites/enemies/anims/` (the atlas adds the white flash copies): rat 17×9, villager 14×20, knight 18×26, brute farmer 32×40 (outline included; the rat's 12 is its body length, the tail is extra). Side views facing left, feet on the bottom row; the game draws them bottom-centre on their position, with the shadow scaled to the sprite width. Cold/muted palette and a blue-black outline (`#10131c`), never Veyra's plum.
 - **Effects:** an outline on elites, death-burst particles in each enemy's palette, ember trail on projectiles and hit-stop of 1–2 frames on big hits.
+- **Built in V13:**
+  - `EnemyDef.size` is the sprite's frame size (an `assets` test checks it against the strip). `radius()` derives from it (`1 + 0.14·(w + h)`, rounded: 5 / 6 / 7 / 11, the old hand-tuned values) and so does `burst_count()` (6–10 by area). `MAX_ENEMY_RADIUS` is gone: `Enemies` counts live enemies per kind and `max_radius()` (largest radius in play) widens the contact and projectile queries.
+  - Death: a 0.12 s white flash (`DEATH_FADE_TIME`) plus a burst of 2×2 px bits (`BURST_BIT`; single pixels got lost in the grass speckle) in the light end of the enemy's ramps (`EnemyDef::burst`), thrown away from Veyra from mid-body height; they fall, bounce once on a hard landing and fade on the ground (`BURST_*`). Pool of `MAX_BURST_PIXELS`, never grown. Landed bits draw under the horde, flying ones over it.
+  - Blood (`EnemyDef::blood`, on for all four; off for future skeletons or constructs): half as many dark red drops join the burst (`BLOOD`, jump ×0.6), and a pool is left where the enemy fell. Colours are dark and brownish on purpose (user: "más oscuro"), well apart from Veyra's crimsons.
+  - Blood is **permanent** (user's goal: the ground shows how many Veyra has killed). `Game` queues `Splat`s (pools and drop splashes, capacity `MAX_SPLATS`); `blood::BloodLayer` in the run bakes them once into 128 px world chunks (CPU `Image` → texture, drawn right after the ground), so thousands of pools cost the same as one. Past `MAX_BLOOD_CHUNKS` (256) the chunk seen longest ago is dropped.
+  - Pool shapes come from a seed (`blood::splat_pixels`): small main lobe, 2–4 loose blobs, sometimes a broken trail, droplets, dark rim and a wet glint, shifted off the body so piles of deaths spread out ("más dispersos"). A pool landing on one of the last `MAX_POOL_SITES` pools feeds it instead (area adds up, same seed repainted larger) up to `POOL_MAX_RADIUS`; past that only splashes, so killing grounds read as more blood in one place.
+  - Elites: `Enemies::elite` flag; a 1 px `ELITE_OUTLINE` ice-blue ring (the white flash frame tinted at 4 offsets) that breathes gently. Real elites (stats, spawns) are V18.
+  - Debug keys in a run: F4 spawns a group of every kind, F5 turns enemies within `DEBUG_ELITE_RADIUS` (90 px) into elites, F6 kills every enemy on screen (burst, blood and soul as usual).
 - **Ground:** each map has its own tileset plus scattered props (fences, graves, pews, banners, clouds). Props are not walls: they don't block movement.
 - **Palette rule:** Veyra and her Arts own the warm reds, magentas and golds. Enemies and maps use colder or muted palettes so the player always reads her first.
 
@@ -576,14 +584,15 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
     - [x] User approves the look (2026-10-20: "está buenísima, perfecta")
     - [x] In game: `SpriteId` + `SHEETS` rows for the new strips, layered drawing, pivot, bigger shadow
 - **S10 — Enemies look** *(user approval)*
-  - [ ] V13 Enemy restyle with variable sizes
+  - [x] V13 Enemy restyle with variable sizes
     - [x] Art drawn as code (`assets/enemies.px.js`): rat, villager, knight + brute farmer (40 px), 2 walk frames each
     - [x] User approves the look (2026-10-20: "está muy bien")
     - [x] In game: sprites embedded (`SpriteId::Brute` added), drawn bottom-centre by sprite size; Brute `EnemyDef` (chase, unlocks at 3:00); F4 debug spawn
-    - [ ] `EnemyDef.size`, radius derived from the sprite, spatial queries use the largest radius *in play* (now a fixed `MAX_ENEMY_RADIUS` = 11)
-    - [ ] Death bursts in each enemy's palette (short white flash ~0.12 s + 6–10 pooled pixels that fall and fade)
-    - [ ] Elite outline: `elite` flag on enemies + debug key; real elites come in V18
-    - [ ] In-game captures (full horde, each type, deaths) and stress test green
+    - [x] `EnemyDef.size`, radius derived from the sprite, spatial queries use the largest radius *in play*
+    - [x] Death bursts in each enemy's palette (short white flash ~0.12 s + 6–10 pooled bits that fall and fade)
+    - [x] Blood (asked for in S10): drops in the burst and permanent pools that grow where many die
+    - [x] Elite outline: `elite` flag on enemies + debug key (F5); real elites come in V18
+    - [x] Checked in game by the user (F4/F5/F6) and with scratch captures; stress test green
 - **S11 — Title screen** *(user approval)*
   - [ ] V14 Animated title scene
   - [ ] **CP6 Look & feel**
@@ -675,3 +684,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
   - Brute stats are provisional (HP 140, speed 32, radius 11, contact 25, XP 15, weight 0 + 3/min from 3:00, `Family::Human` sounds); `MAX_ENEMY_RADIUS` went 7 → 11 for it.
   - F4 (in a run) spawns a group of every enemy kind around Veyra (`Game::debug_spawn_all`), for checking art; keep it next to F3.
   - Gotcha: a pxl `anim` with `frame(grid(...))` patches infers its canvas from the base grid only, so legs patched below it get cut; give `w`/`h` explicitly. Next: finish V13 (S10 checklist).
+- **S10 follow-up (2026-10-20)** — V13 done: sizes and radius from the sprites, death bursts, blood, elite outline, F5/F6 debug keys (see 7.6 "Built in V13"). 106 tests; stress test 0.52 ms mean tick (was 0.54).
+  - The user added blood mid-session: red drops only for enemies that bleed (`EnemyDef::blood`), then permanent pools ("que impacte más la cantidad de personas / animales que ha matado Veyra"), darker and more scattered, then growing pools where many die instead of stacks. All approved in game ("está muy bien").
+  - Review method: PNG mocks first (scratch Python compositor mirroring the burst physics; pool shapes dumped from the real generator by a temporary test), then the game launched for the user, plus a scratch capture harness (`VEYRA_CAPTURE`, not committed).
+  - Gotchas: 1 px particles vanish on the speckled grass at 360p, use 2×2; the dark end of the enemy ramps is invisible on grass, bursts use the light end; `EnemyDef` is `Copy` now (tests build variants with `..ENEMY_DEFS[k]`).
+  - Open: F5's 90 px radius rarely reaches F4 groups (they spawn ~240 px away) until they close in; 150 px was proposed, not decided. Next: S11 (V14 animated title scene, user approval).

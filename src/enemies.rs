@@ -13,6 +13,10 @@ pub struct Enemies {
     pub flash: Vec<f32>,
     /// Animation phase offset so the horde does not walk in lockstep.
     pub phase: Vec<f32>,
+    /// Elites wear a bright outline (only the flag and the look so far; V18 gives them stats).
+    pub elite: Vec<bool>,
+    /// Live enemies per kind, so the largest radius in play is cheap to find.
+    counts: [u32; ENEMY_DEFS.len()],
 }
 
 impl Enemies {
@@ -24,6 +28,8 @@ impl Enemies {
             kind: Vec::with_capacity(n),
             flash: Vec::with_capacity(n),
             phase: Vec::with_capacity(n),
+            elite: Vec::with_capacity(n),
+            counts: [0; ENEMY_DEFS.len()],
         }
     }
 
@@ -47,15 +53,26 @@ impl Enemies {
         self.kind.push(kind as u8);
         self.flash.push(0.0);
         self.phase.push(macroquad::rand::gen_range(0.0, 2.0));
+        self.elite.push(false);
+        self.counts[kind] += 1;
     }
 
     pub fn swap_remove(&mut self, i: usize) {
+        self.counts[self.kind[i] as usize] -= 1;
         self.x.swap_remove(i);
         self.y.swap_remove(i);
         self.hp.swap_remove(i);
         self.kind.swap_remove(i);
         self.flash.swap_remove(i);
         self.phase.swap_remove(i);
+        self.elite.swap_remove(i);
+    }
+
+    /// Largest collision radius among the kinds currently alive (0 when empty); spatial
+    /// queries widen by this so they never miss a big enemy's edge.
+    pub fn max_radius(&self) -> f32 {
+        let alive = ENEMY_DEFS.iter().zip(self.counts).filter(|(_, n)| *n > 0);
+        alive.map(|(d, _)| d.radius()).fold(0.0, f32::max)
     }
 
     /// Moves every enemy according to its behaviour plus soft separation, using the
@@ -124,5 +141,18 @@ mod tests {
         assert_eq!(e.kind[0] as usize, VILLAGER);
         assert_eq!(e.hp[0], ENEMY_DEFS[VILLAGER].hp * 2.0);
         assert_eq!(e.pos(0), vec2(2.0, 2.0));
+        assert!(!e.elite[0]);
+    }
+
+    #[test]
+    fn max_radius_follows_the_kinds_alive() {
+        let mut e = Enemies::with_capacity(4);
+        assert_eq!(e.max_radius(), 0.0);
+        e.spawn(RAT, Vec2::ZERO, 1.0);
+        e.spawn(BRUTE, Vec2::ZERO, 1.0);
+        e.spawn(RAT, Vec2::ZERO, 1.0);
+        assert_eq!(e.max_radius(), ENEMY_DEFS[BRUTE].radius());
+        e.swap_remove(1);
+        assert_eq!(e.max_radius(), ENEMY_DEFS[RAT].radius());
     }
 }

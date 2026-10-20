@@ -6,6 +6,7 @@ use crate::assets::{
     self, sprite, SpriteId, FLASH_FRAME_OFFSET, GROUND_TILE, VEYRA_FRAME, VEYRA_PIVOT,
 };
 use crate::audio::{self, Jingle, Sfx};
+use crate::blood::BloodLayer;
 use crate::config::*;
 use crate::game::{Cue, Game, InputState, SimEvent};
 use crate::hud;
@@ -42,6 +43,8 @@ pub struct Run {
     heartbeat: f32,
     /// Time spent in the simulation last frame, for the debug overlay.
     pub update_ms: f32,
+    /// Every pool and splash of blood shed in this run.
+    blood: BloodLayer,
 }
 
 const PAUSE_MENU: [Key; 3] = [Key::MenuResume, Key::MenuSettings, Key::MenuTitle];
@@ -57,6 +60,7 @@ impl Run {
             focus: Focus::default(),
             heartbeat: 0.0,
             update_ms: 0.0,
+            blood: BloodLayer::default(),
         }
     }
 
@@ -85,6 +89,12 @@ impl Run {
             State::Playing => {
                 if is_key_pressed(KeyCode::F4) {
                     self.game.debug_spawn_all();
+                }
+                if is_key_pressed(KeyCode::F5) {
+                    self.game.debug_make_elites();
+                }
+                if is_key_pressed(KeyCode::F6) {
+                    self.game.debug_kill_visible(view);
                 }
                 self.simulate(input, view, mouse_move);
             }
@@ -133,6 +143,10 @@ impl Run {
         if ticks == MAX_TICKS_PER_FRAME {
             self.accumulator = 0.0;
         }
+        for s in self.game.splats.drain(..) {
+            self.blood.add(&s);
+        }
+        self.blood.sync(self.game.player.pos - view * 0.5, view);
         for cue in self.game.cues.drain(..) {
             audio::cue(match cue {
                 Cue::Fire => Sfx::Fire,
@@ -225,9 +239,12 @@ impl Run {
         set_camera(&screen.camera(origin));
         clear_background(BLACK);
         draw_ground(origin, view);
+        self.blood.draw(origin, view);
         draw_souls(game);
+        draw_bursts(game, true);
         draw_enemies(game);
         draw_fades(game);
+        draw_bursts(game, false);
         draw_veyra(game, player_pos.round(), game.time + alpha * TICK_DT);
         draw_projectiles(game);
     }
@@ -339,7 +356,43 @@ fn draw_enemies(game: &Game) {
         let (_, src) = sprite(def.sprite, frame);
         draw_shadow(pos, src.w * 0.32, (src.w * 0.09).max(1.5), 1.0);
         let corner = pos - vec2((src.w * 0.5).floor(), src.h - 1.0);
-        draw_sprite(def.sprite, frame, corner, px > pos.x);
+        let flip = px > pos.x;
+        if e.elite[i] {
+            draw_elite_outline(
+                def.sprite,
+                frame % FLASH_FRAME_OFFSET,
+                corner,
+                flip,
+                game.time,
+            );
+        }
+        draw_sprite(def.sprite, frame, corner, flip);
+    }
+}
+
+/// A 1 px ring in `ELITE_OUTLINE` around the sprite's own dark outline: its white
+/// silhouette tinted and drawn at the four neighbouring offsets. It breathes gently.
+fn draw_elite_outline(id: SpriteId, frame: usize, corner: Vec2, flip: bool, t: f32) {
+    let mut color = Color::from_hex(ELITE_OUTLINE);
+    color.a = 0.8 + 0.2 * (TAU * 1.5 * t).sin();
+    for off in [
+        vec2(-1.0, 0.0),
+        vec2(1.0, 0.0),
+        vec2(0.0, -1.0),
+        vec2(0.0, 1.0),
+    ] {
+        draw_sprite_tinted(id, frame + FLASH_FRAME_OFFSET, corner + off, flip, color);
+    }
+}
+
+/// Death-burst bits, standing on their point: the ones `landed` lie under the horde,
+/// the flying ones over it.
+fn draw_bursts(game: &Game, landed: bool) {
+    for b in game.bursts.iter().filter(|b| b.landed() == landed) {
+        let mut color = Color::from_hex(b.color);
+        color.a = b.alpha();
+        let p = (b.pos - vec2(0.0, b.z)).round() - vec2(1.0, BURST_BIT);
+        draw_rectangle(p.x, p.y, BURST_BIT, BURST_BIT, color);
     }
 }
 

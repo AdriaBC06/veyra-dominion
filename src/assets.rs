@@ -411,11 +411,16 @@ mod tests {
             assert_eq!(size(id), (66, 50), "{id:?}");
         }
         assert_eq!(size(SpriteId::Ground), (GROUND_TILE, GROUND_TILE));
-        // Enemy sizes from PLAN.md 7.6, outline included (the rat's 12 is its body length).
+        // Enemy sizes from PLAN.md 7.6, outline included (the rat's 12 is its body length);
+        // `EnemyDef::size` must match its strip, since radius and burst derive from it.
         assert_eq!(size(SpriteId::Rat), (17, 9));
         assert_eq!(size(SpriteId::Villager), (14, 20));
         assert_eq!(size(SpriteId::Knight), (18, 26));
         assert_eq!(size(SpriteId::Brute), (32, 40));
+        for def in &crate::config::ENEMY_DEFS {
+            let (w, h) = def.size;
+            assert_eq!(size(def.sprite), (w as u16, h as u16), "{}", def.name);
+        }
     }
 
     const VEYRA: [SpriteId; 9] = [

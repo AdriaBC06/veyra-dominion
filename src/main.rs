@@ -1,5 +1,6 @@
 mod assets;
 mod audio;
+mod blood;
 mod config;
 mod enemies;
 mod game;
