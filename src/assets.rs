@@ -246,7 +246,12 @@ impl Fonts {
     }
 }
 
+/// Title-screen Veyra (V14 trial): too big for the atlas, so it is its own texture.
+/// Made by `assets/pixelize.py` (Qwen-Image-Edit + Pixel Art Fixer, see PLAN.md 7.5).
+const TITLE_PORTRAIT_PNG: &[u8] = include_bytes!("../assets/sprites/title/veyra_portrait_ai.png");
+
 thread_local! {
+    static TITLE_PORTRAIT: OnceCell<Texture2D> = const { OnceCell::new() };
     static ATLAS: OnceCell<Atlas> = const { OnceCell::new() };
     static FONTS: OnceCell<Fonts> = const { OnceCell::new() };
 }
@@ -350,6 +355,11 @@ pub fn init() {
     ATLAS.with(|a| {
         let _ = a.set(Atlas { tex, rects, ranges });
     });
+    let portrait = Texture2D::from_file_with_format(TITLE_PORTRAIT_PNG, Some(ImageFormat::Png));
+    portrait.set_filter(FilterMode::Nearest);
+    TITLE_PORTRAIT.with(|p| {
+        let _ = p.set(portrait);
+    });
 
     let load = |bytes| {
         let mut font = load_ttf_font_from_bytes(bytes).expect("embedded font");
@@ -400,6 +410,10 @@ pub fn measure_ui_text(text: &str, style: TextStyle) -> TextDimensions {
 }
 
 /// Texture and source rect for a sprite frame (frame wraps around).
+pub fn title_portrait() -> Texture2D {
+    TITLE_PORTRAIT.with(|p| p.get().expect("assets::init not called").clone())
+}
+
 pub fn sprite(id: SpriteId, frame: usize) -> (Texture2D, Rect) {
     ATLAS.with(|a| {
         let atlas = a.get().expect("assets::init not called");

@@ -1,6 +1,8 @@
-//! Title menu over the idle world: Play, Settings, Credits, Quit.
+//! Title menu over the idle world: Play, Settings, Credits, Quit, with the Veyra portrait
+//! (V14 trial) bottom right and the menu centred in the space left of it.
 
 use super::Nav;
+use crate::assets;
 use crate::config::{GAME_TITLE, VICTORY_TIME};
 use crate::hud;
 use crate::i18n::{tr, trf, Key};
@@ -19,8 +21,14 @@ pub struct Title {
     focus: Focus,
 }
 
+/// The part of the view left of the portrait (never narrower than the buttons), as a view.
+fn menu_view(view: Vec2) -> Vec2 {
+    let w = assets::title_portrait().width();
+    vec2((view.x - w).max(ui::BUTTON_W + 32.0), view.y)
+}
+
 fn buttons(view: Vec2) -> Vec<Rect> {
-    ui::button_column(view, hud::center_screen_buttons(1), ITEMS.len())
+    ui::button_column(menu_view(view), hud::center_screen_buttons(1), ITEMS.len())
 }
 
 impl Title {
@@ -33,7 +41,11 @@ impl Title {
 
     pub fn draw(&self, view: Vec2) {
         let tagline = trf(Key::TitleTagline, &[&hud::format_time(VICTORY_TIME)]);
-        hud::draw_center_screen(view, GAME_TITLE, &[&tagline]);
+        hud::draw_dim(view);
+        let portrait = assets::title_portrait();
+        let (w, h) = (portrait.width(), portrait.height());
+        draw_texture(&portrait, view.x - w, view.y - h, WHITE);
+        hud::draw_center_text(menu_view(view), GAME_TITLE, &[&tagline]);
         let labels = ITEMS.map(|(k, _)| tr(k));
         ui::draw_buttons(&buttons(view), &labels, &self.focus);
     }

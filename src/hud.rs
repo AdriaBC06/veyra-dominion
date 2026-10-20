@@ -108,6 +108,11 @@ const SCREEN_TITLE_Y: f32 = 96.0;
 /// Dims the frame and shows a title with lines of text below it.
 pub fn draw_center_screen(view: Vec2, title: &str, lines: &[&str]) {
     draw_dim(view);
+    draw_center_text(view, title, lines);
+}
+
+/// The title and lines of `draw_center_screen`, without the dim.
+pub fn draw_center_text(view: Vec2, title: &str, lines: &[&str]) {
     let mut y = SCREEN_TITLE_Y;
     draw_text_centered(view, title, y, TextStyle::Title, TITLE_COLOR);
     y += 32.0;
