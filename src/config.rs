@@ -170,7 +170,7 @@ pub const SPAWN_RAMP_SECS: f32 = 300.0;
 pub const SPAWN_GROUP_SPREAD: f32 = 14.0;
 /// Soft separation: neighbours closer than this push each other apart.
 /// Largest `EnemyDef::radius`, used to size collision queries.
-pub const MAX_ENEMY_RADIUS: f32 = 7.0;
+pub const MAX_ENEMY_RADIUS: f32 = 11.0;
 pub const SEPARATION_RADIUS: f32 = 12.0;
 pub const SEPARATION_PUSH: f32 = 60.0;
 /// Only this many neighbours contribute to separation (bounds the cost in dense hordes).
@@ -215,8 +215,9 @@ pub struct EnemyDef {
 pub const RAT: usize = 0;
 pub const VILLAGER: usize = 1;
 pub const KNIGHT: usize = 2;
+pub const BRUTE: usize = 3;
 
-pub const ENEMY_DEFS: [EnemyDef; 3] = [
+pub const ENEMY_DEFS: [EnemyDef; 4] = [
     EnemyDef {
         name: "Rat",
         sprite: SpriteId::Rat,
@@ -259,6 +260,20 @@ pub const ENEMY_DEFS: [EnemyDef; 3] = [
         behavior: Behavior::Chase,
         family: Family::Armored,
     },
+    EnemyDef {
+        name: "Brute",
+        sprite: SpriteId::Brute,
+        hp: 140.0,
+        speed: 32.0,
+        radius: 11.0,
+        contact_damage: 25.0,
+        soul_xp: 15,
+        weight_start: 0.0,
+        weight_growth_per_min: 3.0,
+        group: (1, 1),
+        behavior: Behavior::Chase,
+        family: Family::Human,
+    },
 ];
 
 /// Run length for victory, in seconds.
@@ -290,6 +305,10 @@ pub const EVENTS: &[Event] = &[
     Event {
         time: 120.0,
         kind: EventKind::Unlock(KNIGHT),
+    },
+    Event {
+        time: 180.0,
+        kind: EventKind::Unlock(BRUTE),
     },
     Event {
         time: VICTORY_TIME,

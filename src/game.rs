@@ -520,6 +520,22 @@ impl Game {
         }
     }
 
+    /// Debug (F4): one group of every enemy kind on the spawn ring, spread around Veyra.
+    pub fn debug_spawn_all(&mut self) {
+        let hp_scale = self.hp_scale();
+        for kind in 0..ENEMY_DEFS.len() {
+            let angle = kind as f32 * TAU / ENEMY_DEFS.len() as f32 + gen_range(0.0, 0.5);
+            let center = self.player.pos + Vec2::from_angle(angle) * self.spawn_ring * 0.6;
+            for _ in 0..[8, 6, 4, 2][kind % 4] {
+                if self.enemies.len() >= MAX_ENEMIES {
+                    return;
+                }
+                let off = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, 24.0);
+                self.enemies.spawn(kind, center + off, hp_scale);
+            }
+        }
+    }
+
     /// Enemies left far behind reappear on the ring ahead of the player.
     fn relocate_far_enemies(&mut self) {
         let center = self.player.pos;

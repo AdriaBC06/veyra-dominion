@@ -82,7 +82,12 @@ impl Run {
                 audio::cue(Sfx::Pause);
                 self.set_state(State::Paused);
             }
-            State::Playing => self.simulate(input, view, mouse_move),
+            State::Playing => {
+                if is_key_pressed(KeyCode::F4) {
+                    self.game.debug_spawn_all();
+                }
+                self.simulate(input, view, mouse_move);
+            }
             State::LevelUp => self.level_up(input, view),
             _ => return self.menu_update(input, view),
         }
@@ -331,8 +336,10 @@ fn draw_enemies(game: &Game) {
         if e.flash[i] > 0.0 {
             frame += FLASH_FRAME_OFFSET;
         }
-        draw_shadow(pos, 5.0, 1.5, 1.0);
-        draw_sprite(def.sprite, frame, pos - vec2(8.0, 15.0), px > pos.x);
+        let (_, src) = sprite(def.sprite, frame);
+        draw_shadow(pos, src.w * 0.32, (src.w * 0.09).max(1.5), 1.0);
+        let corner = pos - vec2((src.w * 0.5).floor(), src.h - 1.0);
+        draw_sprite(def.sprite, frame, corner, px > pos.x);
     }
 }
 

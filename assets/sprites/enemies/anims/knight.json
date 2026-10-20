@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "knight_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 18,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 18,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 18,
+    "h": 26
+   },
+   "duration": 167
+  },
+  "knight_1": {
+   "frame": {
+    "x": 18,
+    "y": 0,
+    "w": 18,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 18,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 18,
+    "h": 26
+   },
+   "duration": 167
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "knight.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 36,
+   "h": 26
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "knight",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "brute_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 40
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 40
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 40
+   },
+   "duration": 167
+  },
+  "brute_1": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 32,
+    "h": 40
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 40
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 40
+   },
+   "duration": 167
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "brute.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 64,
+   "h": 40
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "brute",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

@@ -306,6 +306,7 @@ Every name describes what a succubus is and does: seduction, sin, pacts, souls, 
 - **Veyra:** lounging on the air as if seated (pose chosen by the user in S9: face to the viewer with both eyes visible, legs crossed with the knees to one side, wings spread on both sides; *not* a side view lying down) plus separate wings, tail and hair layers for secondary motion. Frames: idle float (4), move lean (4), cast (3), hurt (2), death dissolve (6). Bigger shadow and a subtle red rim light. Draw order and pivot are tuned so she reads clearly among 2,500 enemies.
   - **Source (S9):** `assets/veyra.px.js`, drawn with the pxl skill (`node .claude/skills/pxl-pixel-art/bin/pxl.js build assets/veyra.px.js --out assets/sprites/veyra`). Strips in `assets/sprites/veyra/anims/`: `veyra_idle` (4), `veyra_move` (4), `veyra_cast` (3, once), `veyra_hurt` (2, once), `veyra_death` (6, once, all layers burning away), `veyra_wings` (4), `veyra_tail` (4), `veyra_hair` (4) and `veyra_hair_move` (4, hair streaming back). Each frame is 66×50 and every layer shares the origin, so they stack directly; pivot (31, 36), under her hips; she faces left. Draw order: wings, tail, hair, body. Frame durations are in the `.json` next to each strip. The body leaves the head/hair seam without outline so head and hair read as one mass.
 - **Enemy sizes vary by type:** small (rat 12 px, bat 12), medium (villager 20, monk 20), large (knight 26, paladin 28), brutes 40, bosses 64–96. `EnemyDef` gets `size` and `radius` from the sprite. The spatial queries add the largest radius in play.
+  - **Source (S10):** `assets/enemies.px.js` (pxl), approved by the user. Rebuild: `node .claude/skills/pxl-pixel-art/bin/pxl.js build assets/enemies.px.js --out assets/sprites/enemies --no-preview`. Strips of 2 walk frames in `assets/sprites/enemies/anims/` (the atlas adds the white flash copies): rat 17×9, villager 14×20, knight 18×26, brute farmer 32×40 (outline included; the rat's 12 is its body length, the tail is extra). Side views facing left, feet on the bottom row; the game draws them bottom-centre on their position, with the shadow scaled to the sprite width. Cold/muted palette and a blue-black outline (`#10131c`), never Veyra's plum.
 - **Effects:** an outline on elites, death-burst particles in each enemy's palette, ember trail on projectiles and hit-stop of 1–2 frames on big hits.
 - **Ground:** each map has its own tileset plus scattered props (fences, graves, pews, banners, clouds). Props are not walls: they don't block movement.
 - **Palette rule:** Veyra and her Arts own the warm reds, magentas and golds. Enemies and maps use colder or muted palettes so the player always reads her first.
@@ -574,8 +575,15 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
     - [x] Sprite set drawn as code (`assets/veyra.px.js`): body states idle 4 / move 4 / cast 3 / hurt 2 / death 6, wings, tail and hair layers, red rim light
     - [x] User approves the look (2026-10-20: "está buenísima, perfecta")
     - [x] In game: `SpriteId` + `SHEETS` rows for the new strips, layered drawing, pivot, bigger shadow
-- **S10 — Enemies look**
+- **S10 — Enemies look** *(user approval)*
   - [ ] V13 Enemy restyle with variable sizes
+    - [x] Art drawn as code (`assets/enemies.px.js`): rat, villager, knight + brute farmer (40 px), 2 walk frames each
+    - [x] User approves the look (2026-10-20: "está muy bien")
+    - [x] In game: sprites embedded (`SpriteId::Brute` added), drawn bottom-centre by sprite size; Brute `EnemyDef` (chase, unlocks at 3:00); F4 debug spawn
+    - [ ] `EnemyDef.size`, radius derived from the sprite, spatial queries use the largest radius *in play* (now a fixed `MAX_ENEMY_RADIUS` = 11)
+    - [ ] Death bursts in each enemy's palette (short white flash ~0.12 s + 6–10 pooled pixels that fall and fade)
+    - [ ] Elite outline: `elite` flag on enemies + debug key; real elites come in V18
+    - [ ] In-game captures (full horde, each type, deaths) and stress test green
 - **S11 — Title screen** *(user approval)*
   - [ ] V14 Animated title scene
   - [ ] **CP6 Look & feel**
@@ -659,4 +667,11 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - **S9 follow-up (2026-10-20)** — V12 done in game. Nine strips embedded under `SpriteId::Veyra*` (the old `veyra_body/wings/tail.png` are gone); the atlas grew to 512×512. Frame durations live in `assets::frame_ms` and a test checks them against the `.json` files. 92 tests. Release binary 2.42 MB (was 2.31 MB).
   - Drawing (`draw_veyra` in `scenes/run.rs`): wings, tail, hair, body on one corner from `VEYRA_PIVOT`, flipped around the pivot pixel when she faces right. The pivot hovers so her lowest pixel is `HOVER_HEIGHT` above the shadow (now 15×4, `VEYRA_SHADOW`). Body by priority: hurt (first 180 ms of iframes) > cast (`Player::since_cast`, set when Hellflare fires) > move > idle; hair switches to `veyra_hair_move` while moving. Tail and hair follow `tail_lag`, capped at 2 px and 1 px so they stay attached.
   - After the hurt frames the iframe blink goes translucent (40%) instead of invisible, so she never vanishes in the horde. Death plays `veyra_death` with the old smoke puffs on top, then fades its last frame until the game over screen.
-  - Checked in game with a scratch capture harness (not committed): idle, cast, move both ways, hurt, death and 2,500 enemies; she reads clearly over the horde. Fireballs still leave at `PROJ_DRAW_HEIGHT` (about her hips), not the raised hand. Next: S10.
+  - Checked in game with a scratch capture harness (not committed): idle, cast, move both ways, hurt, death and 2,500 enemies; she reads clearly over the horde. Fireballs still leave at `PROJ_DRAW_HEIGHT` (about her hips), not the raised hand.
+  - Known bug (predates V12): on Linux the game dies with SIGSEGV (exit 139) every time it quits, also at `ef621fd`. It happens after `main` returns, inside libc `exit()` handlers, which jump into a library that is already unloaded (likely the GL/EGL driver or the audio backend). `App::shutdown` runs first, so settings and save are written; nothing is lost. Repro: quit through the normal path (`is_quit_requested() || !app.frame()` → `shutdown` → `break`), e.g. with a timed quit, then `coredumpctl info <pid>`. Not fixed yet; options are `std::process::exit(0)` right after `shutdown`, or finding which handler it is with debug symbols. Next: S10.
+- **S10 (2026-10-20)** — V13 half done: enemy art drawn and approved ("está muy bien, has hecho todo genial"), wired in game; effects still to do (see the S10 checklist). 92 tests.
+  - Decisions with the user: draw the 3 current enemies plus the brute farmer (Ashford's large enemy) now; keep 2 walk frames; elites get only a flag + debug key in V13 (spawns in V18); death = short white flash + palette burst.
+  - Review method that worked: PNG lineup next to Veyra at ×4 and a ~400-enemy horde mock at ×3 (scratch Python compositor, not committed), then the game itself.
+  - Brute stats are provisional (HP 140, speed 32, radius 11, contact 25, XP 15, weight 0 + 3/min from 3:00, `Family::Human` sounds); `MAX_ENEMY_RADIUS` went 7 → 11 for it.
+  - F4 (in a run) spawns a group of every enemy kind around Veyra (`Game::debug_spawn_all`), for checking art; keep it next to F3.
+  - Gotcha: a pxl `anim` with `frame(grid(...))` patches infers its canvas from the base grid only, so legs patched below it get cut; give `w`/`h` explicitly. Next: finish V13 (S10 checklist).

@@ -23,13 +23,14 @@ pub enum SpriteId {
     Rat,
     Villager,
     Knight,
+    Brute,
     Fireball,
     Smoke,
     Soul,
     Ground,
 }
 
-const SPRITE_COUNT: usize = 16;
+const SPRITE_COUNT: usize = 17;
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -73,6 +74,18 @@ macro_rules! veyra {
             png: include_bytes!(concat!("../assets/sprites/veyra/anims/", $file, ".png")),
             frames: frame_ms(SpriteId::$id).len(),
             flash: false,
+        }
+    };
+}
+
+/// One of the enemy strips in `assets/sprites/enemies/anims/` (`assets/enemies.px.js`).
+macro_rules! enemy {
+    ($id:ident, $file:literal) => {
+        Sheet {
+            id: SpriteId::$id,
+            png: include_bytes!(concat!("../assets/sprites/enemies/anims/", $file, ".png")),
+            frames: FLASH_FRAME_OFFSET,
+            flash: true,
         }
     };
 }
@@ -127,9 +140,10 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     veyra!(VeyraTail, "veyra_tail"),
     veyra!(VeyraHair, "veyra_hair"),
     veyra!(VeyraHairMove, "veyra_hair_move"),
-    sheet!(Rat, "rat", FLASH_FRAME_OFFSET, true),
-    sheet!(Villager, "villager", FLASH_FRAME_OFFSET, true),
-    sheet!(Knight, "knight", FLASH_FRAME_OFFSET, true),
+    enemy!(Rat, "rat"),
+    enemy!(Villager, "villager"),
+    enemy!(Knight, "knight"),
+    enemy!(Brute, "brute"),
     sheet!(Fireball, "fireball", 1, false),
     sheet!(Smoke, "smoke", 1, false),
     sheet!(Soul, "soul", 1, false),
@@ -397,6 +411,11 @@ mod tests {
             assert_eq!(size(id), (66, 50), "{id:?}");
         }
         assert_eq!(size(SpriteId::Ground), (GROUND_TILE, GROUND_TILE));
+        // Enemy sizes from PLAN.md 7.6, outline included (the rat's 12 is its body length).
+        assert_eq!(size(SpriteId::Rat), (17, 9));
+        assert_eq!(size(SpriteId::Villager), (14, 20));
+        assert_eq!(size(SpriteId::Knight), (18, 26));
+        assert_eq!(size(SpriteId::Brute), (32, 40));
     }
 
     const VEYRA: [SpriteId; 9] = [
