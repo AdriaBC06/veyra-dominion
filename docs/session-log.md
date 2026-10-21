@@ -78,6 +78,6 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Gotchas: `spectacle -a` captures the *active* window, which may be another app; use an in-game capture instead (temporary `VEYRA_CAPTURE` hack after `app.frame()`, before `next_frame`; before the frame it is black). ComfyUI must run with the sandbox off (GPU). Ollama shares the GPU; it was idle this session.
   - Next: S11 phase 2 continued: try alternatives (size, seeds at 40 steps, prompts, other refs), pick the final portrait with the user, light hand cleanup.
 - **S14 check + planning (2026-10-21)** — New PC (Rust 1.99.1 via pacman rustup; 132 tests green). `PLAN.md` split into `CLAUDE.md` (rules, map, gotchas), `PLAN.md` (progress + tasks) and `docs/` (design, MVP, this log). The user played the S14 build: the system works, but the items feel generic and lack icons.
-  - Planned with the user: Arts/Sins redesign VS-style in Veyra's theme (14 Arts, 12 Sins on the deadly sins, Allure+Thralls union, Offering sacrifice), see 7.7 "Redesign direction". New sessions S14b–S14f before V18.
+  - Planned with the user: Arts/Sins redesign VS-style in Veyra's theme (14 Arts, 12 Sins on the deadly sins, Allure+Thralls union, Offering sacrifice), see 7.7 "Redesign direction". Merged into two sessions before V18: S14b (all Arts/Sins work) and S14c (all icons).
   - Note: real elites only come with V18, so Offerings (and evolutions) only appear via F5/F8 until then.
   - Next: S14b (V17b). Evolution pairs in 7.7 are a proposal for the user to review at its start.

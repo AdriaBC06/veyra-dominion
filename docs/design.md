@@ -138,7 +138,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - Chain of Torment: unchanged.
 - Wing Gust: removed. Replaced by **Scent of Sin** (Garlic): a pink haze around her that burns slowly and weakens enemies (they take more damage). Allure commands, the Scent corrodes.
 
-*New Arts (V17d–f, 7 more, 14 in total):*
+*New Arts (V17d–f, same session S14b, 7 more, 14 in total):*
 - **Thralls** (summon): seduced villagers that turn on their own; fragile and disposable.
 - **Reaper's Scythe** (Axe): a scythe thrown in an arc.
 - **Profaned Cross** (Cross): an inverted cross from the Church that sealed her, thrown like a boomerang.
@@ -155,7 +155,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 
 *Offerings:* can be rejected as a **sacrifice**: destroyed for a minor reward (heal, souls or, from V20, Tribute).
 
-*Icons (V17c):* pxl skill (https://github.com/crsolver/claude-pxl, install first); every Art, evolution (own icon) and Sin; shown on level-up/Offering cards and the HUD. New Arts get their icon when built.
+*Icons (V17c):* pxl skill (https://github.com/crsolver/claude-pxl, install first); every Art, evolution (own icon) and Sin; shown on level-up/Offering cards and the HUD. Done in one pass after all 14 Arts exist (S14c).
 
 **Built in V15 (S12):**
 - `src/arts.rs` (not `weapons.rs`): `Arts` owns the fixed pools (fireballs, lashes, hearts) and the Halo state, the cooldowns and the effective stats; `Game::tick` calls `arts.update(World { player, enemies, hash, time }, alive)` where Hellflare used to fire. Levels live in `Upgrades` (`arts[i]`, 0 = not owned, plus `slots`, 6 max); every run starts with Hellflare at level 1. Call `arts.refresh(&upgrades)` after any change.
