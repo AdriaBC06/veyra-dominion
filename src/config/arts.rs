@@ -1,4 +1,4 @@
-//! The Arts table: per-Art base numbers and level gains (PLAN.md 7.7).
+//! The Arts table: per-Art base numbers and level gains (docs/design.md 7.7).
 
 use super::{
     ALLUREMENT, BLOODLUST, BLOOD_PACT, DARK_SIGIL, LEGION, NIGHT_WINGS, SIRENS_CALL, WRATH,

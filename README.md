@@ -44,7 +44,7 @@ All numbers live in `src/config.rs`.
 
 ## Development
 
-See [PLAN.md](PLAN.md) for architecture, tasks and progress.
+See [PLAN.md](PLAN.md) for tasks and progress and [docs/](docs/) for design, architecture and session notes.
 
 ## Licence
 

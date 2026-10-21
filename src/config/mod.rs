@@ -278,7 +278,7 @@ pub enum SinKind {
     InfernalHide,
 }
 
-/// A passive (PLAN.md 7.7). `step` is the per-level bonus, see `Upgrades::stats`.
+/// A passive (docs/design.md 7.7). `step` is the per-level bonus, see `Upgrades::stats`.
 /// Wrath, Bloodlust, Legion, Dark Sigil and Allurement boost every Art. Greed joins
 /// with Tribute in V20.
 pub struct SinDef {

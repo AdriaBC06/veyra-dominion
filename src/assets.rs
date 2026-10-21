@@ -247,7 +247,7 @@ impl Fonts {
 }
 
 /// Title-screen Veyra (V14 trial): too big for the atlas, so it is its own texture.
-/// Made by `assets/pixelize.py` (Qwen-Image-Edit + Pixel Art Fixer, see PLAN.md 7.5).
+/// Made by `assets/pixelize.py` (Qwen-Image-Edit + Pixel Art Fixer, see docs/design.md 7.5).
 const TITLE_PORTRAIT_PNG: &[u8] = include_bytes!("../assets/sprites/title/veyra_portrait_ai.png");
 
 thread_local! {
@@ -461,7 +461,7 @@ mod tests {
             assert_eq!(size(id), (66, 50), "{id:?}");
         }
         assert_eq!(size(SpriteId::Ground), (GROUND_TILE, GROUND_TILE));
-        // Enemy sizes from PLAN.md 7.6, outline included (the rat's 12 is its body length);
+        // Enemy sizes from docs/design.md 7.6, outline included (the rat's 12 is its body length);
         // `EnemyDef::size` must match its strip, since radius and burst derive from it.
         assert_eq!(size(SpriteId::Rat), (17, 9));
         assert_eq!(size(SpriteId::Villager), (14, 20));
