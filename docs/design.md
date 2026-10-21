@@ -126,6 +126,18 @@ Modelled on the Vampire Survivors structure: up to **6 Arts + 6 Sins**, Arts rea
 
 On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Reroll charges come from Pacts.
 
+**Redesign direction (2026-10-21, user feedback after S14; V17b).** Behaviours follow Vampire Survivors items; names, look and lore are Veyra's (succubus). Details are being agreed in planning questions; the result replaces the tables above.
+- Keep: Hellflare as the starting Art; Chain of Torment as is; Hellgate and Allure; the evolution system (max level + paired Sin + Offering) and most evolutions.
+- Tail Lash: its reach grows per level (it is too short even at high levels).
+- Kiss of Ruin: too generic as an Art; it becomes Hellflare's evolution (more projectiles that pierce).
+- Brimstone Halo: starts as one bigger flame; levels add flames, spin speed and less rest time.
+- Siren's Dominion: the burst on charm expiry deals a little damage, it does not kill.
+- Hellgate: much less base damage, its size grows per level.
+- Wing Gust: removed, replaced by a Garlic-like aura.
+- Sins: same idea, small upgrades/redesign allowed.
+- Offerings: can be rejected.
+- Then V17c: icons for every Art, evolution (own icon) and Sin, drawn with the pxl skill (https://github.com/crsolver/claude-pxl, install first).
+
 **Built in V15 (S12):**
 - `src/arts.rs` (not `weapons.rs`): `Arts` owns the fixed pools (fireballs, lashes, hearts) and the Halo state, the cooldowns and the effective stats; `Game::tick` calls `arts.update(World { player, enemies, hash, time }, alive)` where Hellflare used to fire. Levels live in `Upgrades` (`arts[i]`, 0 = not owned, plus `slots`, 6 max); every run starts with Hellflare at level 1. Call `arts.refresh(&upgrades)` after any change.
 - Data in `config/arts.rs` (`config.rs` became `config/mod.rs` once it passed 600 lines): `ArtDef { base: ArtStats, gains: [ArtGain; 7] }`, `ArtDef::stats(level)`. `ArtStats` fields mean different things per Art (see its doc: e.g. the Halo's `cooldown` is its rest time and `speed` its radians per second). Cooldown, area and speed gains are fractions of the base.

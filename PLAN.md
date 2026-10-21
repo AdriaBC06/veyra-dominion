@@ -74,6 +74,11 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V16 Remaining Arts
 - **S14 — Sins**
   - [x] V17 Sins and evolutions
+- **S14b — Arts & Sins redesign** *(user approval; plan agreed first, see 7.7 "Redesign direction")*
+  - [ ] V17b Arts & Sins redesign (VS-style behaviours, Veyra theme), rejectable Offerings
+- **S14c — Icons** *(user approval)*
+  - [ ] Install the pxl pixel-art skill: https://github.com/crsolver/claude-pxl
+  - [ ] V17c Icons for every Art, evolution (own icon) and Sin, shown on level-up / Offering cards and the HUD
 - **S15 — Enemy AI**
   - [ ] V18 Enemy behaviours and elites
 - **S16 — First boss**
@@ -128,6 +133,8 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 | V15 | Arts framework (6 slots, levels, pools) + Tail Lash, Kiss of Ruin, Brimstone Halo | Tests + visible | `feat: arts framework and first arts` |
 | V16 | Allure (charm), Hellgate, Chain of Torment, Wing Gust | Tests + visible | `feat: remaining arts` |
 | V17 | Sins table, renames, mixed level-up choices, evolutions + Offerings | Evolution tests green | `feat: sins and evolutions` |
+| V17b | Arts & Sins redesign per 7.7 "Redesign direction", rejectable Offerings | Tests green, user approves in game | `feat: arts and sins redesign` |
+| V17c | Icons (pxl skill) for Arts, evolutions and Sins, in cards and HUD | User approves | `feat: art and sin icons` |
 | V18 | New behaviours (Ranged, Charger, Support, Swarm, Shielded, Flyer) + hostile shots + elites | Behaviour tests green | `feat: enemy behaviours and elites` |
 | V19 | Boss framework + Captain of the Watch | Boss beatable | `feat: boss framework and first boss` |
 | **CP7** | **Checkpoint 7 — Combat depth** | | |
