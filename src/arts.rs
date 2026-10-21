@@ -25,15 +25,83 @@ pub struct Lash {
     pub t: f32,
 }
 
+/// The last `N` enemies (by `uid`) a piercing shot went through, so it hits each one
+/// once; past `N` the oldest are forgotten.
+pub struct HitList<const N: usize> {
+    ids: [u32; N],
+    next: usize,
+}
+
+impl<const N: usize> HitList<N> {
+    fn new() -> Self {
+        Self {
+            ids: [u32::MAX; N],
+            next: 0,
+        }
+    }
+
+    fn contains(&self, uid: u32) -> bool {
+        self.ids.contains(&uid)
+    }
+
+    fn push(&mut self, uid: u32) {
+        self.ids[self.next] = uid;
+        self.next = (self.next + 1) % N;
+    }
+
+    /// Forgets them all: they can be hit again.
+    fn clear(&mut self) {
+        self.ids = [u32::MAX; N];
+    }
+}
+
 /// A Kiss of Ruin heart (Hellflare evolved). It goes through `pierce` more enemies,
-/// never hitting the same one twice (`hits` holds their ids).
+/// never hitting the same one twice.
 pub struct Bolt {
     pub pos: Vec2,
     pub vel: Vec2,
     pub life: f32,
     pierce: u32,
-    hits: [u32; BOLT_MAX_HITS],
-    hit_count: usize,
+    hits: HitList<BOLT_MAX_HITS>,
+}
+
+/// A Reaper's Scythe: thrown up, it falls through the horde hitting each enemy once,
+/// `pierce` more after the first. Midnight Harvest scythes fly out curling instead.
+pub struct Scythe {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub life: f32,
+    pub harvest: bool,
+    pierce: u32,
+    hits: HitList<PIERCE_MEMORY>,
+}
+
+/// A Profaned Cross: it flies out along `dir`, slowing at `speed` falls to zero, then
+/// heads back to Veyra (`returning`) faster and faster until she catches it. It hits
+/// each enemy once each way.
+pub struct Cross {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    speed: f32,
+    returning: bool,
+    life: f32,
+    hits: HitList<PIERCE_MEMORY>,
+}
+
+/// A Wandering Sigil bouncing inside the view; it hits each enemy once between
+/// bounces.
+pub struct Sigil {
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub life: f32,
+    hits: HitList<PIERCE_MEMORY>,
+}
+
+/// Broken Seal: a sigil blast at `pos`, spreading to `radius` over `SEAL_BLAST_TIME`.
+pub struct SealBlast {
+    pub pos: Vec2,
+    pub radius: f32,
+    pub t: f32,
 }
 
 /// Brimstone Halo: its flames burn for `duration`, rest for `cooldown`, and again. `t` is the
@@ -103,6 +171,11 @@ pub struct ArtCues {
     pub charmed: bool,
     pub gated: bool,
     pub chained: bool,
+    pub reaped: bool,
+    pub crossed: bool,
+    pub sigiled: bool,
+    /// A sigil blasted on a bounce (Broken Seal).
+    pub sealed: bool,
     /// A charmed enemy burst (Siren's Dominion).
     pub burst: bool,
     /// A hit landed on flesh / on armour.
@@ -115,6 +188,8 @@ pub struct World<'a> {
     pub enemies: &'a mut Enemies,
     pub hash: &'a SpatialHash,
     pub time: f32,
+    /// Size of the view around Veyra, which the Wandering Sigil bounces inside.
+    pub view: Vec2,
 }
 
 pub struct Arts {
@@ -126,6 +201,10 @@ pub struct Arts {
     pub gates: Vec<Gate>,
     pub chains: Vec<Chain>,
     pub siren_bursts: Vec<SirenBurst>,
+    pub scythes: Vec<Scythe>,
+    pub crosses: Vec<Cross>,
+    pub sigils: Vec<Sigil>,
+    pub seal_blasts: Vec<SealBlast>,
     /// Seconds since the Scent of Sin last burned (the haze swells a little then).
     pub since_scent: f32,
     /// Level of each Art (0 = not owned), copied from `Upgrades` on `refresh`.
@@ -139,6 +218,8 @@ pub struct Arts {
     heal_budget: f32,
     /// Time left to the next Barbed Scourge bleed.
     bleed_clock: f32,
+    /// Time left to the next Heretic's Brand burn.
+    brand_clock: f32,
 }
 
 impl Arts {
@@ -156,6 +237,10 @@ impl Arts {
             gates: Vec::with_capacity(MAX_GATES),
             chains: Vec::with_capacity(MAX_CHAINS),
             siren_bursts: Vec::with_capacity(MAX_SIREN_BURSTS),
+            scythes: Vec::with_capacity(MAX_SCYTHES),
+            crosses: Vec::with_capacity(MAX_CROSSES),
+            sigils: Vec::with_capacity(MAX_SIGILS),
+            seal_blasts: Vec::with_capacity(MAX_SEAL_BLASTS),
             since_scent: f32::INFINITY,
             levels: [0; ARTS.len()],
             evolved: [false; ARTS.len()],
@@ -163,6 +248,7 @@ impl Arts {
             cooldown: [0.0; ARTS.len()],
             heal_budget: MUSK_HEAL_CAP,
             bleed_clock: 0.0,
+            brand_clock: 0.0,
         };
         arts.refresh(upgrades);
         arts
@@ -187,14 +273,16 @@ impl Arts {
             s.cooldown *= cooldown;
             s.amount += amount;
             s.area *= area;
-            // Projectile lifetimes are their range, not an effect that lasts.
-            if def.kind != ArtKind::Hellflare {
+            // Projectile flights are their range, not an effect that lasts.
+            if def.sloth() {
                 s.duration *= duration;
             }
             if self.evolved[i] {
                 match def.kind {
                     ArtKind::Hellflare => s.amount += KISS_EXTRA,
                     ArtKind::BrimstoneHalo => s.amount += CROWN_EXTRA,
+                    ArtKind::ReapersScythe => s.amount += HARVEST_EXTRA,
+                    ArtKind::ProfanedCross => s.amount += BRAND_EXTRA,
                     _ => {}
                 }
             }
@@ -245,6 +333,9 @@ impl Arts {
                     ArtKind::Hellgate => self.open_gates(w, &mut cues),
                     ArtKind::ChainOfTorment => self.chain(w, &mut cues),
                     ArtKind::ScentOfSin => self.scent(w, &mut cues),
+                    ArtKind::ReapersScythe => self.reap(w, &mut cues),
+                    ArtKind::ProfanedCross => self.throw_crosses(w, &mut cues),
+                    ArtKind::WanderingSigil => self.cast_sigils(w, &mut cues),
                 };
                 if attacked {
                     self.cooldown[art] = self.stats[art].cooldown;
@@ -258,11 +349,19 @@ impl Arts {
         self.update_charmed(w, &mut cues);
         self.update_gates(w, &mut cues);
         self.update_bleed(w, &mut cues);
+        self.update_scythes(w, &mut cues);
+        self.update_crosses(w, &mut cues);
+        self.update_brand(w, &mut cues);
+        self.update_sigils(w, &mut cues);
         self.heal_budget = (self.heal_budget + MUSK_HEAL_CAP * TICK_DT).min(MUSK_HEAL_CAP);
         self.since_scent += TICK_DT;
         self.siren_bursts.retain_mut(|b| {
             b.t += TICK_DT;
             b.t < SIREN_BURST_TIME
+        });
+        self.seal_blasts.retain_mut(|b| {
+            b.t += TICK_DT;
+            b.t < SEAL_BLAST_TIME
         });
         self.chains.retain_mut(|c| {
             c.t += TICK_DT;
@@ -293,8 +392,7 @@ impl Arts {
                     vel: dir * KISS_SPEED,
                     life: KISS_LIFE,
                     pierce: KISS_PIERCE,
-                    hits: [u32::MAX; BOLT_MAX_HITS],
-                    hit_count: 0,
+                    hits: HitList::new(),
                 });
             } else {
                 if self.projectiles.len() >= MAX_PROJECTILES {
@@ -473,6 +571,245 @@ impl Arts {
         }
         self.since_scent = 0.0;
         true
+    }
+
+    /// Reaper's Scythe: `amount` scythes thrown up, symmetric (see `scythe_spread`).
+    /// Midnight Harvest throws them out evenly all round.
+    fn reap(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let s = self.stats[REAPERS_SCYTHE];
+        let harvest = self.evolved[REAPERS_SCYTHE];
+        let (n, turn) = (s.amount.max(1), gen_range(0.0, TAU));
+        for k in 0..n {
+            if self.scythes.len() >= MAX_SCYTHES {
+                break;
+            }
+            let vel = if harvest {
+                Vec2::from_angle(turn + k as f32 * TAU / n as f32) * HARVEST_SPEED
+            } else {
+                vec2(scythe_spread(k, n), -s.speed)
+            };
+            self.scythes.push(Scythe {
+                pos: w.player.pos,
+                vel,
+                life: if harvest { HARVEST_LIFE } else { s.duration },
+                harvest,
+                pierce: if harvest { u32::MAX } else { s.pierce },
+                hits: HitList::new(),
+            });
+        }
+        w.player.since_cast = 0.0;
+        cues.reaped = true;
+        true
+    }
+
+    /// Profaned Cross: the first at the nearest enemy in range, the rest at random
+    /// ones. Waits while nobody is in range.
+    fn throw_crosses(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let from = w.player.pos;
+        let Some(first) = w.hash.nearest(from, CROSS_RANGE) else {
+            return false;
+        };
+        let s = self.stats[PROFANED_CROSS];
+        for k in 0..s.amount {
+            if self.crosses.len() >= MAX_CROSSES {
+                break;
+            }
+            let target = if k == 0 {
+                Some(first)
+            } else {
+                random_enemy(w, CROSS_RANGE)
+            };
+            let Some(j) = target else {
+                break;
+            };
+            let dir = (w.enemies.pos(j) - from).normalize_or(Vec2::X);
+            self.crosses.push(Cross {
+                pos: from,
+                vel: dir * s.speed,
+                speed: s.speed,
+                returning: false,
+                life: CROSS_MAX_LIFE,
+                hits: HitList::new(),
+            });
+        }
+        w.player.since_cast = 0.0;
+        cues.crossed = true;
+        true
+    }
+
+    /// Wandering Sigil: `amount` sigils sent off in random directions.
+    fn cast_sigils(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let s = self.stats[WANDERING_SIGIL];
+        for _ in 0..s.amount {
+            if self.sigils.len() >= MAX_SIGILS {
+                break;
+            }
+            self.sigils.push(Sigil {
+                pos: w.player.pos,
+                vel: Vec2::from_angle(gen_range(0.0, TAU)) * s.speed,
+                life: s.duration,
+                hits: HitList::new(),
+            });
+        }
+        cues.sigiled = true;
+        true
+    }
+
+    /// Scythes fall (Midnight Harvest ones curl outwards) and cut what they cross.
+    fn update_scythes(&mut self, w: &mut World, cues: &mut ArtCues) {
+        let s = self.stats[REAPERS_SCYTHE];
+        let time = w.time;
+        let enemies = &mut *w.enemies;
+        let extra = enemies.max_radius();
+        let curl = Vec2::from_angle(HARVEST_CURL * TICK_DT);
+        self.scythes.retain_mut(|sc| {
+            if sc.harvest {
+                sc.vel = curl.rotate(sc.vel);
+            } else {
+                sc.vel.y += SCYTHE_GRAVITY * TICK_DT;
+            }
+            sc.pos += sc.vel * TICK_DT;
+            sc.life -= TICK_DT;
+            let base = if sc.harvest {
+                HARVEST_RADIUS
+            } else {
+                SCYTHE_RADIUS
+            };
+            let radius = base * s.area;
+            let mut spent = false;
+            w.hash.query_radius(sc.pos, radius + extra, |j, _| {
+                if spent || !touches(enemies, j, sc.pos, radius) || sc.hits.contains(enemies.uid[j])
+                {
+                    return;
+                }
+                strike(enemies, j, s.damage, time, &mut cues.hits);
+                sc.hits.push(enemies.uid[j]);
+                match sc.pierce {
+                    0 => spent = true,
+                    _ => sc.pierce -= 1,
+                }
+            });
+            !spent && sc.life > 0.0
+        });
+    }
+
+    /// Crosses slow down, turn back (forgetting whom they hit) and chase her until she
+    /// catches them. Heretic's Brand sets what they hit on fire.
+    fn update_crosses(&mut self, w: &mut World, cues: &mut ArtCues) {
+        let s = self.stats[PROFANED_CROSS];
+        let time = w.time;
+        let brand = self.evolved[PROFANED_CROSS].then_some(time + BRAND_BURN);
+        let enemies = &mut *w.enemies;
+        let radius = CROSS_RADIUS * s.area;
+        let query = radius + enemies.max_radius();
+        let home = w.player.pos;
+        self.crosses.retain_mut(|c| {
+            if c.returning {
+                c.speed += CROSS_DECEL * TICK_DT;
+                let to = home - c.pos;
+                if to.length() <= CROSS_CATCH + c.speed * TICK_DT {
+                    return false;
+                }
+                c.vel = to.normalize() * c.speed;
+            } else {
+                c.speed -= CROSS_DECEL * TICK_DT;
+                if c.speed <= 0.0 {
+                    c.returning = true;
+                    c.hits.clear();
+                    c.speed = 0.0;
+                }
+                c.vel = c.vel.normalize_or(Vec2::X) * c.speed;
+            }
+            c.pos += c.vel * TICK_DT;
+            c.life -= TICK_DT;
+            w.hash.query_radius(c.pos, query, |j, _| {
+                if touches(enemies, j, c.pos, radius) && !c.hits.contains(enemies.uid[j]) {
+                    strike(enemies, j, s.damage, time, &mut cues.hits);
+                    c.hits.push(enemies.uid[j]);
+                    if let Some(until) = brand {
+                        enemies.burn_until[j] = until;
+                    }
+                }
+            });
+            c.life > 0.0
+        });
+    }
+
+    /// Heretic's Brand: every `BRAND_TICK` burning enemies lose a share of the Cross's
+    /// damage.
+    fn update_brand(&mut self, w: &mut World, cues: &mut ArtCues) {
+        if !self.evolved[PROFANED_CROSS] {
+            return;
+        }
+        self.brand_clock -= TICK_DT;
+        if self.brand_clock > 0.0 {
+            return;
+        }
+        self.brand_clock += BRAND_TICK;
+        let damage = self.stats[PROFANED_CROSS].damage * BRAND_SHARE;
+        let enemies = &mut *w.enemies;
+        for i in 0..enemies.len() {
+            if enemies.burn_until[i] > w.time && enemies.hp[i] > 0.0 {
+                strike(enemies, i, damage, w.time, &mut cues.hits);
+            }
+        }
+    }
+
+    /// Sigils fly straight and bounce off the view's edges, forgetting whom they hit;
+    /// with Broken Seal every bounce blasts the enemies around it.
+    fn update_sigils(&mut self, w: &mut World, cues: &mut ArtCues) {
+        let s = self.stats[WANDERING_SIGIL];
+        let time = w.time;
+        let seal = self.evolved[WANDERING_SIGIL];
+        let (blast_r, blast_dmg) = (SEAL_BLAST_RADIUS * s.area, s.damage * SEAL_BLAST_DAMAGE);
+        let enemies = &mut *w.enemies;
+        let radius = SIGIL_RADIUS * s.area;
+        let extra = enemies.max_radius();
+        let center = w.player.pos;
+        // It floats above its ground point, so the top edge comes that much sooner.
+        let half = w.view * 0.5 - Vec2::splat(SIGIL_MARGIN);
+        let (top, bottom) = (-half.y + SIGIL_DRAW_HEIGHT, half.y);
+        let blasts = &mut self.seal_blasts;
+        self.sigils.retain_mut(|g| {
+            g.pos += g.vel * TICK_DT;
+            g.life -= TICK_DT;
+            let off = g.pos - center;
+            let mut bounced = false;
+            if off.x.abs() > half.x && off.x * g.vel.x > 0.0 {
+                g.vel.x = -g.vel.x;
+                bounced = true;
+            }
+            if (off.y < top && g.vel.y < 0.0) || (off.y > bottom && g.vel.y > 0.0) {
+                g.vel.y = -g.vel.y;
+                bounced = true;
+            }
+            if bounced {
+                g.hits.clear();
+                if seal {
+                    let p = g.pos;
+                    w.hash.query_radius(p, blast_r + extra, |j, _| {
+                        if touches(enemies, j, p, blast_r) {
+                            strike(enemies, j, blast_dmg, time, &mut cues.hits);
+                        }
+                    });
+                    if blasts.len() < MAX_SEAL_BLASTS {
+                        blasts.push(SealBlast {
+                            pos: p,
+                            radius: blast_r,
+                            t: 0.0,
+                        });
+                    }
+                    cues.sealed = true;
+                }
+            }
+            w.hash.query_radius(g.pos, radius + extra, |j, _| {
+                if touches(enemies, j, g.pos, radius) && !g.hits.contains(enemies.uid[j]) {
+                    strike(enemies, j, s.damage, time, &mut cues.hits);
+                    g.hits.push(enemies.uid[j]);
+                }
+            });
+            g.life > 0.0
+        });
     }
 
     /// Every `CHARM_BITE` each charmed enemy bites the free enemies it touches.
@@ -669,7 +1006,7 @@ impl Arts {
             w.hash.query_radius(b.pos, query, |j, _| {
                 if hit.is_none()
                     && touches(enemies, j, b.pos, BOLT_RADIUS)
-                    && !b.hits[..b.hit_count].contains(&enemies.uid[j])
+                    && !b.hits.contains(enemies.uid[j])
                 {
                     hit = Some(j);
                 }
@@ -678,10 +1015,7 @@ impl Arts {
                 return b.life > 0.0;
             };
             strike(enemies, j, damage, time, &mut cues.hits);
-            if b.hit_count < BOLT_MAX_HITS {
-                b.hits[b.hit_count] = enemies.uid[j];
-                b.hit_count += 1;
-            }
+            b.hits.push(enemies.uid[j]);
             if b.pierce == 0 {
                 return false;
             }
@@ -752,6 +1086,21 @@ impl Arts {
 fn ember_offsets(angle: f32, s: &ArtStats) -> impl Iterator<Item = Vec2> {
     let (n, radius) = (s.amount.max(1), HALO_RADIUS * s.area);
     (0..n).map(move |k| Vec2::from_angle(angle + k as f32 * TAU / n as f32) * radius)
+}
+
+/// Sideways speed of scythe `k` of `n`: with an odd count the first goes straight up,
+/// the rest pair off to either side, each pair `SCYTHE_SPREAD` wider.
+fn scythe_spread(k: u32, n: u32) -> f32 {
+    let k = if n % 2 == 1 {
+        if k == 0 {
+            return 0.0;
+        }
+        k - 1
+    } else {
+        k
+    };
+    let side = if k % 2 == 0 { -1.0 } else { 1.0 };
+    side * (k / 2 + 1) as f32 * SCYTHE_SPREAD
 }
 
 /// A random live enemy within `range` of Veyra.
@@ -1151,6 +1500,224 @@ mod tests {
             .spawn(KNIGHT, pool + vec2(reach + 2.0, 0.0), 100.0);
         tick(&mut g, (HELLGATE_TICK / TICK_DT) as usize + 1);
         assert!(hurt(&g, 1));
+    }
+
+    #[test]
+    fn new_arts_level_tables_and_sloth() {
+        let scythe = ARTS[REAPERS_SCYTHE].stats(ART_MAX_LEVEL);
+        assert_eq!((scythe.amount, scythe.pierce, scythe.damage), (4, 6, 50.0));
+        assert!((scythe.area - 1.45).abs() < 1e-5, "grows every other level");
+        let cross = ARTS[PROFANED_CROSS].stats(ART_MAX_LEVEL);
+        assert_eq!((cross.amount, cross.damage), (3, 40.0));
+        assert!((cross.speed - 260.0 * 1.5).abs() < 1e-3);
+        let sigil = ARTS[WANDERING_SIGIL].stats(ART_MAX_LEVEL);
+        assert_eq!(sigil.amount, 3);
+        assert!((sigil.duration - 3.35).abs() < 1e-5);
+
+        // Sloth lengthens the Sigil's wander, not the flights of scythes and crosses.
+        let mut g = game_with(WANDERING_SIGIL, 1);
+        g.upgrades.arts[REAPERS_SCYTHE] = 1;
+        g.upgrades.arts[PROFANED_CROSS] = 1;
+        g.upgrades.apply(Choice::Sin(SLOTH), &mut g.player);
+        g.arts.refresh(&g.upgrades);
+        let base = |i: usize| ARTS[i].base.duration;
+        assert!(
+            (g.arts.stats[WANDERING_SIGIL].duration - base(WANDERING_SIGIL) * 1.1).abs() < 1e-5
+        );
+        assert_eq!(g.arts.stats[REAPERS_SCYTHE].duration, base(REAPERS_SCYTHE));
+        assert_eq!(g.arts.stats[PROFANED_CROSS].duration, base(PROFANED_CROSS));
+    }
+
+    #[test]
+    fn scythes_fly_up_then_fall_through_pierce_plus_one_foes() {
+        let mut g = game_with(REAPERS_SCYTHE, 1);
+        tick(&mut g, 1);
+        assert_eq!(g.arts.scythes.len(), 1);
+        assert!(g.cues.contains(&Cue::Scythe));
+        let start = g.arts.scythes[0].pos;
+        g.arts.hold();
+        tick(&mut g, 20);
+        let sc = &g.arts.scythes[0];
+        assert!(sc.pos.y < start.y && sc.vel.y > -ARTS[REAPERS_SCYTHE].base.speed);
+        tick(
+            &mut g,
+            (ARTS[REAPERS_SCYTHE].base.duration / TICK_DT) as usize,
+        );
+        assert!(g.arts.scythes.is_empty(), "gone after its flight");
+
+        // One dropped onto a column of knights cuts the first and `pierce` more.
+        let mut g = game_with(REAPERS_SCYTHE, 1);
+        g.arts.hold();
+        for k in 0..5 {
+            g.enemies
+                .spawn(KNIGHT, vec2(200.0, 40.0 + k as f32 * 30.0), 100.0);
+        }
+        g.arts.scythes.push(Scythe {
+            pos: vec2(200.0, 0.0),
+            vel: vec2(0.0, 200.0),
+            life: 2.0,
+            harvest: false,
+            pierce: ARTS[REAPERS_SCYTHE].base.pierce,
+            hits: HitList::new(),
+        });
+        tick(&mut g, 90);
+        let cut = (0..5).filter(|&i| hurt(&g, i)).count();
+        assert_eq!(cut, ARTS[REAPERS_SCYTHE].base.pierce as usize + 1);
+        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        assert_eq!(
+            g.enemies.hp[0],
+            full - ARTS[REAPERS_SCYTHE].base.damage,
+            "once each"
+        );
+    }
+
+    #[test]
+    fn midnight_harvest_sends_scythes_out_all_round() {
+        let mut g = evolved(REAPERS_SCYTHE);
+        tick(&mut g, 1);
+        let n = g.arts.stats[REAPERS_SCYTHE].amount as usize;
+        assert_eq!(
+            n,
+            ARTS[REAPERS_SCYTHE].stats(ART_MAX_LEVEL).amount as usize + 5
+        );
+        assert_eq!(g.arts.scythes.len(), n);
+        let sum: Vec2 = g.arts.scythes.iter().map(|s| s.vel).sum();
+        assert!(sum.length() < 1.0, "evenly spread");
+        assert!(g.arts.scythes.iter().all(|s| s.harvest));
+        // They curl without falling, and cut through a whole crowd.
+        g.arts.hold();
+        for k in 0..12 {
+            g.enemies
+                .spawn(KNIGHT, Vec2::from_angle(k as f32 * 0.5) * 40.0, 100.0);
+        }
+        tick(&mut g, 30);
+        for s in &g.arts.scythes {
+            assert!((s.vel.length() - HARVEST_SPEED).abs() < 0.5);
+        }
+        assert!((0..12).filter(|&i| hurt(&g, i)).count() >= 8);
+    }
+
+    #[test]
+    fn profaned_cross_hits_on_the_way_out_and_back_into_her_hands() {
+        let mut g = game_with(PROFANED_CROSS, 1);
+        tick(&mut g, 1);
+        assert!(g.arts.crosses.is_empty(), "waits for a target");
+        g.enemies.spawn(KNIGHT, vec2(60.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        assert_eq!(g.arts.crosses.len(), 1);
+        assert!(g.cues.contains(&Cue::Cross));
+        g.arts.hold();
+        let mut far: f32 = 0.0;
+        let mut ticks = 0;
+        while let Some(c) = g.arts.crosses.first() {
+            far = far.max(c.pos.x);
+            assert!(c.pos.x > -CROSS_CATCH, "never flies past her");
+            tick(&mut g, 1);
+            ticks += 1;
+            assert!(ticks < 600, "comes back");
+        }
+        let s = ARTS[PROFANED_CROSS].base;
+        let reach = s.speed * s.speed / (2.0 * CROSS_DECEL);
+        assert!((far - reach).abs() < 6.0, "{far} vs {reach}");
+        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        assert_eq!(g.enemies.hp[0], full - 2.0 * s.damage, "out and back");
+
+        // It follows her wherever she went meanwhile.
+        let mut g = game_with(PROFANED_CROSS, 1);
+        g.enemies.spawn(KNIGHT, vec2(60.0, 0.0), 1000.0);
+        tick(&mut g, 1);
+        g.arts.hold();
+        g.player.pos = vec2(-150.0, 120.0);
+        for _ in 0..600 {
+            if g.arts.crosses.is_empty() {
+                break;
+            }
+            let c = &g.arts.crosses[0];
+            assert!(c.life > 0.0);
+            tick(&mut g, 1);
+        }
+        assert!(g.arts.crosses.is_empty(), "caught where she is");
+    }
+
+    #[test]
+    fn scythes_are_thrown_symmetrically() {
+        let spread = |n: u32| {
+            (0..n)
+                .map(|k| scythe_spread(k, n) / SCYTHE_SPREAD)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(spread(1), [0.0]);
+        assert_eq!(spread(2), [-1.0, 1.0]);
+        assert_eq!(spread(3), [0.0, -1.0, 1.0]);
+        assert_eq!(spread(4), [-1.0, 1.0, -2.0, 2.0]);
+        assert_eq!(spread(5), [0.0, -1.0, 1.0, -2.0, 2.0]);
+        let mut g = game_with(REAPERS_SCYTHE, 4);
+        tick(&mut g, 1);
+        let sum: f32 = g.arts.scythes.iter().map(|s| s.vel.x).sum();
+        assert_eq!(g.arts.scythes.len(), 2);
+        assert_eq!(sum, 0.0);
+    }
+
+    #[test]
+    fn heretics_brand_sets_what_the_crosses_hit_ablaze() {
+        let mut g = evolved(PROFANED_CROSS);
+        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        tick(&mut g, 4);
+        assert!(g.enemies.burn_until[0] > g.time);
+        g.arts.hold();
+        g.arts.crosses.clear();
+        let before = g.enemies.hp[0];
+        tick(&mut g, (BRAND_TICK / TICK_DT) as usize * 2 + 2);
+        assert!(g.enemies.hp[0] < before, "burns away from the cross");
+        // An unevolved cross sets nothing alight.
+        let mut g = game_with(PROFANED_CROSS, ART_MAX_LEVEL);
+        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        tick(&mut g, 4);
+        assert!(hurt(&g, 0));
+        assert_eq!(g.enemies.burn_until[0], 0.0);
+    }
+
+    #[test]
+    fn wandering_sigil_bounces_inside_the_view() {
+        let mut g = game_with(WANDERING_SIGIL, 1);
+        tick(&mut g, 1);
+        assert_eq!(g.arts.sigils.len(), 1);
+        assert!(g.cues.contains(&Cue::Sigil));
+        g.arts.hold();
+        let v0 = g.arts.sigils[0].vel;
+        let half = vec2(DEFAULT_VIEW_W, LOGICAL_H) * 0.5;
+        let step = ARTS[WANDERING_SIGIL].base.speed * TICK_DT;
+        let mut bounced = false;
+        while let Some(sg) = g.arts.sigils.first() {
+            let off = sg.pos - g.player.pos;
+            assert!(off.x.abs() <= half.x + step && off.y.abs() <= half.y + step);
+            bounced |= sg.vel != v0;
+            tick(&mut g, 1);
+        }
+        assert!(bounced, "it travels further than any edge is far");
+    }
+
+    #[test]
+    fn broken_seal_blasts_around_every_bounce() {
+        let mut g = evolved(WANDERING_SIGIL);
+        g.arts.hold();
+        let edge = DEFAULT_VIEW_W * 0.5 - SIGIL_MARGIN;
+        g.enemies.spawn(KNIGHT, vec2(edge - 8.0, 22.0), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(edge - 8.0, -120.0), 100.0);
+        g.arts.sigils.push(Sigil {
+            pos: vec2(edge + 1.0, 0.0),
+            vel: vec2(100.0, 0.0),
+            life: 1.0,
+            hits: HitList::new(),
+        });
+        tick(&mut g, 1);
+        assert!(g.arts.sigils[0].vel.x < 0.0, "bounced back");
+        assert_eq!(g.arts.seal_blasts.len(), 1);
+        assert!(g.cues.contains(&Cue::SealBlast));
+        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let blast = g.arts.stats[WANDERING_SIGIL].damage * SEAL_BLAST_DAMAGE;
+        assert_eq!(g.enemies.hp[0], full - blast);
+        assert!(!hurt(&g, 1), "out of the blast");
     }
 
     #[test]

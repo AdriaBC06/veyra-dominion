@@ -1,0 +1,190 @@
+{
+ "frames": {
+  "cross_3_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  },
+  "cross_3_1": {
+   "frame": {
+    "x": 37,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  },
+  "cross_3_2": {
+   "frame": {
+    "x": 74,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  },
+  "cross_3_3": {
+   "frame": {
+    "x": 111,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  },
+  "cross_3_4": {
+   "frame": {
+    "x": 148,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  },
+  "cross_3_5": {
+   "frame": {
+    "x": 185,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  },
+  "cross_3_6": {
+   "frame": {
+    "x": 222,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  },
+  "cross_3_7": {
+   "frame": {
+    "x": 259,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 37
+   },
+   "duration": 40
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "cross_3.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 296,
+   "h": 37
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "cross_3",
+    "from": 0,
+    "to": 7,
+    "direction": "forward"
+   }
+  ]
+ }
+}

@@ -56,6 +56,11 @@ pub enum Cue {
     Allure,
     Hellgate,
     Chain,
+    Scythe,
+    Cross,
+    Sigil,
+    /// A sigil blasted on a bounce (Broken Seal).
+    SealBlast,
     /// A charmed enemy burst (Siren's Dominion).
     SirenBurst,
     /// An Abyssal Offering was opened.
@@ -72,8 +77,8 @@ pub enum Cue {
     Arrival,
 }
 
-/// Every distinct cue fits: 13 plus a second hit kind and one kill per family.
-const MAX_CUES: usize = 16;
+/// Every distinct cue fits (21 so far).
+const MAX_CUES: usize = 24;
 
 pub struct Player {
     pub pos: Vec2,
@@ -183,6 +188,8 @@ pub struct Game {
     hash: SpatialHash,
     /// Spawn ring radius, derived from the view size (see `set_view`).
     spawn_ring: f32,
+    /// Logical size of the view around Veyra (see `set_view`).
+    view: Vec2,
     pub(crate) spawn_acc: f32,
     next_event: usize,
     unlocked: [bool; ENEMY_DEFS.len()],
@@ -233,15 +240,18 @@ impl Game {
             cues: Vec::with_capacity(MAX_CUES),
             hash: SpatialHash::new(HASH_CELL, HASH_COLS, HASH_ROWS, MAX_ENEMIES),
             spawn_ring: Self::ring_radius(Vec2::new(DEFAULT_VIEW_W, LOGICAL_H)),
+            view: Vec2::new(DEFAULT_VIEW_W, LOGICAL_H),
             spawn_acc: 0.0,
             next_event: 0,
             unlocked: [false; ENEMY_DEFS.len()],
         }
     }
 
-    /// Keeps spawns just outside a view of `size` logical pixels.
+    /// Keeps spawns just outside a view of `size` logical pixels (and the Wandering
+    /// Sigil inside it).
     pub fn set_view(&mut self, size: Vec2) {
         self.spawn_ring = Self::ring_radius(size);
+        self.view = size;
     }
 
     fn ring_radius(view: Vec2) -> f32 {
@@ -441,6 +451,7 @@ impl Game {
             enemies: &mut self.enemies,
             hash: &self.hash,
             time: self.time,
+            view: self.view,
         };
         let cues = self.arts.update(&mut world, alive);
         for (on, cue) in [
@@ -450,6 +461,10 @@ impl Game {
             (cues.charmed, Cue::Allure),
             (cues.gated, Cue::Hellgate),
             (cues.chained, Cue::Chain),
+            (cues.reaped, Cue::Scythe),
+            (cues.crossed, Cue::Cross),
+            (cues.sigiled, Cue::Sigil),
+            (cues.sealed, Cue::SealBlast),
             (cues.burst, Cue::SirenBurst),
             (cues.hits[0], Cue::Hit { armored: false }),
             (cues.hits[1], Cue::Hit { armored: true }),
@@ -1333,7 +1348,7 @@ mod tests {
 
     #[test]
     fn stress_at_enemy_cap_with_every_art_evolved() {
-        const STRESS_HP: f32 = 20000.0;
+        const STRESS_HP: f32 = 100000.0;
         macroquad::rand::srand(7);
         let mut g = Game::new();
         g.upgrades.arts = [ART_MAX_LEVEL; ARTS.len()];
@@ -1372,6 +1387,10 @@ mod tests {
             assert!(g.arts.gates.capacity() == MAX_GATES);
             assert!(g.arts.chains.capacity() == MAX_CHAINS);
             assert!(g.arts.siren_bursts.capacity() == MAX_SIREN_BURSTS);
+            assert!(g.arts.scythes.capacity() == MAX_SCYTHES);
+            assert!(g.arts.crosses.capacity() == MAX_CROSSES);
+            assert!(g.arts.sigils.capacity() == MAX_SIGILS);
+            assert!(g.arts.seal_blasts.capacity() == MAX_SEAL_BLASTS);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);
             assert!(g.bursts.capacity() == MAX_BURST_PIXELS);

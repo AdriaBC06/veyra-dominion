@@ -158,6 +158,41 @@ pub const WEAK_TINT: u32 = 0xe6c8ff;
 /// Motes drifting up through the haze, and its colour (RGB).
 pub const SCENT_MOTES: usize = 18;
 pub const SCENT_COLOR: u32 = 0xff4fb0;
+/// Reaper's Scythe: scythes leave her hands upwards at the Art's speed, always
+/// symmetric: an odd one straight up, the rest in pairs to either side, each pair
+/// `SCYTHE_SPREAD` px/s wider. They fall at `SCYTHE_GRAVITY`; each hits an enemy once,
+/// through `pierce` more. Hit radii here and below are at area 1.
+pub const SCYTHE_RADIUS: f32 = 8.0;
+pub const SCYTHE_GRAVITY: f32 = 620.0;
+pub const SCYTHE_SPREAD: f32 = 80.0;
+pub const MAX_SCYTHES: usize = 64;
+/// Ids a scythe, cross or sigil remembers between resets (a fuller list stops
+/// hitting until it resets).
+pub const PIERCE_MEMORY: usize = 48;
+/// Spinning sprites turn this many times per second and float this high.
+pub const SCYTHE_SPIN: f32 = 2.5;
+pub const SCYTHE_DRAW_HEIGHT: f32 = 14.0;
+/// Profaned Cross: thrown at a foe within `CROSS_RANGE` (the first at the nearest),
+/// it slows by `CROSS_DECEL` px/s², turns back and chases her, speeding up by as much,
+/// until it is back in her hands (within `CROSS_CATCH`; `CROSS_MAX_LIFE` at most). It
+/// hits each enemy once on the way out and once on the way back.
+pub const CROSS_RANGE: f32 = 260.0;
+pub const CROSS_RADIUS: f32 = 10.0;
+pub const CROSS_CATCH: f32 = 10.0;
+pub const CROSS_MAX_LIFE: f32 = 10.0;
+pub const CROSS_DECEL: f32 = 240.0;
+pub const MAX_CROSSES: usize = 32;
+pub const CROSS_SPIN: f32 = 3.0;
+pub const CROSS_DRAW_HEIGHT: f32 = 14.0;
+/// Wandering Sigil: it flies off in a random direction and bounces off the edges of
+/// the view (`SIGIL_MARGIN` inside them); it forgets whom it hit at each bounce.
+pub const SIGIL_RADIUS: f32 = 7.0;
+pub const SIGIL_MARGIN: f32 = 8.0;
+pub const MAX_SIGILS: usize = 32;
+pub const SIGIL_SPIN: f32 = 1.0;
+pub const SIGIL_DRAW_HEIGHT: f32 = 12.0;
+/// Sigils fade out over their last this many seconds.
+pub const SIGIL_FADE: f32 = 0.3;
 
 // --- Evolutions (7.7), opened by Abyssal Offerings --------------------------
 /// Kiss of Ruin (Hellflare evolved): each volley throws `KISS_EXTRA` more shots, as
@@ -195,6 +230,29 @@ pub const TORMENT_RADIUS: f32 = 96.0;
 /// `MUSK_HEAL_CAP` per second.
 pub const MUSK_HEAL: f32 = 0.5;
 pub const MUSK_HEAL_CAP: f32 = 3.0;
+/// Midnight Harvest: `HARVEST_EXTRA` more scythes fly out evenly all round at
+/// `HARVEST_SPEED`, curling at `HARVEST_CURL` rad/s, hitting everything they cross
+/// (`HARVEST_RADIUS` times area) for `HARVEST_LIFE`.
+pub const HARVEST_EXTRA: u32 = 5;
+pub const HARVEST_SPEED: f32 = 170.0;
+pub const HARVEST_CURL: f32 = 1.2;
+pub const HARVEST_RADIUS: f32 = 11.0;
+pub const HARVEST_LIFE: f32 = 2.4;
+/// Heretic's Brand: one more cross, and every enemy a cross hits burns for
+/// `BRAND_BURN` (times Sloth), taking `BRAND_SHARE` of its damage every `BRAND_TICK`.
+pub const BRAND_EXTRA: u32 = 1;
+pub const BRAND_BURN: f32 = 2.0;
+pub const BRAND_TICK: f32 = 0.5;
+pub const BRAND_SHARE: f32 = 0.3;
+/// Broken Seal: every bounce the sigil blasts everything within `SEAL_BLAST_RADIUS`
+/// (times area) for `SEAL_BLAST_DAMAGE` times its damage; the blast shows for
+/// `SEAL_BLAST_TIME`.
+pub const SEAL_BLAST_RADIUS: f32 = 30.0;
+pub const SEAL_BLAST_DAMAGE: f32 = 1.5;
+pub const SEAL_BLAST_TIME: f32 = 0.3;
+pub const MAX_SEAL_BLASTS: usize = 32;
+/// Sparks on a blast's ring.
+pub const SEAL_BLAST_SPARKS: usize = 16;
 /// Abyssal Offerings: dropped by elites, opened when Veyra gets this close. One with
 /// nothing to evolve or level up heals `OFFERING_HEAL` instead. Sacrificed (rejected),
 /// an Offering heals `SACRIFICE_HEAL` and gives `SACRIFICE_XP` souls' worth of XP.

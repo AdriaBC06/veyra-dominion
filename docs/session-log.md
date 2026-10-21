@@ -86,3 +86,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - pxl reinstalled on the new PC by the user (running external code was blocked for me); it rebuilds the old sprites byte for byte.
   - Not done: a sized Tail Lash sprite instead of the horizontal stretch (offered, no answer yet).
   - Next: V17d (Reaper's Scythe, Profaned Cross, Wandering Sigil + Midnight Harvest, Heretic's Brand, Broken Seal), then V17e, V17f.
+- **S14b part 2 (2026-10-21)** — V17d done and approved (see 7.7 "Built in V17d"): Reaper's Scythe, Profaned Cross, Wandering Sigil + Midnight Harvest, Heretic's Brand, Broken Seal. 10 Arts, 142 tests, stress 1.06 ms.
+  - Changed after the user's first look: crosses ×1.2 and they return to Veyra (chasing her, gone only when caught) instead of to the throw point; scythes always symmetric (odd one straight up, pairs to the sides) and +15% area at 3, 5, 7; area (Dark Sigil) now grows the sprites too, via 6 baked size tiers.
+  - Decisions taken alone: brand burn 2 s at 30%, seal blast 1.5×, sigil Sloth-scaled but scythe/cross flights not, `HitList` ring of 48 ids, `STRESS_HP` 100000, atlas 1024.
+  - Offered, no answer yet: size tiers for Hellflare fireballs / Kiss hearts too.
+  - Next: V17e (Bat Swarm, Black Mass, Gaze of Desire + Crimson Host, Witches' Sabbath, Evil Eye).

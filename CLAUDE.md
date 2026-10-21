@@ -48,4 +48,6 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 - `cargo fmt` reflows long calls; re-read before scripted edits. A scripted `str.replace` on a block that appears twice edits both; assert the count.
 - Timing asserts (charm expiry etc.) need a 2-tick margin.
 - pxl lives in `.claude/skills/pxl-pixel-art` (cloned from github.com/crsolver/claude-pxl, excluded in `.git/info/exclude`, not in the repo). Build with `--out assets/sprites/arts`, then delete the `_preview/` folder and the `.gif`s it writes next to the strips.
-- Stress test baseline on this PC: ~1.3 ms mean tick (`cargo test --release stress -- --nocapture`).
+- Area-grown Arts (Scythe, Cross, Sigil) are never scaled at runtime: `tiered()` in `assets/arts.px.js` bakes 6 sizes (`<name>_0..5`), picked with `assets::size_tier(area)`. A new sized sprite needs its `SpriteId`s, `frame_ms`, `SHEETS` rows and json test entries per tier; the atlas is 1024×1024.
+- Capture runs (sandboxed) segfault on exit after the PNGs are written; harmless so far.
+- Stress test baseline on this PC: ~1.1 ms mean tick (`cargo test --release stress -- --nocapture`, `STRESS_HP` 100000 so the horde stays near full).

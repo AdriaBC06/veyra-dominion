@@ -1,0 +1,190 @@
+{
+ "frames": {
+  "scythe_3_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  },
+  "scythe_3_1": {
+   "frame": {
+    "x": 35,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  },
+  "scythe_3_2": {
+   "frame": {
+    "x": 70,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  },
+  "scythe_3_3": {
+   "frame": {
+    "x": 105,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  },
+  "scythe_3_4": {
+   "frame": {
+    "x": 140,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  },
+  "scythe_3_5": {
+   "frame": {
+    "x": 175,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  },
+  "scythe_3_6": {
+   "frame": {
+    "x": 210,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  },
+  "scythe_3_7": {
+   "frame": {
+    "x": 245,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 35
+   },
+   "duration": 50
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "scythe_3.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 280,
+   "h": 35
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "scythe_3",
+    "from": 0,
+    "to": 7,
+    "direction": "forward"
+   }
+  ]
+ }
+}

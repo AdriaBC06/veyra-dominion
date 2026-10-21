@@ -1,0 +1,190 @@
+{
+ "frames": {
+  "cross_burning_5_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  },
+  "cross_burning_5_1": {
+   "frame": {
+    "x": 47,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  },
+  "cross_burning_5_2": {
+   "frame": {
+    "x": 94,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  },
+  "cross_burning_5_3": {
+   "frame": {
+    "x": 141,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  },
+  "cross_burning_5_4": {
+   "frame": {
+    "x": 188,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  },
+  "cross_burning_5_5": {
+   "frame": {
+    "x": 235,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  },
+  "cross_burning_5_6": {
+   "frame": {
+    "x": 282,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  },
+  "cross_burning_5_7": {
+   "frame": {
+    "x": 329,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 47,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 47,
+    "h": 47
+   },
+   "duration": 40
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "cross_burning_5.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 376,
+   "h": 47
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "cross_burning_5",
+    "from": 0,
+    "to": 7,
+    "direction": "forward"
+   }
+  ]
+ }
+}

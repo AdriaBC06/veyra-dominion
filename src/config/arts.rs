@@ -1,6 +1,8 @@
 //! The Arts table: per-Art base numbers and level gains (docs/design.md 7.7).
 
-use super::{BLOODLUST, DARK_SIGIL, GLUTTONY, LEGION, LUST, SLOTH, WRATH};
+use super::{
+    BLOODLUST, DARK_SIGIL, GLUTTONY, INFERNAL_HIDE, LEGION, LUST, NIGHT_WINGS, SLOTH, WRATH,
+};
 use crate::i18n::Key;
 
 pub const MAX_ARTS: usize = 6;
@@ -15,20 +17,26 @@ pub enum ArtKind {
     Hellgate,
     ChainOfTorment,
     ScentOfSin,
+    ReapersScythe,
+    ProfanedCross,
+    WanderingSigil,
 }
 
 /// An Art's numbers at some level. Each Art reads the ones it uses:
 /// - `amount`: fireballs per volley, lashes per attack, flames, enemies charmed per
-///   pulse, pools per cast, enemies a chain bites (the Scent has none);
+///   pulse, pools per cast, enemies a chain bites, scythes, crosses and sigils (the
+///   Scent has none);
 /// - `cooldown`: seconds between attacks (the Halo: seconds off between spells; the
 ///   Scent: between burns);
 /// - `area`: lash reach, Halo orbit radius, Allure radius, pool size, chain jump, haze
-///   radius and rift pull multiplier;
+///   radius, rift pull multiplier, and the size of scythes, crosses and sigils (sprite
+///   and hit);
 /// - `speed`: projectile pixels per second (the Halo: radians per second);
-/// - `pierce`: unused so far;
+/// - `pierce`: enemies a scythe goes through after the first;
 /// - `duration`: projectile lifetime (the Halo: seconds each spell burns; Allure:
-///   charm; Hellgate: pool life; Tail Lash: bleed once evolved; the Scent: weakness).
-///   Sloth lengthens every one but the projectile lifetimes.
+///   charm; Hellgate: pool life; Tail Lash: bleed once evolved; the Scent: weakness;
+///   the Sigil: how long it wanders; the Cross has none, it flies until it is back).
+///   Sloth lengthens every one but the projectile flights (see `ArtDef::sloth`).
 /// - `damage`: per hit (Allure: per pulse and per charmed bite; Hellgate and the
 ///   Scent: per burn).
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -93,8 +101,11 @@ pub const ALLURE: usize = 3;
 pub const HELLGATE: usize = 4;
 pub const CHAIN_OF_TORMENT: usize = 5;
 pub const SCENT_OF_SIN: usize = 6;
+pub const REAPERS_SCYTHE: usize = 7;
+pub const PROFANED_CROSS: usize = 8;
+pub const WANDERING_SIGIL: usize = 9;
 
-pub const ARTS: [ArtDef; 7] = [
+pub const ARTS: [ArtDef; 10] = [
     // Fireballs at the nearest enemy (Magic Wand). Evolves into Kiss of Ruin.
     ArtDef {
         kind: ArtKind::Hellflare,
@@ -471,9 +482,184 @@ pub const ARTS: [ArtDef; 7] = [
             desc: Key::EvoDevouringMuskDesc,
         },
     },
+    // Scythes thrown high that fall back through the horde (Axe), bigger every other
+    // level.
+    ArtDef {
+        kind: ArtKind::ReapersScythe,
+        name: Key::ArtReapersScythe,
+        desc: Key::ArtReapersScytheDesc,
+        amount_key: Key::ArtMoreScythes,
+        base: ArtStats {
+            damage: 20.0,
+            cooldown: 2.0,
+            amount: 1,
+            area: 1.0,
+            speed: 300.0,
+            pierce: 2,
+            duration: 1.6,
+        },
+        gains: [
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 10.0,
+                area: 0.15,
+                ..NO_GAIN
+            },
+            ArtGain {
+                pierce: 2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                area: 0.15,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 10.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                pierce: 2,
+                cooldown: 0.1,
+                area: 0.15,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                damage: 10.0,
+                ..NO_GAIN
+            },
+        ],
+        evolution: Evolution {
+            sin: NIGHT_WINGS,
+            name: Key::EvoMidnightHarvest,
+            desc: Key::EvoMidnightHarvestDesc,
+        },
+    },
+    // An inverted cross thrown at a foe that comes back to her like a boomerang
+    // (Cross). Speed carries it further.
+    ArtDef {
+        kind: ArtKind::ProfanedCross,
+        name: Key::ArtProfanedCross,
+        desc: Key::ArtProfanedCrossDesc,
+        amount_key: Key::ArtMoreCrosses,
+        base: ArtStats {
+            damage: 10.0,
+            cooldown: 1.8,
+            amount: 1,
+            area: 1.0,
+            speed: 260.0,
+            pierce: 0,
+            duration: 0.0,
+        },
+        gains: [
+            ArtGain {
+                damage: 10.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.1,
+                speed: 0.25,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 10.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.1,
+                speed: 0.25,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 10.0,
+                ..NO_GAIN
+            },
+        ],
+        evolution: Evolution {
+            sin: WRATH,
+            name: Key::EvoHereticsBrand,
+            desc: Key::EvoHereticsBrandDesc,
+        },
+    },
+    // Her sigil wandering the screen, bouncing off its edges (Runetracer).
+    ArtDef {
+        kind: ArtKind::WanderingSigil,
+        name: Key::ArtWanderingSigil,
+        desc: Key::ArtWanderingSigilDesc,
+        amount_key: Key::ArtMoreSigils,
+        base: ArtStats {
+            damage: 10.0,
+            cooldown: 3.0,
+            amount: 1,
+            area: 1.0,
+            speed: 250.0,
+            pierce: 0,
+            duration: 2.25,
+        },
+        gains: [
+            ArtGain {
+                damage: 5.0,
+                speed: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 5.0,
+                duration: 0.3,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 5.0,
+                speed: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 5.0,
+                duration: 0.3,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                duration: 0.5,
+                ..NO_GAIN
+            },
+        ],
+        evolution: Evolution {
+            sin: INFERNAL_HIDE,
+            name: Key::EvoBrokenSeal,
+            desc: Key::EvoBrokenSealDesc,
+        },
+    },
 ];
 
 impl ArtDef {
+    /// Whether Sloth lengthens `duration`: not where it is a projectile's flight, which
+    /// is its range.
+    pub fn sloth(&self) -> bool {
+        !matches!(
+            self.kind,
+            ArtKind::Hellflare | ArtKind::ReapersScythe | ArtKind::ProfanedCross
+        )
+    }
+
     /// Numbers at `level` (1..=ART_MAX_LEVEL): the base plus every gain up to it.
     pub fn stats(&self, level: u8) -> ArtStats {
         let mut s = self.base;

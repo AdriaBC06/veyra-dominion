@@ -77,7 +77,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S14b — Arts & Sins redesign** *(user approval; see 7.7 "Redesign direction"; one commit per task)*
   - [x] Review the evolution pairs with the user (7.7, agreed 2026-10-21)
   - [x] V17b Rework the 7 existing Arts (Kiss → Hellflare evolution, Wing Gust → Scent of Sin), 12 Sins, Offering sacrifice (+ F2 debug panel, Veyra centred on her hitbox)
-  - [ ] V17d Reaper's Scythe, Profaned Cross, Wandering Sigil (+ evolutions)
+  - [x] V17d Reaper's Scythe, Profaned Cross, Wandering Sigil (+ evolutions)
   - [ ] V17e Bat Swarm, Black Mass, Gaze of Desire (+ evolutions)
   - [ ] V17f Thralls + Allure/Thralls union
 - **S14c — Icons** *(user approval)*

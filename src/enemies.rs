@@ -25,6 +25,8 @@ pub struct Enemies {
     pub weak_until: Vec<f32>,
     /// Game time until which it bleeds (Barbed Scourge).
     pub bleed_until: Vec<f32>,
+    /// Game time until which it burns (Heretic's Brand).
+    pub burn_until: Vec<f32>,
     next_uid: u32,
     /// Live enemies per kind, so the largest radius in play is cheap to find.
     counts: [u32; ENEMY_DEFS.len()],
@@ -45,6 +47,7 @@ impl Enemies {
             charm_until: Vec::with_capacity(n),
             weak_until: Vec::with_capacity(n),
             bleed_until: Vec::with_capacity(n),
+            burn_until: Vec::with_capacity(n),
             next_uid: 0,
             counts: [0; ENEMY_DEFS.len()],
         }
@@ -77,6 +80,7 @@ impl Enemies {
         self.charm_until.push(0.0);
         self.weak_until.push(0.0);
         self.bleed_until.push(0.0);
+        self.burn_until.push(0.0);
         self.counts[kind] += 1;
     }
 
@@ -94,6 +98,7 @@ impl Enemies {
         self.charm_until.swap_remove(i);
         self.weak_until.swap_remove(i);
         self.bleed_until.swap_remove(i);
+        self.burn_until.swap_remove(i);
     }
 
     /// Largest collision radius among the kinds currently alive (0 when empty); spatial

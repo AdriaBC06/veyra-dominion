@@ -28,6 +28,10 @@ pub enum Sfx {
     Hellgate,
     Chain,
     Gust,
+    Scythe,
+    Cross,
+    Sigil,
+    SealBlast,
     SirenBurst,
     Offering,
     Hit,
@@ -49,7 +53,7 @@ pub enum Sfx {
 }
 
 impl Sfx {
-    pub const COUNT: usize = 25;
+    pub const COUNT: usize = 29;
     pub const ALL: [Sfx; Sfx::COUNT] = [
         Sfx::Fire,
         Sfx::Lash,
@@ -58,6 +62,10 @@ impl Sfx {
         Sfx::Hellgate,
         Sfx::Chain,
         Sfx::Gust,
+        Sfx::Scythe,
+        Sfx::Cross,
+        Sfx::Sigil,
+        Sfx::SealBlast,
         Sfx::SirenBurst,
         Sfx::Offering,
         Sfx::Hit,
@@ -87,6 +95,10 @@ impl Sfx {
             Sfx::Hellgate => "hellgate",
             Sfx::Chain => "chain",
             Sfx::Gust => "gust",
+            Sfx::Scythe => "scythe",
+            Sfx::Cross => "cross",
+            Sfx::Sigil => "sigil",
+            Sfx::SealBlast => "seal_blast",
             Sfx::SirenBurst => "siren_burst",
             Sfx::Offering => "offering",
             Sfx::Hit => "hit",
@@ -115,14 +127,21 @@ impl Sfx {
             | Sfx::Lash
             | Sfx::Chain
             | Sfx::Gust
+            | Sfx::Scythe
+            | Sfx::SealBlast
             | Sfx::Hit
             | Sfx::HitArmored
             | Sfx::KillBeast
             | Sfx::KillHuman
             | Sfx::KillArmored => &JITTER,
-            Sfx::Hurt | Sfx::UiMove | Sfx::Kiss | Sfx::Allure | Sfx::Hellgate | Sfx::SirenBurst => {
-                &JITTER[1..4]
-            }
+            Sfx::Hurt
+            | Sfx::UiMove
+            | Sfx::Kiss
+            | Sfx::Allure
+            | Sfx::Hellgate
+            | Sfx::SirenBurst
+            | Sfx::Cross
+            | Sfx::Sigil => &JITTER[1..4],
             Sfx::Soul => &COMBO_STEPS,
             _ => &[0.0],
         }
@@ -138,6 +157,10 @@ impl Sfx {
             Sfx::Hellgate => 0.5,
             Sfx::Chain => 0.3,
             Sfx::Gust => 0.4,
+            Sfx::Scythe => 0.3,
+            Sfx::Cross => 0.6,
+            Sfx::Sigil => 0.4,
+            Sfx::SealBlast => 0.35,
             Sfx::SirenBurst => 0.4,
             Sfx::Offering => 2.0,
             Sfx::Hit => 0.1,
@@ -169,6 +192,10 @@ impl Sfx {
             | Sfx::Hellgate
             | Sfx::Chain
             | Sfx::Gust
+            | Sfx::Scythe
+            | Sfx::Cross
+            | Sfx::Sigil
+            | Sfx::SealBlast
             | Sfx::SirenBurst => 2,
             Sfx::UiMove | Sfx::UiConfirm | Sfx::UiBack => 2,
             _ => 1,
@@ -182,7 +209,14 @@ impl Sfx {
             Sfx::HitArmored | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored | Sfx::Soul => {
                 0.04
             }
-            Sfx::Fire | Sfx::Lash | Sfx::Kiss | Sfx::Chain | Sfx::Gust | Sfx::SirenBurst => 0.05,
+            Sfx::Fire
+            | Sfx::Lash
+            | Sfx::Kiss
+            | Sfx::Chain
+            | Sfx::Gust
+            | Sfx::Scythe
+            | Sfx::SealBlast
+            | Sfx::SirenBurst => 0.05,
             _ => 0.0,
         }
     }
@@ -197,6 +231,10 @@ impl Sfx {
             Sfx::Hellgate => 0.125,
             Sfx::Chain => 0.14,
             Sfx::Gust => 0.09,
+            Sfx::Scythe => 0.1,
+            Sfx::Cross => 0.1,
+            Sfx::Sigil => 0.08,
+            Sfx::SealBlast => 0.15,
             Sfx::SirenBurst => 0.12,
             Sfx::Offering => 0.42,
             Sfx::Hit => 0.22,
@@ -665,6 +703,96 @@ fn patch(sfx: Sfx) -> Patch {
         }
         // Siren's Dominion: the charm snaps. A wet pop under a sine that falls from
         // the leitmotif's tritone (G#) down to D, the spell turning on its victim.
+        // Reaper's Scythe: the blade whirling up through the air, a rising whoosh with
+        // a thin steel ring on a high D (and its fifth) over it.
+        Sfx::Scythe => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: 36.0,
+                    ..env(&[2, 4, 6, 6, 5, 3, 2, 1, 0])
+                },
+                Instrument {
+                    sweep: -12.0,
+                    ..with_duty(env(&[7, 6, 4, 3, 2, 1, 1, 0]), 0)
+                },
+                env(&[3, 3, 2, 1, 1, 0]),
+            ],
+            notes: vec![
+                note(0.0, Noise, 74.0, 0, 1.0),
+                note(0.04, Pulse1, 98.0, 1, 0.5),
+                note(0.04, Wave, 93.0, 2, 0.6),
+            ],
+            echo: dry,
+        },
+        // Profaned Cross: a cracked church bell struck once, D with the tritone (G#)
+        // grating above it, over the swish of the throw.
+        Sfx::Cross => Patch {
+            instruments: vec![
+                env(&fade(10, 22)),
+                with_duty(env(&fade(5, 14)), 1),
+                Instrument {
+                    sweep: 20.0,
+                    ..env(&[1, 3, 4, 3, 2, 1, 0])
+                },
+            ],
+            notes: vec![
+                note(0.0, Triangle, 62.0, 0, 1.0),
+                note(0.0, Pulse2, 80.0, 1, 0.5),
+                note(0.0, Noise, 84.0, 2, 1.0),
+            ],
+            echo: Echo {
+                delay: 0.09,
+                feedback: 0.25,
+                mix: 0.2,
+            },
+        },
+        // Wandering Sigil: her sigil lighting up, a glassy arpeggio climbing D, F, G#
+        // and the octave, shimmering as it leaves.
+        Sfx::Sigil => Patch {
+            instruments: vec![
+                Instrument {
+                    arp: Macro::new(&[0, 0, 3, 3, 6, 6, 12]),
+                    vibrato: Vibrato {
+                        depth: 0.2,
+                        rate_hz: 9.0,
+                        delay: 0.1,
+                    },
+                    ..env(&[5, 8, 8, 7, 6, 5, 4, 3, 2, 2, 1, 1, 0])
+                },
+                env(&[2, 3, 2, 1, 0]),
+            ],
+            notes: vec![
+                note(0.0, Wave, 86.0, 0, 1.0),
+                note(0.0, Noise, 96.0, 1, 1.0),
+            ],
+            echo: Echo {
+                delay: 0.07,
+                feedback: 0.3,
+                mix: 0.25,
+            },
+        },
+        // Broken Seal: the seal shattering, a crack and a low thump with a glassy
+        // shard falling a tritone.
+        Sfx::SealBlast => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: -40.0,
+                    ..env(&[14, 10, 6, 3, 1, 0])
+                },
+                with_duty(env(&[12, 7, 3, 1, 0]), 1),
+                Instrument {
+                    arp: Macro::new(&[6, 6, 0]),
+                    sweep: -30.0,
+                    ..with_duty(env(&[8, 6, 4, 2, 1, 0]), 0)
+                },
+            ],
+            notes: vec![
+                note(0.0, Triangle, 45.0, 0, 1.0),
+                note(0.0, Noise, 100.0, 1, 1.0),
+                note(0.01, Pulse1, 86.0, 2, 0.7),
+            ],
+            echo: dry,
+        },
         Sfx::SirenBurst => Patch {
             instruments: vec![
                 Instrument {

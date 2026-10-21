@@ -31,13 +31,78 @@ pub enum SpriteId {
     GateFlame,
     ChainSpark,
     Offering,
+    Scythe0,
+    Scythe1,
+    Scythe2,
+    Scythe3,
+    Scythe4,
+    Scythe5,
+    Cross0,
+    Cross1,
+    Cross2,
+    Cross3,
+    Cross4,
+    Cross5,
+    CrossBurning0,
+    CrossBurning1,
+    CrossBurning2,
+    CrossBurning3,
+    CrossBurning4,
+    CrossBurning5,
+    Sigil0,
+    Sigil1,
+    Sigil2,
+    Sigil3,
+    Sigil4,
+    Sigil5,
     Fireball,
     Smoke,
     Soul,
     Ground,
 }
 
-const SPRITE_COUNT: usize = 24;
+const SPRITE_COUNT: usize = 48;
+
+/// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
+/// times the base sprite.
+pub const SIZE_TIERS: usize = 6;
+pub const SCYTHE_TIERS: [SpriteId; SIZE_TIERS] = [
+    SpriteId::Scythe0,
+    SpriteId::Scythe1,
+    SpriteId::Scythe2,
+    SpriteId::Scythe3,
+    SpriteId::Scythe4,
+    SpriteId::Scythe5,
+];
+pub const CROSS_TIERS: [SpriteId; SIZE_TIERS] = [
+    SpriteId::Cross0,
+    SpriteId::Cross1,
+    SpriteId::Cross2,
+    SpriteId::Cross3,
+    SpriteId::Cross4,
+    SpriteId::Cross5,
+];
+pub const CROSS_BURNING_TIERS: [SpriteId; SIZE_TIERS] = [
+    SpriteId::CrossBurning0,
+    SpriteId::CrossBurning1,
+    SpriteId::CrossBurning2,
+    SpriteId::CrossBurning3,
+    SpriteId::CrossBurning4,
+    SpriteId::CrossBurning5,
+];
+pub const SIGIL_TIERS: [SpriteId; SIZE_TIERS] = [
+    SpriteId::Sigil0,
+    SpriteId::Sigil1,
+    SpriteId::Sigil2,
+    SpriteId::Sigil3,
+    SpriteId::Sigil4,
+    SpriteId::Sigil5,
+];
+
+/// The tier closest to `area` (clamped to the baked ones).
+pub fn size_tier(area: f32) -> usize {
+    (((area - 1.0) * 4.0).round().max(0.0) as usize).min(SIZE_TIERS - 1)
+}
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -45,8 +110,8 @@ pub const FLASH_FRAME_OFFSET: usize = 2;
 pub const GROUND_TILE: u16 = 32;
 pub const GROUND_VARIANTS: usize = 6;
 
-const ATLAS_W: u16 = 512;
-const ATLAS_H: u16 = 512;
+const ATLAS_W: u16 = 1024;
+const ATLAS_H: u16 = 1024;
 
 /// Veyra's layers (`assets/veyra.px.js`) are 66x50 frames sharing one origin; the
 /// pivot sits under her hips and she faces left.
@@ -127,6 +192,30 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
 
         SpriteId::ChainSpark => &[63; 2],
         SpriteId::Offering => &[167; 4],
+        SpriteId::Scythe0
+        | SpriteId::Scythe1
+        | SpriteId::Scythe2
+        | SpriteId::Scythe3
+        | SpriteId::Scythe4
+        | SpriteId::Scythe5
+        | SpriteId::Sigil0
+        | SpriteId::Sigil1
+        | SpriteId::Sigil2
+        | SpriteId::Sigil3
+        | SpriteId::Sigil4
+        | SpriteId::Sigil5 => &[50; 8],
+        SpriteId::Cross0
+        | SpriteId::Cross1
+        | SpriteId::Cross2
+        | SpriteId::Cross3
+        | SpriteId::Cross4
+        | SpriteId::Cross5
+        | SpriteId::CrossBurning0
+        | SpriteId::CrossBurning1
+        | SpriteId::CrossBurning2
+        | SpriteId::CrossBurning3
+        | SpriteId::CrossBurning4
+        | SpriteId::CrossBurning5 => &[40; 8],
         _ => &[],
     }
 }
@@ -178,6 +267,30 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     art!(GateFlame, "gate_flame"),
     art!(ChainSpark, "chain_spark"),
     art!(Offering, "offering"),
+    art!(Scythe0, "scythe_0"),
+    art!(Scythe1, "scythe_1"),
+    art!(Scythe2, "scythe_2"),
+    art!(Scythe3, "scythe_3"),
+    art!(Scythe4, "scythe_4"),
+    art!(Scythe5, "scythe_5"),
+    art!(Cross0, "cross_0"),
+    art!(Cross1, "cross_1"),
+    art!(Cross2, "cross_2"),
+    art!(Cross3, "cross_3"),
+    art!(Cross4, "cross_4"),
+    art!(Cross5, "cross_5"),
+    art!(CrossBurning0, "cross_burning_0"),
+    art!(CrossBurning1, "cross_burning_1"),
+    art!(CrossBurning2, "cross_burning_2"),
+    art!(CrossBurning3, "cross_burning_3"),
+    art!(CrossBurning4, "cross_burning_4"),
+    art!(CrossBurning5, "cross_burning_5"),
+    art!(Sigil0, "sigil_0"),
+    art!(Sigil1, "sigil_1"),
+    art!(Sigil2, "sigil_2"),
+    art!(Sigil3, "sigil_3"),
+    art!(Sigil4, "sigil_4"),
+    art!(Sigil5, "sigil_5"),
     sheet!(Fireball, "fireball", 1, false),
     sheet!(Smoke, "smoke", 1, false),
     sheet!(Soul, "soul", 1, false),
@@ -502,6 +615,30 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/gate_flame.json"),
             include_str!("../assets/sprites/arts/anims/chain_spark.json"),
             include_str!("../assets/sprites/arts/anims/offering.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_0.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_1.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_2.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_3.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_4.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_5.json"),
+            include_str!("../assets/sprites/arts/anims/cross_0.json"),
+            include_str!("../assets/sprites/arts/anims/cross_1.json"),
+            include_str!("../assets/sprites/arts/anims/cross_2.json"),
+            include_str!("../assets/sprites/arts/anims/cross_3.json"),
+            include_str!("../assets/sprites/arts/anims/cross_4.json"),
+            include_str!("../assets/sprites/arts/anims/cross_5.json"),
+            include_str!("../assets/sprites/arts/anims/cross_burning_0.json"),
+            include_str!("../assets/sprites/arts/anims/cross_burning_1.json"),
+            include_str!("../assets/sprites/arts/anims/cross_burning_2.json"),
+            include_str!("../assets/sprites/arts/anims/cross_burning_3.json"),
+            include_str!("../assets/sprites/arts/anims/cross_burning_4.json"),
+            include_str!("../assets/sprites/arts/anims/cross_burning_5.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_0.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_1.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_2.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_3.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_4.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_5.json"),
         ];
         let arts = [
             SpriteId::TailLash,
@@ -511,6 +648,30 @@ mod tests {
             SpriteId::GateFlame,
             SpriteId::ChainSpark,
             SpriteId::Offering,
+            SpriteId::Scythe0,
+            SpriteId::Scythe1,
+            SpriteId::Scythe2,
+            SpriteId::Scythe3,
+            SpriteId::Scythe4,
+            SpriteId::Scythe5,
+            SpriteId::Cross0,
+            SpriteId::Cross1,
+            SpriteId::Cross2,
+            SpriteId::Cross3,
+            SpriteId::Cross4,
+            SpriteId::Cross5,
+            SpriteId::CrossBurning0,
+            SpriteId::CrossBurning1,
+            SpriteId::CrossBurning2,
+            SpriteId::CrossBurning3,
+            SpriteId::CrossBurning4,
+            SpriteId::CrossBurning5,
+            SpriteId::Sigil0,
+            SpriteId::Sigil1,
+            SpriteId::Sigil2,
+            SpriteId::Sigil3,
+            SpriteId::Sigil4,
+            SpriteId::Sigil5,
         ];
         for (id, json) in VEYRA.into_iter().chain(arts).zip(json) {
             let ms: Vec<u16> = json
@@ -526,6 +687,24 @@ mod tests {
                 })
                 .collect();
             assert_eq!(frame_ms(id), ms.as_slice(), "{id:?}");
+        }
+    }
+
+    #[test]
+    fn size_tiers_follow_area() {
+        assert_eq!(size_tier(0.9), 0);
+        assert_eq!(size_tier(1.0), 0);
+        assert_eq!(size_tier(1.1), 0);
+        assert_eq!(size_tier(1.45), 2);
+        assert_eq!(size_tier(2.2), 5);
+        assert_eq!(size_tier(9.0), SIZE_TIERS - 1);
+        // Each tier is bigger than the one before.
+        let (_, rects, ranges) = build();
+        let size = |id: SpriteId| (rects[ranges[id as usize].0].w as u16, 0);
+        for tiers in [SCYTHE_TIERS, CROSS_TIERS, CROSS_BURNING_TIERS, SIGIL_TIERS] {
+            for w in tiers.windows(2) {
+                assert!(size(w[1]).0 > size(w[0]).0, "{:?}", w[1]);
+            }
         }
     }
 

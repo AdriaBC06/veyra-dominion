@@ -180,6 +180,10 @@ impl Run {
                 Cue::Allure => Sfx::Allure,
                 Cue::Hellgate => Sfx::Hellgate,
                 Cue::Chain => Sfx::Chain,
+                Cue::Scythe => Sfx::Scythe,
+                Cue::Cross => Sfx::Cross,
+                Cue::Sigil => Sfx::Sigil,
+                Cue::SealBlast => Sfx::SealBlast,
                 Cue::SirenBurst => Sfx::SirenBurst,
                 Cue::Offering => Sfx::Offering,
                 Cue::Hit { armored: false } => Sfx::Hit,
@@ -340,11 +344,16 @@ impl Run {
         draw_allure_wave(game, pos);
         draw_siren_bursts(game);
         draw_charm_marks(game);
+        draw_burn_marks(game);
         draw_embers(game, pos, false);
         draw_veyra(game, pos, game.time + alpha * TICK_DT);
         draw_embers(game, pos, true);
         draw_lashes(game, pos);
         draw_chains(game);
+        draw_seal_blasts(game);
+        draw_sigils(game, alpha);
+        draw_crosses(game, alpha);
+        draw_scythes(game, alpha);
         draw_bolts(game, alpha);
         draw_projectiles(game);
     }
@@ -496,6 +505,20 @@ fn draw_charm_marks(game: &Game) {
         let bob = (TAU * 2.0 * game.time + e.phase[i]).sin().round();
         let corner = e.pos(i).round() - vec2(3.0, h + CHARM_MARK_HEIGHT + 7.0 + bob);
         draw_sprite(SpriteId::CharmHeart, frame, corner, false);
+    }
+}
+
+/// Heretic's Brand: a small flame licks the body of every burning enemy.
+fn draw_burn_marks(game: &Game) {
+    if !game.arts.evolved(PROFANED_CROSS) {
+        return;
+    }
+    let e = &game.enemies;
+    for i in (0..e.len()).filter(|&i| e.burn_until[i] > game.time) {
+        let h = ENEMY_DEFS[e.kind[i] as usize].size.1 as f32;
+        let frame = assets::anim_frame(SpriteId::GateFlame, game.time + e.phase[i], true);
+        let corner = e.pos(i).round() - vec2(3.0, (h * 0.5).round() + 6.0);
+        draw_sprite(SpriteId::GateFlame, frame, corner, false);
     }
 }
 
@@ -802,6 +825,85 @@ fn draw_scent_motes(game: &Game, pos: Vec2) {
         color.a = 0.8 * (1.0 - life);
         let p = (ground - vec2(1.0, 2.0 + life * 20.0)).round();
         draw_rectangle(p.x, p.y, 2.0, 2.0, color);
+    }
+}
+
+/// A spinning sprite (its strip holds one turn) centred `height` above `pos`,
+/// interpolated back along `vel`. `turns` counts the turns made so far.
+fn draw_spinning(
+    id: SpriteId,
+    pos: Vec2,
+    vel: Vec2,
+    alpha: f32,
+    height: f32,
+    turns: f32,
+    tint: Color,
+) {
+    let frames = assets::frame_ms(id).len();
+    let frame = ((turns.rem_euclid(1.0) * frames as f32) as usize).min(frames - 1);
+    let (_, src) = sprite(id, frame);
+    let pos = pos + vel * (alpha - 1.0) * TICK_DT;
+    let corner = pos - vec2((src.w * 0.5).floor(), (src.h * 0.5).floor() + height);
+    // Mirrored, the strip turns the other way: scythes spin the way they fly.
+    draw_sprite_tinted(id, frame, corner, vel.x < 0.0, tint);
+}
+
+/// Reaper's Scythes, spinning as they fly, as big as their area.
+fn draw_scythes(game: &Game, alpha: f32) {
+    let id = assets::SCYTHE_TIERS[assets::size_tier(game.arts.stats[REAPERS_SCYTHE].area)];
+    for (k, sc) in game.arts.scythes.iter().enumerate() {
+        let turns = game.time * SCYTHE_SPIN + k as f32 * 0.37;
+        draw_spinning(id, sc.pos, sc.vel, alpha, SCYTHE_DRAW_HEIGHT, turns, WHITE);
+    }
+}
+
+/// Profaned Crosses, burning ones once evolved (Heretic's Brand), as big as their area.
+fn draw_crosses(game: &Game, alpha: f32) {
+    let tiers = if game.arts.evolved(PROFANED_CROSS) {
+        assets::CROSS_BURNING_TIERS
+    } else {
+        assets::CROSS_TIERS
+    };
+    let id = tiers[assets::size_tier(game.arts.stats[PROFANED_CROSS].area)];
+    for (k, c) in game.arts.crosses.iter().enumerate() {
+        let turns = game.time * CROSS_SPIN + k as f32 * 0.37;
+        draw_spinning(id, c.pos, c.vel, alpha, CROSS_DRAW_HEIGHT, turns, WHITE);
+    }
+}
+
+/// Wandering Sigils, their runes turning; they fade at the end of their wander.
+fn draw_sigils(game: &Game, alpha: f32) {
+    let id = assets::SIGIL_TIERS[assets::size_tier(game.arts.stats[WANDERING_SIGIL].area)];
+    for (k, g) in game.arts.sigils.iter().enumerate() {
+        let tint = Color::new(1.0, 1.0, 1.0, (g.life / SIGIL_FADE).min(1.0));
+        let turns = game.time * SIGIL_SPIN + k as f32 * 0.37;
+        // The runes keep turning one way, whichever way it flies.
+        let vel = vec2(g.vel.x.abs(), g.vel.y);
+        let at = g.pos + (vel - g.vel) * (alpha - 1.0) * TICK_DT;
+        draw_spinning(id, at, vel, alpha, SIGIL_DRAW_HEIGHT, turns, tint);
+    }
+}
+
+/// Broken Seal blasts: a flash and a ring of sparks spreading on the ground.
+fn draw_seal_blasts(game: &Game) {
+    let colors = [Color::from_hex(0xffd0dc), Color::from_hex(0xff6f9a)];
+    for b in &game.arts.seal_blasts {
+        let k = b.t / SEAL_BLAST_TIME;
+        let spread = 1.0 - (1.0 - k).powi(2);
+        let fade = 1.0 - k;
+        let center = b.pos - vec2(0.0, SIGIL_DRAW_HEIGHT * (1.0 - spread));
+        let mut flash = colors[1];
+        flash.a = 0.35 * fade * fade;
+        let r = b.radius * spread;
+        draw_ellipse(center.x, center.y, r, r * 0.5, 0.0, flash);
+        for n in 0..SEAL_BLAST_SPARKS {
+            let angle = n as f32 * TAU / SEAL_BLAST_SPARKS as f32;
+            let off = Vec2::from_angle(angle) * r;
+            let p = (center + vec2(off.x, off.y * 0.5)).round();
+            let mut c = colors[n % 2];
+            c.a = fade.min(1.0);
+            draw_rectangle(p.x - 1.0, p.y - 1.0, 2.0, 2.0, c);
+        }
     }
 }
 
