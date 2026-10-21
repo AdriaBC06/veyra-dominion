@@ -44,14 +44,27 @@ const HEART = `
   ...H...`
 anim("heart_bolt", { outline: "k", fps: 8 }, HEART, frame(), frame(grid(1, 1, "iI\nii"), grid(5, 1, "i")))
 
-// Brimstone Halo: a burning ember that flickers.
-anim("ember", { w: 7, h: 8, frames: 2, fps: 10 }, (c) => {
-  c.circ(3, 4, 3, "X")
-  c.circ(3, 4, 2, "x")
-  c.circ(3, 4, 1, "f")
-  c.px(3, 4, "F")
-  if (c.frame === 0) { c.px(3, 1, "x"); c.px(3, 0, "f"); c.px(2, 2, "f") }
-  else { c.px(4, 1, "x"); c.px(3, 2, "f"); c.px(4, 0, "x") }
+// Brimstone Halo: one big flame (V17b), a teardrop of brimstone that licks and
+// sways. 13x17; its ground point is the bottom centre.
+const FW = 13, FH = 17
+anim("ember", { w: FW, h: FH, frames: 4, fps: 10 }, (c) => {
+  const sway = [0, 1, 0, -1][c.frame]
+  const lick = [0, 1, 2, 1][c.frame]
+  for (let y = 0; y < FH; y++) {
+    const t = y / (FH - 1)                      // 0 at the tip, 1 at the base
+    // Narrow tip, widest two thirds down, rounded base.
+    const half = t < 0.7 ? 6 * Math.pow(t / 0.7, 0.8) : 6 * Math.sqrt(1 - Math.pow((t - 0.7) / 0.3, 2) * 0.55)
+    const shift = Math.round(sway * (1 - t) * 1.5)
+    for (let x = 0; x < FW; x++) {
+      const d = Math.abs(x - 6 - shift)
+      if (d > half + 0.25 || y < lick) continue
+      const core = (d / Math.max(half, 0.5)) * 0.8 + (1 - t) * 0.6
+      c.px(x, y, core > 1.05 ? "X" : core > 0.75 ? "x" : core > 0.45 ? "f" : "F")
+    }
+  }
+  // Sparks breaking off the tip.
+  if (c.frame === 1) c.px(8, 1, "f")
+  if (c.frame === 3) { c.px(4, 0, "x"); c.px(3, 2, "f") }
 })
 
 // ---- V16 ------------------------------------------------------------------
@@ -66,37 +79,23 @@ const CHARM = `
   ..H..`
 anim("charm_heart", { outline: "k", fps: 6 }, CHARM, frame(), frame(grid(1, 1, "Ii\nii"), grid(3, 1, "i")))
 
-// Hellgate: a pool of hellfire torn open in the ground, flames licking up from it.
-// 36x22; the pool's centre is at (18, 16), on the ground point.
-const GW = 36, GH = 22
-pal({ A: "#2a0612" })                                     // the abyss under the pool
-// A teardrop tongue standing on (x, y): 3 px wide at the base, a 1 px tip that sways.
-function flame(c, x, y, h, sway) {
-  for (let i = 0; i < h; i++) {
-    const t = i / Math.max(1, h - 1)
-    const xx = x + (t > 0.55 ? sway : 0)
-    if (t < 0.4) { c.px(xx - 1, y - i, "x"); c.px(xx + 1, y - i, "x") }
-    else if (t < 0.7) c.px(xx + 1, y - i, "X")
-    c.px(xx, y - i, t < 0.3 ? "F" : t < 0.6 ? "f" : t < 0.85 ? "x" : "X")
+// Hellgate (V17b): the pool itself is drawn by the game as an orange area of any size;
+// these small flames burn inside it, each on its own beat. 7x10, standing on the
+// bottom centre.
+anim("gate_flame", { w: 7, h: 10, frames: 4, fps: 10 }, (c) => {
+  const sway = [0, 1, 0, -1][c.frame]
+  const tall = [10, 9, 8, 9][c.frame]
+  for (let y = 10 - tall; y < 10; y++) {
+    const t = (y - (10 - tall)) / (tall - 1)     // 0 at the tip, 1 at the base
+    const half = t < 0.75 ? 3 * Math.pow(t / 0.75, 0.9) : 3 * Math.sqrt(1 - Math.pow((t - 0.75) / 0.25, 2) * 0.5)
+    const shift = Math.round(sway * (1 - t))
+    for (let x = 0; x < 7; x++) {
+      const d = Math.abs(x - 3 - shift)
+      if (d > half + 0.3) continue
+      const core = (d / Math.max(half, 0.5)) * 0.8 + (1 - t) * 0.7
+      c.px(x, y, core > 1.05 ? "X" : core > 0.75 ? "x" : core > 0.45 ? "f" : "F")
+    }
   }
-}
-anim("hellgate", { w: GW, h: GH, frames: 4, fps: 10 }, (c) => {
-  c.ellipse(18, 16, 17, 5, "k")
-  c.ellipse(18, 16, 16, 4, "X")
-  c.ellipse(18, 16, 14, 4, "x")
-  c.ellipse(18, 16, 11, 3, "R")
-  c.ellipse(18, 16, 9, 2, "A")
-  c.hline(13, 17, 4, "x"); c.px(17, 18, "x"); c.hline(20, 15, 3, "x")   // glowing cracks
-  // Tongues on the back rim, tall ones in the middle; each on its own beat.
-  const back = [[5, 15, 5], [9, 13, 8], [14, 12, 7], [19, 12, 11], [24, 12, 8], [28, 13, 7], [32, 15, 4]]
-  back.forEach(([x, y, top], k) => {
-    const beat = [0.6, 0.85, 1, 0.75][(c.frame + k * 3) % 4]
-    flame(c, x, y, Math.max(2, Math.round(top * beat)), (c.frame + k) % 2 ? 1 : 0)
-  })
-  // Short ones on the front rim, over the abyss.
-  ;[[11, 20, 3], [19, 21, 3], [26, 20, 3]].forEach(([x, y, top], k) => {
-    flame(c, x, y, top - ((c.frame + k) % 2), 0)
-  })
 })
 
 // Chain of Torment: the spark where the chain bites into an enemy.
@@ -112,14 +111,7 @@ anim("chain_spark", { w: 9, h: 9, frames: 2, fps: 16 }, (c) => {
   }
 })
 
-// Wing Gust: one of her feathers riding the gust, fluttering. Flies left; the game
-// flips it by its direction.
-pal({ W: "#2e0c2a", w: "#5c1c4a", v: "#7e2c64" })   // her wings
-anim("gust_feather", { outline: "k", fps: 12 }, `
-  ....ii...
-  .iivvvi..
-  IIIIIIIqq
-  .wwwww...`, frame(), frame(grid(0, 0, ".........\n..ivvvi..\nIIIIIIIqq\n..wwwwww.")))
+pal({ W: "#2e0c2a", w: "#5c1c4a", v: "#7e2c64" })   // her wings (the Offering uses them)
 
 // ---- V17 ------------------------------------------------------------------
 

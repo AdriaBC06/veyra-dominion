@@ -28,9 +28,8 @@ pub enum SpriteId {
     HeartBolt,
     Ember,
     CharmHeart,
-    Hellgate,
+    GateFlame,
     ChainSpark,
-    GustFeather,
     Offering,
     Fireball,
     Smoke,
@@ -38,7 +37,7 @@ pub enum SpriteId {
     Ground,
 }
 
-const SPRITE_COUNT: usize = 25;
+const SPRITE_COUNT: usize = 24;
 
 /// Enemy sprites have 2 animation frames followed by their white hit-flash copies.
 pub const FLASH_FRAME_OFFSET: usize = 2;
@@ -122,11 +121,11 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         SpriteId::VeyraDeath => &[143; 6],
         SpriteId::TailLash => &[63; 3],
         SpriteId::HeartBolt => &[125; 2],
-        SpriteId::Ember => &[100; 2],
+        SpriteId::Ember => &[100; 4],
         SpriteId::CharmHeart => &[167; 2],
-        SpriteId::Hellgate => &[100; 4],
+        SpriteId::GateFlame => &[100; 4],
+
         SpriteId::ChainSpark => &[63; 2],
-        SpriteId::GustFeather => &[83; 2],
         SpriteId::Offering => &[167; 4],
         _ => &[],
     }
@@ -176,9 +175,8 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     art!(HeartBolt, "heart_bolt"),
     art!(Ember, "ember"),
     art!(CharmHeart, "charm_heart"),
-    art!(Hellgate, "hellgate"),
+    art!(GateFlame, "gate_flame"),
     art!(ChainSpark, "chain_spark"),
-    art!(GustFeather, "gust_feather"),
     art!(Offering, "offering"),
     sheet!(Fireball, "fireball", 1, false),
     sheet!(Smoke, "smoke", 1, false),
@@ -501,9 +499,8 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/heart_bolt.json"),
             include_str!("../assets/sprites/arts/anims/ember.json"),
             include_str!("../assets/sprites/arts/anims/charm_heart.json"),
-            include_str!("../assets/sprites/arts/anims/hellgate.json"),
+            include_str!("../assets/sprites/arts/anims/gate_flame.json"),
             include_str!("../assets/sprites/arts/anims/chain_spark.json"),
-            include_str!("../assets/sprites/arts/anims/gust_feather.json"),
             include_str!("../assets/sprites/arts/anims/offering.json"),
         ];
         let arts = [
@@ -511,9 +508,8 @@ mod tests {
             SpriteId::HeartBolt,
             SpriteId::Ember,
             SpriteId::CharmHeart,
-            SpriteId::Hellgate,
+            SpriteId::GateFlame,
             SpriteId::ChainSpark,
-            SpriteId::GustFeather,
             SpriteId::Offering,
         ];
         for (id, json) in VEYRA.into_iter().chain(arts).zip(json) {

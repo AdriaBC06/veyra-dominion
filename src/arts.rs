@@ -25,8 +25,8 @@ pub struct Lash {
     pub t: f32,
 }
 
-/// A Kiss of Ruin heart. It goes through `pierce` more enemies, never hitting the
-/// same one twice (`hits` holds their ids).
+/// A Kiss of Ruin heart (Hellflare evolved). It goes through `pierce` more enemies,
+/// never hitting the same one twice (`hits` holds their ids).
 pub struct Bolt {
     pub pos: Vec2,
     pub vel: Vec2,
@@ -36,7 +36,7 @@ pub struct Bolt {
     hit_count: usize,
 }
 
-/// Brimstone Halo: burns for `duration`, rests for `cooldown`, and again. `t` is the
+/// Brimstone Halo: its flames burn for `duration`, rest for `cooldown`, and again. `t` is the
 /// time spent in the current phase.
 #[derive(Default)]
 pub struct Halo {
@@ -60,6 +60,8 @@ pub struct Gate {
     pub t: f32,
     pub life: f32,
     burn: f32,
+    /// Places its flames, so each pool burns in its own pattern.
+    pub seed: u32,
 }
 
 impl Gate {
@@ -84,14 +86,6 @@ impl Chain {
     }
 }
 
-/// A feather riding a Wing Gust, `height` above its ground point.
-pub struct Feather {
-    pub pos: Vec2,
-    pub vel: Vec2,
-    pub height: f32,
-    pub t: f32,
-}
-
 /// Siren's Dominion: a charmed enemy burst at `pos`, a ring of hearts spreading to
 /// `radius` over `SIREN_BURST_TIME`.
 pub struct SirenBurst {
@@ -109,7 +103,6 @@ pub struct ArtCues {
     pub charmed: bool,
     pub gated: bool,
     pub chained: bool,
-    pub gusted: bool,
     /// A charmed enemy burst (Siren's Dominion).
     pub burst: bool,
     /// A hit landed on flesh / on armour.
@@ -132,8 +125,9 @@ pub struct Arts {
     pub allure: Allure,
     pub gates: Vec<Gate>,
     pub chains: Vec<Chain>,
-    pub feathers: Vec<Feather>,
     pub siren_bursts: Vec<SirenBurst>,
+    /// Seconds since the Scent of Sin last burned (the haze swells a little then).
+    pub since_scent: f32,
     /// Level of each Art (0 = not owned), copied from `Upgrades` on `refresh`.
     levels: [u8; ARTS.len()],
     /// Arts in their evolved form, copied from `Upgrades` on `refresh`.
@@ -141,7 +135,7 @@ pub struct Arts {
     /// Effective numbers: level stats with the Sins applied.
     pub stats: [ArtStats; ARTS.len()],
     cooldown: [f32; ARTS.len()],
-    /// Kiss of Death: health it may still give back, refilled at `KISS_HEAL_CAP`/s.
+    /// Devouring Musk: health it may still give back, refilled at `MUSK_HEAL_CAP`/s.
     heal_budget: f32,
     /// Time left to the next Barbed Scourge bleed.
     bleed_clock: f32,
@@ -161,13 +155,13 @@ impl Arts {
             },
             gates: Vec::with_capacity(MAX_GATES),
             chains: Vec::with_capacity(MAX_CHAINS),
-            feathers: Vec::with_capacity(MAX_FEATHERS),
             siren_bursts: Vec::with_capacity(MAX_SIREN_BURSTS),
+            since_scent: f32::INFINITY,
             levels: [0; ARTS.len()],
             evolved: [false; ARTS.len()],
             stats: ARTS.map(|d| d.base),
             cooldown: [0.0; ARTS.len()],
-            heal_budget: KISS_HEAL_CAP,
+            heal_budget: MUSK_HEAL_CAP,
             bleed_clock: 0.0,
         };
         arts.refresh(upgrades);
@@ -194,12 +188,12 @@ impl Arts {
             s.amount += amount;
             s.area *= area;
             // Projectile lifetimes are their range, not an effect that lasts.
-            if !matches!(def.kind, ArtKind::Hellflare | ArtKind::KissOfRuin) {
+            if def.kind != ArtKind::Hellflare {
                 s.duration *= duration;
             }
             if self.evolved[i] {
                 match def.kind {
-                    ArtKind::Hellflare => s.amount += HELLSTORM_EXTRA,
+                    ArtKind::Hellflare => s.amount += KISS_EXTRA,
                     ArtKind::BrimstoneHalo => s.amount += CROWN_EXTRA,
                     _ => {}
                 }
@@ -246,12 +240,11 @@ impl Arts {
                 let attacked = match def.kind {
                     ArtKind::Hellflare => self.fire(w, &mut cues),
                     ArtKind::TailLash => self.lash(w, &mut cues),
-                    ArtKind::KissOfRuin => self.kiss(w, &mut cues),
                     ArtKind::BrimstoneHalo => false,
                     ArtKind::Allure => self.pulse(w, &mut cues),
                     ArtKind::Hellgate => self.open_gates(w, &mut cues),
                     ArtKind::ChainOfTorment => self.chain(w, &mut cues),
-                    ArtKind::WingGust => self.gust(w, &mut cues),
+                    ArtKind::ScentOfSin => self.scent(w, &mut cues),
                 };
                 if attacked {
                     self.cooldown[art] = self.stats[art].cooldown;
@@ -265,7 +258,8 @@ impl Arts {
         self.update_charmed(w, &mut cues);
         self.update_gates(w, &mut cues);
         self.update_bleed(w, &mut cues);
-        self.heal_budget = (self.heal_budget + KISS_HEAL_CAP * TICK_DT).min(KISS_HEAL_CAP);
+        self.heal_budget = (self.heal_budget + MUSK_HEAL_CAP * TICK_DT).min(MUSK_HEAL_CAP);
+        self.since_scent += TICK_DT;
         self.siren_bursts.retain_mut(|b| {
             b.t += TICK_DT;
             b.t < SIREN_BURST_TIME
@@ -274,58 +268,51 @@ impl Arts {
             c.t += TICK_DT;
             c.t < CHAIN_SHOW_TIME
         });
-        self.feathers.retain_mut(|f| {
-            f.t += TICK_DT;
-            f.pos += f.vel * TICK_DT;
-            f.t < GUST_FEATHER_LIFE
-        });
         cues
     }
 
-    /// Hellflare: a volley at the nearest enemy in range, fanned out. Hellstorm sends
-    /// each fireball at its own random enemy instead.
+    /// Hellflare: a volley at the nearest enemy in range, fanned out. Kiss of Ruin
+    /// throws piercing hearts instead.
     fn fire(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
         let from = w.player.pos;
         let Some(target) = w.hash.nearest(from, FIRE_RANGE) else {
             return false;
         };
         let s = &self.stats[HELLFLARE];
-        if self.evolved[HELLFLARE] {
-            let mut picks = [0; MAX_HELLSTORM];
-            let n = random_enemies(
-                w,
-                FIRE_RANGE,
-                &mut picks[..(s.amount as usize).min(MAX_HELLSTORM)],
-            );
-            for &j in &picks[..n] {
+        let aim = (w.enemies.pos(target) - from).normalize_or(Vec2::X);
+        let kiss = self.evolved[HELLFLARE];
+        for k in 0..s.amount {
+            let angle = (k as f32 - (s.amount - 1) as f32 * 0.5) * PROJ_SPREAD;
+            let dir = Vec2::from_angle(angle).rotate(aim);
+            if kiss {
+                if self.bolts.len() >= MAX_BOLTS {
+                    break;
+                }
+                self.bolts.push(Bolt {
+                    pos: from,
+                    vel: dir * KISS_SPEED,
+                    life: KISS_LIFE,
+                    pierce: KISS_PIERCE,
+                    hits: [u32::MAX; BOLT_MAX_HITS],
+                    hit_count: 0,
+                });
+            } else {
                 if self.projectiles.len() >= MAX_PROJECTILES {
                     break;
                 }
-                let aim = (w.enemies.pos(j) - from).normalize_or(Vec2::X);
                 self.projectiles.push(Projectile {
                     pos: from,
-                    vel: aim * s.speed,
+                    vel: dir * s.speed,
                     life: s.duration,
                 });
             }
-            w.player.since_cast = 0.0;
-            cues.fired = true;
-            return true;
-        }
-        let aim = (w.enemies.pos(target) - from).normalize_or(Vec2::X);
-        for k in 0..s.amount {
-            if self.projectiles.len() >= MAX_PROJECTILES {
-                break;
-            }
-            let angle = (k as f32 - (s.amount - 1) as f32 * 0.5) * PROJ_SPREAD;
-            self.projectiles.push(Projectile {
-                pos: from,
-                vel: Vec2::from_angle(angle).rotate(aim) * s.speed,
-                life: s.duration,
-            });
         }
         w.player.since_cast = 0.0;
-        cues.fired = true;
+        if kiss {
+            cues.kissed = true;
+        } else {
+            cues.fired = true;
+        }
         true
     }
 
@@ -344,30 +331,6 @@ impl Arts {
             });
         }
         cues.lashed = true;
-        true
-    }
-
-    /// Kiss of Ruin: hearts side by side, where she is heading.
-    fn kiss(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
-        let s = &self.stats[KISS_OF_RUIN];
-        let dir = w.player.aim;
-        let across = dir.perp();
-        for k in 0..s.amount {
-            if self.bolts.len() >= MAX_BOLTS {
-                break;
-            }
-            let off = (k as f32 - (s.amount - 1) as f32 * 0.5) * BOLT_SPACING;
-            self.bolts.push(Bolt {
-                pos: w.player.pos + across * off,
-                vel: dir * s.speed,
-                life: s.duration,
-                pierce: s.pierce,
-                hits: [u32::MAX; BOLT_MAX_HITS],
-                hit_count: 0,
-            });
-        }
-        w.player.since_cast = 0.0;
-        cues.kissed = true;
         true
     }
 
@@ -395,7 +358,7 @@ impl Arts {
                     charms -= 1;
                     return;
                 }
-                strike(enemies, j, s.damage, &mut cues.hits);
+                strike(enemies, j, s.damage, time, &mut cues.hits);
             });
         if any {
             self.allure.since_pulse = 0.0;
@@ -422,6 +385,7 @@ impl Arts {
                 t: 0.0,
                 life: s.duration,
                 burn: 0.0,
+                seed: gen_range(0, u32::MAX),
             });
             opened = true;
         }
@@ -462,7 +426,7 @@ impl Arts {
             bitten[c.len - 1] = enemies.uid[j];
             c.links[c.len] = enemies.pos(j);
             c.len += 1;
-            strike(enemies, j, s.damage, &mut cues.hits);
+            strike(enemies, j, s.damage, w.time, &mut cues.hits);
             if c.len > bites {
                 break;
             }
@@ -485,70 +449,30 @@ impl Arts {
         true
     }
 
-    /// Wing Gust: a cone toward the nearest enemy in reach (more gusts share the circle)
-    /// throws enemies back, slows and hurts them.
-    fn gust(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
-        let s = self.stats[WING_GUST];
-        let (from, time) = (w.player.pos, w.time);
-        let reach = GUST_REACH * s.area;
-        let Some(target) = w.hash.nearest(from, reach) else {
-            return false;
-        };
-        let aim = (w.enemies.pos(target) - from).normalize_or(Vec2::X);
-        // Tempest of Wings: one gust all the way round, harder.
-        let tempest = self.evolved[WING_GUST];
-        let (cones, damage) = if tempest {
-            (1, s.damage * TEMPEST_DAMAGE)
-        } else {
-            (s.amount, s.damage)
-        };
-        let cos_half = GUST_HALF_ANGLE.cos();
+    /// Scent of Sin: burns and weakens everything in the haze around her. Devouring
+    /// Musk feeds her on every enemy it burns.
+    fn scent(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let s = self.stats[SCENT_OF_SIN];
+        let (center, time) = (w.player.pos, w.time);
+        let radius = SCENT_RADIUS * s.area;
         let enemies = &mut *w.enemies;
-        let query = reach + enemies.max_radius();
-        for k in 0..cones {
-            let dir = Vec2::from_angle(k as f32 * TAU / cones as f32).rotate(aim);
-            w.hash.query_radius(from, query, |j, _| {
-                let r = ENEMY_DEFS[enemies.kind[j] as usize].radius();
-                let off = enemies.pos(j) - from;
-                let len = off.length();
-                // In the cone, or right against her where the gust starts.
-                let inside = tempest || len <= r || off.dot(dir) >= len * cos_half;
-                if enemies.hp[j] <= 0.0 || len > reach + r || !inside {
-                    return;
+        let mut burned = 0;
+        w.hash
+            .query_radius(center, radius + enemies.max_radius(), |j, _| {
+                if touches(enemies, j, center, radius) {
+                    strike(enemies, j, s.damage, time, &mut cues.hits);
+                    enemies.weak_until[j] = time + s.duration;
+                    burned += 1;
                 }
-                let push = GUST_PUSH * (GUST_REF_RADIUS / r).min(1.0);
-                enemies.knock[j] = off.normalize_or(dir) * push;
-                enemies.slow_until[j] = time + s.duration;
-                strike(enemies, j, damage, &mut cues.hits);
             });
-            if !tempest {
-                self.throw_feathers(from, dir, reach);
-            }
+        if self.evolved[SCENT_OF_SIN] && w.player.hp > 0.0 {
+            let p = &mut *w.player;
+            let heal = (burned as f32 * MUSK_HEAL).min(self.heal_budget);
+            self.heal_budget -= heal;
+            p.hp = (p.hp + heal).min(p.max_hp);
         }
-        if tempest {
-            for k in 0..TEMPEST_DIRS {
-                let dir = Vec2::from_angle(k as f32 * TAU / TEMPEST_DIRS as f32).rotate(aim);
-                self.throw_feathers(from, dir, reach);
-            }
-        }
-        cues.gusted = true;
+        self.since_scent = 0.0;
         true
-    }
-
-    fn throw_feathers(&mut self, from: Vec2, dir: Vec2, reach: f32) {
-        for _ in 0..GUST_FEATHERS {
-            if self.feathers.len() >= MAX_FEATHERS {
-                return;
-            }
-            let angle = gen_range(-GUST_HALF_ANGLE, GUST_HALF_ANGLE);
-            let speed = reach / GUST_FEATHER_LIFE * gen_range(0.6, 1.0);
-            self.feathers.push(Feather {
-                pos: from + dir * 6.0,
-                vel: Vec2::from_angle(angle).rotate(dir) * speed,
-                height: gen_range(6.0, 26.0),
-                t: 0.0,
-            });
-        }
     }
 
     /// Every `CHARM_BITE` each charmed enemy bites the free enemies it touches.
@@ -572,14 +496,14 @@ impl Arts {
             let reach = ENEMY_DEFS[enemies.kind[i] as usize].radius() + CHARM_REACH;
             w.hash.query_radius(p, reach + extra, |j, _| {
                 if j != i && !enemies.charmed(j, time) && touches(enemies, j, p, reach) {
-                    strike(enemies, j, damage, &mut cues.hits);
+                    strike(enemies, j, damage, time, &mut cues.hits);
                 }
             });
         }
     }
 
     /// Charms that ran out this tick are cleared; with Siren's Dominion the enemy
-    /// bursts, dying and hurting the free enemies around it.
+    /// bursts, hurting the free enemies around it without killing any.
     fn end_charms(&mut self, w: &mut World, cues: &mut ArtCues) {
         let dominion = self.evolved[ALLURE];
         let s = self.stats[ALLURE];
@@ -596,11 +520,12 @@ impl Arts {
                 continue;
             }
             let p = enemies.pos(i);
-            enemies.hp[i] = 0.0;
             w.hash
                 .query_radius(p, radius + enemies.max_radius(), |j, _| {
-                    if !enemies.charmed(j, time) && touches(enemies, j, p, radius) {
-                        strike(enemies, j, damage, &mut cues.hits);
+                    if j != i && !enemies.charmed(j, time) && touches(enemies, j, p, radius) {
+                        let floor = enemies.hp[j].min(SIREN_SPARE_HP);
+                        strike(enemies, j, damage, time, &mut cues.hits);
+                        enemies.hp[j] = enemies.hp[j].max(floor);
                     }
                 });
             if self.siren_bursts.len() < MAX_SIREN_BURSTS {
@@ -629,7 +554,7 @@ impl Arts {
         let enemies = &mut *w.enemies;
         for i in 0..enemies.len() {
             if enemies.bleed_until[i] > w.time && enemies.hp[i] > 0.0 {
-                strike(enemies, i, damage, &mut cues.hits);
+                strike(enemies, i, damage, w.time, &mut cues.hits);
             }
         }
     }
@@ -638,11 +563,12 @@ impl Arts {
     /// pools also drag the enemies around them in.
     fn update_gates(&mut self, w: &mut World, cues: &mut ArtCues) {
         let s = self.stats[HELLGATE];
-        let damage = s.damage;
+        let (damage, time) = (s.damage, w.time);
         let rift = self.evolved[HELLGATE].then_some(RIFT_RADIUS * s.area);
         let enemies = &mut *w.enemies;
         let extra = enemies.max_radius();
-        let (rx, ry) = (HELLGATE_RADIUS, HELLGATE_RADIUS * 0.5);
+        let rx = HELLGATE_RADIUS * s.area;
+        let ry = rx * 0.5;
         self.gates.retain_mut(|g| {
             g.t += TICK_DT;
             g.burn -= TICK_DT;
@@ -663,7 +589,7 @@ impl Arts {
                     let d = enemies.pos(j) - g.pos;
                     let (ex, ey) = (d.x / (rx + r), d.y / (ry + r));
                     if enemies.hp[j] > 0.0 && ex * ex + ey * ey <= 1.0 {
-                        strike(enemies, j, damage, &mut cues.hits);
+                        strike(enemies, j, damage, time, &mut cues.hits);
                     }
                 });
             }
@@ -674,7 +600,7 @@ impl Arts {
     /// Moves fireballs and applies hits. Dead enemies stay in place (hp <= 0) until
     /// the game removes them, so hash indices stay valid for the whole pass.
     fn update_projectiles(&mut self, w: &mut World, cues: &mut ArtCues) {
-        let damage = self.stats[HELLFLARE].damage;
+        let (damage, time) = (self.stats[HELLFLARE].damage, w.time);
         let enemies = &mut *w.enemies;
         let query = PROJ_RADIUS + enemies.max_radius();
         let mut k = self.projectiles.len();
@@ -690,7 +616,7 @@ impl Arts {
                 }
             });
             if let Some(j) = hit {
-                strike(enemies, j, damage, &mut cues.hits);
+                strike(enemies, j, damage, time, &mut cues.hits);
             }
             if hit.is_some() || pr.life <= 0.0 {
                 self.projectiles.swap_remove(k);
@@ -701,7 +627,8 @@ impl Arts {
     /// Lashes strike once when their delay runs out, at Veyra's position then.
     fn update_lashes(&mut self, w: &mut World, cues: &mut ArtCues) {
         let s = self.stats[TAIL_LASH];
-        let bleed = self.evolved[TAIL_LASH].then_some(w.time + s.duration);
+        let time = w.time;
+        let bleed = self.evolved[TAIL_LASH].then_some(time + s.duration);
         let enemies = &mut *w.enemies;
         let center = w.player.pos;
         self.lashes.retain_mut(|l| {
@@ -710,15 +637,15 @@ impl Arts {
                 return true;
             }
             if l.t == 0.0 {
-                // Area deepens the band she sweeps, not its reach.
-                let half = vec2(LASH_REACH, LASH_DEPTH * s.area) * 0.5;
+                // Area lengthens her reach.
+                let half = vec2(LASH_REACH * s.area, LASH_DEPTH) * 0.5;
                 let mid = center + vec2(l.side * (LASH_NEAR + half.x), 0.0);
                 let query = half.length() + enemies.max_radius();
                 w.hash.query_radius(mid, query, |j, p| {
                     let r = ENEMY_DEFS[enemies.kind[j] as usize].radius();
                     let off = (p - mid).abs();
                     if enemies.hp[j] > 0.0 && off.x <= half.x + r && off.y <= half.y + r {
-                        strike(enemies, j, s.damage, &mut cues.hits);
+                        strike(enemies, j, s.damage, time, &mut cues.hits);
                         if let Some(until) = bleed {
                             enemies.bleed_until[j] = until;
                         }
@@ -732,10 +659,7 @@ impl Arts {
 
     /// Hearts fly straight, hitting each enemy at most once, one per tick.
     fn update_bolts(&mut self, w: &mut World, cues: &mut ArtCues) {
-        let damage = self.stats[KISS_OF_RUIN].damage;
-        let lifesteal = self.evolved[KISS_OF_RUIN];
-        let player = &mut *w.player;
-        let heal_budget = &mut self.heal_budget;
+        let (damage, time) = (self.stats[HELLFLARE].damage, w.time);
         let enemies = &mut *w.enemies;
         let query = BOLT_RADIUS + enemies.max_radius();
         self.bolts.retain_mut(|b| {
@@ -753,13 +677,7 @@ impl Arts {
             let Some(j) = hit else {
                 return b.life > 0.0;
             };
-            strike(enemies, j, damage, &mut cues.hits);
-            // Kiss of Death: the bite feeds her, unless she is already gone.
-            if lifesteal && player.hp > 0.0 {
-                let heal = KISS_HEAL.min(*heal_budget);
-                *heal_budget -= heal;
-                player.hp = (player.hp + heal).min(player.max_hp);
-            }
+            strike(enemies, j, damage, time, &mut cues.hits);
             if b.hit_count < BOLT_MAX_HITS {
                 b.hits[b.hit_count] = enemies.uid[j];
                 b.hit_count += 1;
@@ -803,7 +721,7 @@ impl Arts {
                 {
                     return;
                 }
-                strike(enemies, j, s.damage, &mut cues.hits);
+                strike(enemies, j, s.damage, time, &mut cues.hits);
                 enemies.halo_until[j] = time + HALO_IMMUNE;
                 let push = (p - center).normalize_or(Vec2::X) * HALO_KNOCKBACK;
                 enemies.set_pos(j, p + push);
@@ -836,27 +754,6 @@ fn ember_offsets(angle: f32, s: &ArtStats) -> impl Iterator<Item = Vec2> {
     (0..n).map(move |k| Vec2::from_angle(angle + k as f32 * TAU / n as f32) * radius)
 }
 
-/// Up to `out.len()` distinct random live enemies within `range` of Veyra (reservoir
-/// sampling); returns how many were found.
-fn random_enemies(w: &World, range: f32, out: &mut [usize]) -> usize {
-    let mut seen = 0;
-    w.hash.query_radius(w.player.pos, range, |j, _| {
-        if w.enemies.hp[j] <= 0.0 {
-            return;
-        }
-        if seen < out.len() {
-            out[seen] = j;
-        } else {
-            let r = gen_range(0, seen + 1);
-            if r < out.len() {
-                out[r] = j;
-            }
-        }
-        seen += 1;
-    });
-    seen.min(out.len())
-}
-
 /// A random live enemy within `range` of Veyra.
 fn random_enemy(w: &World, range: f32) -> Option<usize> {
     let (mut seen, mut pick) = (0, None);
@@ -877,8 +774,14 @@ fn touches(enemies: &Enemies, j: usize, pos: Vec2, radius: f32) -> bool {
     enemies.hp[j] > 0.0 && enemies.pos(j).distance_squared(pos) <= reach * reach
 }
 
-fn strike(enemies: &mut Enemies, j: usize, damage: f32, hits: &mut [bool; 2]) {
-    enemies.hp[j] -= damage;
+/// Hurts enemy `j`; weakened enemies (Scent of Sin) take `SCENT_WEAKEN` more.
+fn strike(enemies: &mut Enemies, j: usize, damage: f32, time: f32, hits: &mut [bool; 2]) {
+    let weak = if enemies.weak(j, time) {
+        1.0 + SCENT_WEAKEN
+    } else {
+        1.0
+    };
+    enemies.hp[j] -= damage * weak;
     enemies.flash[j] = HIT_FLASH_TIME;
     let family = ENEMY_DEFS[enemies.kind[j] as usize].family;
     hits[(family == Family::Armored) as usize] = true;
@@ -916,12 +819,17 @@ mod tests {
         assert_eq!(top.amount, 4);
         assert!((top.cooldown - 0.6 * 0.8).abs() < 1e-6);
         assert_eq!(top.damage, 20.0);
-        assert_eq!(ARTS[KISS_OF_RUIN].stats(ART_MAX_LEVEL).pierce, 3);
-        assert_eq!(ARTS[BRIMSTONE_HALO].stats(ART_MAX_LEVEL).amount, 4);
+        let halo = ARTS[BRIMSTONE_HALO].stats(ART_MAX_LEVEL);
+        assert_eq!(halo.amount, 4);
+        assert!(
+            (halo.cooldown - 3.0 * 0.5).abs() < 1e-5,
+            "rests half as long"
+        );
+        assert!((ARTS[TAIL_LASH].stats(ART_MAX_LEVEL).area - 1.6).abs() < 1e-5);
         assert_eq!(ARTS[TAIL_LASH].stats(1), ARTS[TAIL_LASH].base);
 
         let mut g = game_with(TAIL_LASH, 1);
-        for sin in [WRATH, BLOODLUST, LEGION, DARK_SIGIL, ALLUREMENT] {
+        for sin in [WRATH, BLOODLUST, LEGION, SLOTH, DARK_SIGIL] {
             g.upgrades.apply(Choice::Sin(sin), &mut g.player);
         }
         g.arts.refresh(&g.upgrades);
@@ -931,7 +839,7 @@ mod tests {
         assert_eq!(s.amount, 2);
         assert!((s.duration - 3.0 * 1.1).abs() < 1e-5);
         assert!((s.area - 1.1).abs() < 1e-6);
-        // Dark Sigil leaves projectile lifetimes (their range) alone.
+        // Sloth leaves projectile lifetimes (their range) alone.
         assert_eq!(
             g.arts.stats[HELLFLARE].duration,
             ARTS[HELLFLARE].base.duration
@@ -947,41 +855,41 @@ mod tests {
     }
 
     #[test]
-    fn allurement_deepens_the_lash_band() {
+    fn area_lengthens_the_lash() {
+        let x = LASH_NEAR + LASH_REACH + ENEMY_DEFS[KNIGHT].radius() + 3.0;
         let mut g = game_with(TAIL_LASH, 1);
         g.player.facing = 1.0;
-        let y = LASH_DEPTH * 0.5 + ENEMY_DEFS[KNIGHT].radius() + 3.0;
-        g.enemies.spawn(KNIGHT, vec2(30.0, y), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(x, 0.0), 100.0);
         tick(&mut g, 1);
-        assert!(!hurt(&g, 0), "just outside the band");
-        let mut g = game_with(TAIL_LASH, 1);
+        assert!(!hurt(&g, 0), "just out of reach");
+        let mut g = game_with(TAIL_LASH, 3);
         g.player.facing = 1.0;
-        for _ in 0..3 {
-            g.upgrades.apply(Choice::Sin(ALLUREMENT), &mut g.player);
-        }
-        g.arts.refresh(&g.upgrades);
-        g.enemies.spawn(KNIGHT, vec2(30.0, y), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(x, 0.0), 100.0);
         tick(&mut g, 1);
         assert!(hurt(&g, 0));
     }
 
     #[test]
-    fn hellstorm_rains_on_many_foes() {
+    fn kiss_of_ruin_turns_hellflare_into_piercing_hearts() {
         let mut g = evolved(HELLFLARE);
-        for k in 0..12 {
-            let p = Vec2::from_angle(k as f32 * TAU / 12.0) * 150.0;
-            g.enemies.spawn(KNIGHT, p, 100.0);
+        for k in 0..4 {
+            g.enemies
+                .spawn(KNIGHT, vec2(60.0 + k as f32 * 20.0, 0.0), 100.0);
         }
         tick(&mut g, 1);
         let s = g.arts.stats[HELLFLARE];
         assert_eq!(
             s.amount,
-            ARTS[HELLFLARE].stats(ART_MAX_LEVEL).amount + HELLSTORM_EXTRA
+            ARTS[HELLFLARE].stats(ART_MAX_LEVEL).amount + KISS_EXTRA
         );
-        assert_eq!(g.arts.projectiles.len(), s.amount as usize);
-        // Spread around her, not one fan.
-        let left = g.arts.projectiles.iter().filter(|p| p.vel.x < 0.0).count();
-        assert!(left > 0 && left < s.amount as usize);
+        assert!(g.arts.projectiles.is_empty());
+        assert_eq!(g.arts.bolts.len(), s.amount as usize);
+        assert!(g.cues.contains(&Cue::Kiss));
+        g.arts.hold();
+        tick(&mut g, 30);
+        // The middle hearts fly down the line, through KISS_PIERCE of them.
+        let hit = (0..4).filter(|&i| hurt(&g, i)).count();
+        assert!(hit > KISS_PIERCE as usize, "{hit}");
     }
 
     #[test]
@@ -1005,19 +913,18 @@ mod tests {
     }
 
     #[test]
-    fn kiss_of_death_heals_her_within_a_cap() {
-        let mut g = evolved(KISS_OF_RUIN);
+    fn devouring_musk_heals_her_within_a_cap() {
+        let mut g = evolved(SCENT_OF_SIN);
         g.player.hp = 50.0;
         g.player.iframes = f32::INFINITY; // the knights close in
-        g.player.aim = Vec2::X;
         for k in 0..20 {
             g.enemies
-                .spawn(KNIGHT, vec2(30.0 + k as f32 * 6.0, 0.0), 100.0);
+                .spawn(KNIGHT, Vec2::from_angle(k as f32) * 20.0, 100.0);
         }
-        tick(&mut g, 20);
+        tick(&mut g, 1);
         let healed = g.player.hp - 50.0;
         assert!(healed > 0.0, "healed");
-        assert!(healed <= KISS_HEAL_CAP + 20.0 * TICK_DT * KISS_HEAL_CAP + 1e-3);
+        assert!(healed <= MUSK_HEAL_CAP + 1e-3);
     }
 
     #[test]
@@ -1047,19 +954,24 @@ mod tests {
         assert_eq!(g.kills, 0);
         assert!(g.arts.siren_bursts.is_empty());
         tick(&mut g, 4);
-        assert_eq!(g.kills, 1, "the charmed one burst");
-        assert_eq!(g.arts.siren_bursts.len(), 1);
+        assert_eq!(g.arts.siren_bursts.len(), 1, "the charmed one burst");
         assert!(g.cues.contains(&Cue::SirenBurst));
+        assert_eq!(g.kills, 0, "and lives on");
         let rat_hp = ENEMY_DEFS[RAT].hp * 100.0;
-        // Indices moved when the knight was removed: find the rats by position.
-        let near = (0..g.enemies.len())
-            .find(|&i| g.enemies.x[i] < 300.0)
-            .unwrap();
-        let far = (0..g.enemies.len())
-            .find(|&i| g.enemies.x[i] > 300.0)
-            .unwrap();
-        assert!(g.enemies.hp[near] < rat_hp);
-        assert_eq!(g.enemies.hp[far], rat_hp);
+        assert!(g.enemies.hp[1] < rat_hp);
+        assert_eq!(g.enemies.hp[2], rat_hp);
+
+        // The burst never kills, even a foe on its last legs.
+        let mut g = evolved(ALLURE);
+        g.arts.hold();
+        g.enemies.spawn(KNIGHT, vec2(200.0, 0.0), 100.0);
+        // The charm ends on the first tick, before it can bite.
+        g.enemies.charm_until[0] = 0.01;
+        g.enemies.spawn(RAT, vec2(215.0, 0.0), 1.0);
+        g.enemies.hp[1] = 1.5;
+        tick(&mut g, 2);
+        assert_eq!(g.kills, 0);
+        assert_eq!(g.enemies.hp[1], SIREN_SPARE_HP);
 
         // Without the evolution a charm just ends.
         let mut g = game_with(ALLURE, ART_MAX_LEVEL);
@@ -1102,27 +1014,6 @@ mod tests {
     }
 
     #[test]
-    fn tempest_of_wings_strikes_all_around_harder() {
-        let mut g = evolved(WING_GUST);
-        let at = [
-            vec2(40.0, 0.0),
-            vec2(-40.0, 0.0),
-            vec2(0.0, 40.0),
-            vec2(0.0, -40.0),
-        ];
-        for p in at {
-            g.enemies.spawn(KNIGHT, p, 100.0);
-        }
-        tick(&mut g, 1);
-        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
-        let damage = g.arts.stats[WING_GUST].damage * TEMPEST_DAMAGE;
-        for i in 0..4 {
-            assert!((full - g.enemies.hp[i] - damage).abs() < 1e-3, "{i}");
-        }
-        assert_eq!(g.arts.feathers.len(), GUST_FEATHERS * TEMPEST_DIRS);
-    }
-
-    #[test]
     fn tail_lash_hits_the_facing_side_then_behind() {
         let mut g = game_with(TAIL_LASH, 1);
         g.player.facing = -1.0;
@@ -1142,30 +1033,6 @@ mod tests {
         assert!(hurt(&g, 0));
         tick(&mut g, 60);
         assert!(g.arts.lashes.len() <= 2);
-    }
-
-    #[test]
-    fn kiss_of_ruin_flies_where_she_moved_and_pierces_once() {
-        let mut g = game_with(KISS_OF_RUIN, 1);
-        g.tick(&InputState {
-            move_dir: vec2(0.0, 1.0),
-        });
-        assert_eq!(g.player.aim, vec2(0.0, 1.0));
-        g.arts.bolts.clear();
-        g.arts.hold();
-        for y in [40.0, 70.0, 100.0] {
-            g.enemies
-                .spawn(KNIGHT, vec2(g.player.pos.x, g.player.pos.y + y), 100.0);
-        }
-        g.arts.cooldown[KISS_OF_RUIN] = 0.0;
-        tick(&mut g, 30);
-        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
-        let dmg = ARTS[KISS_OF_RUIN].base.damage;
-        // Base pierce 1: the first two take one hit each, the third none.
-        assert_eq!(g.enemies.hp[0], full - dmg);
-        assert_eq!(g.enemies.hp[1], full - dmg);
-        assert_eq!(g.enemies.hp[2], full);
-        assert!(g.cues.contains(&Cue::Kiss));
     }
 
     #[test]
@@ -1272,26 +1139,39 @@ mod tests {
     }
 
     #[test]
-    fn wing_gust_throws_back_and_slows_the_cone() {
-        let mut g = game_with(WING_GUST, 1);
-        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(-50.0, 0.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(0.0, 60.0), 100.0);
+    fn hellgate_pools_grow_with_area() {
+        let reach = HELLGATE_RADIUS + ENEMY_DEFS[KNIGHT].radius();
+        let mut g = game_with(HELLGATE, 3);
+        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
         tick(&mut g, 1);
-        assert!(hurt(&g, 0) && !hurt(&g, 1) && !hurt(&g, 2));
-        assert!(g.enemies.knock[0].x > 0.0 && g.enemies.slow_until[0] > g.time);
-        assert!(g.cues.contains(&Cue::Gust));
-        assert_eq!(g.arts.feathers.len(), GUST_FEATHERS);
-        tick(&mut g, 20);
-        assert!(g.enemies.x[0] > 55.0, "thrown back: {}", g.enemies.x[0]);
-        tick(&mut g, 30);
-        assert_eq!(g.enemies.knock[0], Vec2::ZERO, "and the push dies away");
+        let pool = g.arts.gates[0].pos;
+        g.arts.hold();
+        // Past a small pool's edge, inside a level 3 one (+25% area).
+        g.enemies
+            .spawn(KNIGHT, pool + vec2(reach + 2.0, 0.0), 100.0);
+        tick(&mut g, (HELLGATE_TICK / TICK_DT) as usize + 1);
+        assert!(hurt(&g, 1));
+    }
 
-        // A second gust covers her back.
-        let mut g = game_with(WING_GUST, 2);
-        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(-50.0, 0.0), 100.0);
+    #[test]
+    fn scent_of_sin_burns_and_weakens_what_is_in_the_haze() {
+        let mut g = game_with(SCENT_OF_SIN, 1);
+        g.enemies.spawn(KNIGHT, vec2(20.0, 0.0), 100.0);
+        g.enemies
+            .spawn(KNIGHT, vec2(SCENT_RADIUS + 30.0, 0.0), 100.0);
         tick(&mut g, 1);
-        assert!(hurt(&g, 0) && hurt(&g, 1));
+        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let dmg = ARTS[SCENT_OF_SIN].base.damage;
+        assert_eq!(g.enemies.hp[0], full - dmg);
+        assert!(g.enemies.weak(0, g.time) && !g.enemies.weak(1, g.time));
+        assert!(!hurt(&g, 1));
+        // A weakened enemy takes more from every Art.
+        let before = g.enemies.hp[0];
+        tick(
+            &mut g,
+            (ARTS[SCENT_OF_SIN].base.cooldown / TICK_DT) as usize + 2,
+        );
+        let taken = before - g.enemies.hp[0];
+        assert!((taken - dmg * (1.0 + SCENT_WEAKEN)).abs() < 1e-3, "{taken}");
     }
 }

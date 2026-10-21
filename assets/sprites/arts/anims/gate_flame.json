@@ -1,102 +1,102 @@
 {
  "frames": {
-  "hellgate_0": {
+  "gate_flame_0": {
    "frame": {
     "x": 0,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "sourceSize": {
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "duration": 100
   },
-  "hellgate_1": {
+  "gate_flame_1": {
    "frame": {
-    "x": 36,
+    "x": 7,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "sourceSize": {
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "duration": 100
   },
-  "hellgate_2": {
+  "gate_flame_2": {
    "frame": {
-    "x": 72,
+    "x": 14,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "sourceSize": {
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "duration": 100
   },
-  "hellgate_3": {
+  "gate_flame_3": {
    "frame": {
-    "x": 108,
+    "x": 21,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "sourceSize": {
-    "w": 36,
-    "h": 22
+    "w": 7,
+    "h": 10
    },
    "duration": 100
   }
  },
  "meta": {
   "app": "pxl",
-  "image": "hellgate.png",
+  "image": "gate_flame.png",
   "format": "RGBA8888",
   "size": {
-   "w": 144,
-   "h": 22
+   "w": 28,
+   "h": 10
   },
   "scale": "1",
   "frameTags": [
    {
-    "name": "hellgate",
+    "name": "gate_flame",
     "from": 0,
     "to": 3,
     "direction": "forward"

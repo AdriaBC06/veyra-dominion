@@ -1,8 +1,6 @@
 //! The Arts table: per-Art base numbers and level gains (docs/design.md 7.7).
 
-use super::{
-    ALLUREMENT, BLOODLUST, BLOOD_PACT, DARK_SIGIL, LEGION, NIGHT_WINGS, SIRENS_CALL, WRATH,
-};
+use super::{BLOODLUST, DARK_SIGIL, GLUTTONY, LEGION, LUST, SLOTH, WRATH};
 use crate::i18n::Key;
 
 pub const MAX_ARTS: usize = 6;
@@ -12,26 +10,27 @@ pub const ART_MAX_LEVEL: u8 = 8;
 pub enum ArtKind {
     Hellflare,
     TailLash,
-    KissOfRuin,
     BrimstoneHalo,
     Allure,
     Hellgate,
     ChainOfTorment,
-    WingGust,
+    ScentOfSin,
 }
 
 /// An Art's numbers at some level. Each Art reads the ones it uses:
-/// - `amount`: fireballs per volley, lashes per attack, hearts per throw, embers,
-///   enemies charmed per pulse, pools per cast, enemies a chain bites, gusts per cast;
-/// - `cooldown`: seconds between attacks (the Halo: seconds off between spells);
-/// - `area`: Halo orbit radius, Allure radius, chain jump, gust reach, lash depth and
-///   rift pull multiplier (the sprites never scale, and Hellgate's pools don't grow);
+/// - `amount`: fireballs per volley, lashes per attack, flames, enemies charmed per
+///   pulse, pools per cast, enemies a chain bites (the Scent has none);
+/// - `cooldown`: seconds between attacks (the Halo: seconds off between spells; the
+///   Scent: between burns);
+/// - `area`: lash reach, Halo orbit radius, Allure radius, pool size, chain jump, haze
+///   radius and rift pull multiplier;
 /// - `speed`: projectile pixels per second (the Halo: radians per second);
-/// - `pierce`: extra enemies a heart goes through;
+/// - `pierce`: unused so far;
 /// - `duration`: projectile lifetime (the Halo: seconds each spell burns; Allure:
-///   charm; Hellgate: pool life; Wing Gust: slow; Tail Lash: bleed once evolved).
-///   Dark Sigil lengthens every one but the projectile lifetimes.
-/// - `damage`: per hit (Allure: per pulse and per charmed bite; Hellgate: per burn).
+///   charm; Hellgate: pool life; Tail Lash: bleed once evolved; the Scent: weakness).
+///   Sloth lengthens every one but the projectile lifetimes.
+/// - `damage`: per hit (Allure: per pulse and per charmed bite; Hellgate and the
+///   Scent: per burn).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ArtStats {
     pub damage: f32,
@@ -78,7 +77,8 @@ pub struct ArtDef {
     pub kind: ArtKind,
     pub name: Key,
     pub desc: Key,
-    /// "+{} fireball(s)" and the like, for the level-up card.
+    /// "+{} fireball(s)" and the like, for the level-up card (unused by an Art whose
+    /// levels never add amount).
     pub amount_key: Key,
     pub base: ArtStats,
     /// Gains for levels 2..=ART_MAX_LEVEL.
@@ -88,15 +88,14 @@ pub struct ArtDef {
 
 pub const HELLFLARE: usize = 0;
 pub const TAIL_LASH: usize = 1;
-pub const KISS_OF_RUIN: usize = 2;
-pub const BRIMSTONE_HALO: usize = 3;
-pub const ALLURE: usize = 4;
-pub const HELLGATE: usize = 5;
-pub const CHAIN_OF_TORMENT: usize = 6;
-pub const WING_GUST: usize = 7;
+pub const BRIMSTONE_HALO: usize = 2;
+pub const ALLURE: usize = 3;
+pub const HELLGATE: usize = 4;
+pub const CHAIN_OF_TORMENT: usize = 5;
+pub const SCENT_OF_SIN: usize = 6;
 
-pub const ARTS: [ArtDef; 8] = [
-    // Homing fireballs at the nearest enemy (Magic Wand).
+pub const ARTS: [ArtDef; 7] = [
+    // Fireballs at the nearest enemy (Magic Wand). Evolves into Kiss of Ruin.
     ArtDef {
         kind: ArtKind::Hellflare,
         name: Key::ArtHellflare,
@@ -143,11 +142,12 @@ pub const ARTS: [ArtDef; 8] = [
         ],
         evolution: Evolution {
             sin: LEGION,
-            name: Key::EvoHellstorm,
-            desc: Key::EvoHellstormDesc,
+            name: Key::EvoKissOfRuin,
+            desc: Key::EvoKissOfRuinDesc,
         },
     },
-    // A lash on the side she faces; the second one cracks behind her (Whip).
+    // A lash on the side she faces; the second one cracks behind her (Whip). Its reach
+    // grows with area.
     ArtDef {
         kind: ArtKind::TailLash,
         name: Key::ArtTailLash,
@@ -169,6 +169,7 @@ pub const ARTS: [ArtDef; 8] = [
             },
             ArtGain {
                 damage: 5.0,
+                area: 0.2,
                 ..NO_GAIN
             },
             ArtGain {
@@ -177,7 +178,7 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 5.0,
+                area: 0.2,
                 ..NO_GAIN
             },
             ArtGain {
@@ -186,11 +187,11 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 5.0,
+                area: 0.2,
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 5.0,
+                damage: 10.0,
                 ..NO_GAIN
             },
         ],
@@ -200,71 +201,18 @@ pub const ARTS: [ArtDef; 8] = [
             desc: Key::EvoBarbedScourgeDesc,
         },
     },
-    // Fast hearts where she moves, going through enemies (Knife).
-    ArtDef {
-        kind: ArtKind::KissOfRuin,
-        name: Key::ArtKissOfRuin,
-        desc: Key::ArtKissOfRuinDesc,
-        amount_key: Key::ArtMoreHearts,
-        base: ArtStats {
-            damage: 8.0,
-            cooldown: 0.9,
-            amount: 1,
-            area: 1.0,
-            speed: 420.0,
-            pierce: 1,
-            duration: 0.9,
-        },
-        gains: [
-            ArtGain {
-                amount: 1,
-                ..NO_GAIN
-            },
-            ArtGain {
-                amount: 1,
-                damage: 4.0,
-                ..NO_GAIN
-            },
-            ArtGain {
-                amount: 1,
-                ..NO_GAIN
-            },
-            ArtGain {
-                pierce: 1,
-                ..NO_GAIN
-            },
-            ArtGain {
-                amount: 1,
-                ..NO_GAIN
-            },
-            ArtGain {
-                amount: 1,
-                damage: 4.0,
-                ..NO_GAIN
-            },
-            ArtGain {
-                pierce: 1,
-                ..NO_GAIN
-            },
-        ],
-        evolution: Evolution {
-            sin: BLOOD_PACT,
-            name: Key::EvoKissOfDeath,
-            desc: Key::EvoKissOfDeathDesc,
-        },
-    },
-    // Embers circling her for a few seconds at a time (King Bible).
+    // One big flame circling her, then more, faster and resting less (King Bible).
     ArtDef {
         kind: ArtKind::BrimstoneHalo,
         name: Key::ArtBrimstoneHalo,
         desc: Key::ArtBrimstoneHaloDesc,
         amount_key: Key::ArtMoreEmbers,
         base: ArtStats {
-            damage: 10.0,
+            damage: 12.0,
             cooldown: 3.0,
             amount: 1,
             area: 1.0,
-            speed: 3.6,
+            speed: 3.0,
             pierce: 0,
             duration: 3.0,
         },
@@ -274,13 +222,12 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
             ArtGain {
-                area: 0.25,
-                speed: 0.3,
+                speed: 0.25,
+                cooldown: 0.15,
                 ..NO_GAIN
             },
             ArtGain {
                 damage: 5.0,
-                duration: 0.5,
                 ..NO_GAIN
             },
             ArtGain {
@@ -288,27 +235,27 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
             ArtGain {
-                area: 0.25,
-                speed: 0.3,
+                speed: 0.25,
+                cooldown: 0.15,
                 ..NO_GAIN
             },
             ArtGain {
                 damage: 5.0,
-                duration: 0.5,
                 ..NO_GAIN
             },
             ArtGain {
                 amount: 1,
+                cooldown: 0.2,
                 ..NO_GAIN
             },
         ],
         evolution: Evolution {
-            sin: DARK_SIGIL,
+            sin: SLOTH,
             name: Key::EvoInfernalCrown,
             desc: Key::EvoInfernalCrownDesc,
         },
     },
-    // A pulse that burns and charms the nearest few; they turn on the horde (Garlic).
+    // A pulse that burns and charms the nearest few; they turn on the horde.
     ArtDef {
         kind: ArtKind::Allure,
         name: Key::ArtAllure,
@@ -357,19 +304,19 @@ pub const ARTS: [ArtDef; 8] = [
             },
         ],
         evolution: Evolution {
-            sin: SIRENS_CALL,
+            sin: LUST,
             name: Key::EvoSirensDominion,
             desc: Key::EvoSirensDominionDesc,
         },
     },
-    // Burning pools opened under random enemies (Santa Water).
+    // Burning pools opened under random enemies, wider every few levels (Santa Water).
     ArtDef {
         kind: ArtKind::Hellgate,
         name: Key::ArtHellgate,
         desc: Key::ArtHellgateDesc,
         amount_key: Key::ArtMorePools,
         base: ArtStats {
-            damage: 7.0,
+            damage: 3.0,
             cooldown: 4.0,
             amount: 1,
             area: 1.0,
@@ -383,34 +330,36 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 3.0,
+                area: 0.25,
                 ..NO_GAIN
             },
             ArtGain {
-                duration: 0.5,
+                damage: 2.0,
                 ..NO_GAIN
             },
             ArtGain {
                 amount: 1,
+                area: 0.25,
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 3.0,
+                damage: 1.0,
+                duration: 0.5,
                 cooldown: 0.1,
                 ..NO_GAIN
             },
             ArtGain {
-                duration: 0.5,
+                area: 0.25,
                 ..NO_GAIN
             },
             ArtGain {
                 amount: 1,
-                damage: 3.0,
+                damage: 2.0,
                 ..NO_GAIN
             },
         ],
         evolution: Evolution {
-            sin: ALLUREMENT,
+            sin: DARK_SIGIL,
             name: Key::EvoAbyssalRift,
             desc: Key::EvoAbyssalRiftDesc,
         },
@@ -469,33 +418,28 @@ pub const ARTS: [ArtDef; 8] = [
             desc: Key::EvoTormentEternalDesc,
         },
     },
-    // A beat of her wings: a cone that throws enemies back and slows them (control).
+    // A pink haze around her that burns slowly and weakens what it touches (Garlic).
     ArtDef {
-        kind: ArtKind::WingGust,
-        name: Key::ArtWingGust,
-        desc: Key::ArtWingGustDesc,
-        amount_key: Key::ArtMoreGusts,
+        kind: ArtKind::ScentOfSin,
+        name: Key::ArtScentOfSin,
+        desc: Key::ArtScentOfSinDesc,
+        amount_key: Key::ArtGainArea,
         base: ArtStats {
-            damage: 5.0,
-            cooldown: 2.2,
-            amount: 1,
+            damage: 4.0,
+            cooldown: 1.0,
+            amount: 0,
             area: 1.0,
             speed: 0.0,
             pierce: 0,
-            duration: 1.0,
+            duration: 1.5,
         },
         gains: [
             ArtGain {
-                amount: 1,
-                ..NO_GAIN
-            },
-            ArtGain {
                 area: 0.2,
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 3.0,
-                duration: 0.5,
+                damage: 2.0,
                 ..NO_GAIN
             },
             ArtGain {
@@ -507,19 +451,24 @@ pub const ARTS: [ArtDef; 8] = [
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 3.0,
+                damage: 2.0,
+                duration: 0.5,
                 ..NO_GAIN
             },
             ArtGain {
-                duration: 0.5,
                 cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.2,
+                damage: 2.0,
                 ..NO_GAIN
             },
         ],
         evolution: Evolution {
-            sin: NIGHT_WINGS,
-            name: Key::EvoTempestOfWings,
-            desc: Key::EvoTempestOfWingsDesc,
+            sin: GLUTTONY,
+            name: Key::EvoDevouringMusk,
+            desc: Key::EvoDevouringMuskDesc,
         },
     },
 ];

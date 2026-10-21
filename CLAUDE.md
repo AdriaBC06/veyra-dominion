@@ -36,7 +36,7 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 ## Running and debug keys
 
 - `cargo run` (dev profile is optimised enough). Use `XDG_DATA_HOME=<tmp dir>` for test runs so they don't land in the real lifetime stats.
-- F3 debug overlay · F4 spawn one of each enemy · F5 make elites · F6 kill visible · F7 level up Arts · F8 drop an Offering · F9 EN/ES · F10 scale mode · F11 fullscreen.
+- F2 Arts/Sins panel (levels, slots, force evolutions) · F3 debug overlay · F4 spawn one of each enemy · F5 make elites · F6 kill visible · F7 level up Arts · F8 drop an Offering · F9 EN/ES · F10 scale mode · F11 fullscreen.
 
 ## Gotchas
 
@@ -47,3 +47,5 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 - Audio silent → ALSA needs `pipewire-alsa`. Sound and the GPU (ComfyUI) need the sandbox off.
 - `cargo fmt` reflows long calls; re-read before scripted edits. A scripted `str.replace` on a block that appears twice edits both; assert the count.
 - Timing asserts (charm expiry etc.) need a 2-tick margin.
+- pxl lives in `.claude/skills/pxl-pixel-art` (cloned from github.com/crsolver/claude-pxl, excluded in `.git/info/exclude`, not in the repo). Build with `--out assets/sprites/arts`, then delete the `_preview/` folder and the `.gif`s it writes next to the strips.
+- Stress test baseline on this PC: ~1.3 ms mean tick (`cargo test --release stress -- --nocapture`).

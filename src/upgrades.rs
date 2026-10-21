@@ -54,6 +54,12 @@ pub struct PlayerStats {
     pub pickup_radius: f32,
     /// Taken off every blow she receives.
     pub armor: f32,
+    /// Health regenerated per second (Gluttony).
+    pub regen: f32,
+    /// XP multiplier on every soul (Envy).
+    pub growth: f32,
+    /// Extra spawn rate and enemy health, as a fraction (Pride); see `PRIDE_SPEED_SHARE`.
+    pub curse: f32,
 }
 
 impl Upgrades {
@@ -131,20 +137,44 @@ impl Upgrades {
         }
         self.sins[idx] += 1;
         let stats = self.stats();
+        // Gluttony's new health comes filled.
+        player.hp += stats.max_hp - player.max_hp;
         player.max_hp = stats.max_hp;
-        if SINS[idx].kind == SinKind::BloodPact {
-            player.hp = (player.hp + BLOOD_PACT_HEAL).min(player.max_hp);
+    }
+
+    /// The first Art in slot order an Offering can evolve.
+    pub fn evolvable(&self) -> Option<usize> {
+        self.slots
+            .iter()
+            .flatten()
+            .copied()
+            .find(|&i| self.can_evolve(i))
+    }
+
+    /// Art `i` is at the top level, its paired Sin is owned and it hasn't evolved yet.
+    pub fn can_evolve(&self, i: usize) -> bool {
+        self.arts[i] == ART_MAX_LEVEL && self.sins[ARTS[i].evolution.sin] > 0 && !self.evolved[i]
+    }
+
+    /// Debug: one level less of Art `i`; at 0 it leaves its slot and its evolution.
+    pub fn drop_art_level(&mut self, i: usize) {
+        if self.arts[i] == 0 {
+            return;
+        }
+        self.arts[i] -= 1;
+        self.evolved[i] &= self.arts[i] == ART_MAX_LEVEL;
+        if self.arts[i] == 0 {
+            if let Some(slot) = self.slots.iter_mut().find(|s| **s == Some(i)) {
+                *slot = None;
+            }
         }
     }
 
-    /// The first Art in slot order an Offering can evolve: at the top level, its
-    /// paired Sin owned and not evolved yet.
-    pub fn evolvable(&self) -> Option<usize> {
-        self.slots.iter().flatten().copied().find(|&i| {
-            self.arts[i] == ART_MAX_LEVEL
-                && self.sins[ARTS[i].evolution.sin] > 0
-                && !self.evolved[i]
-        })
+    /// Debug: one level less of Sin `i`, keeping her health within the new maximum.
+    pub fn drop_sin_level(&mut self, i: usize, player: &mut Player) {
+        self.sins[i] = self.sins[i].saturating_sub(1);
+        player.max_hp = self.stats().max_hp;
+        player.hp = player.hp.min(player.max_hp);
     }
 
     pub fn evolve(&mut self, art: usize) {
@@ -158,12 +188,15 @@ impl Upgrades {
             might: 1.0 + bonus(WRATH),
             cooldown: 1.0 - bonus(BLOODLUST),
             amount: bonus(LEGION) as u32,
-            duration: 1.0 + bonus(DARK_SIGIL),
-            area: 1.0 + bonus(ALLUREMENT),
+            duration: 1.0 + bonus(SLOTH),
+            area: 1.0 + bonus(DARK_SIGIL),
             speed: PLAYER_SPEED * (1.0 + bonus(NIGHT_WINGS)),
-            max_hp: PLAYER_MAX_HP + bonus(BLOOD_PACT),
-            pickup_radius: PICKUP_RADIUS * (1.0 + bonus(SIRENS_CALL)),
+            max_hp: PLAYER_MAX_HP + bonus(GLUTTONY),
+            pickup_radius: PICKUP_RADIUS * (1.0 + bonus(LUST)),
             armor: bonus(INFERNAL_HIDE),
+            regen: GLUTTONY_REGEN * self.sins[GLUTTONY] as f32,
+            growth: 1.0 + bonus(ENVY),
+            curse: bonus(PRIDE),
         }
     }
 }
@@ -178,7 +211,7 @@ mod tests {
         let base = Upgrades::default().stats();
         let mut p = Game::new().player;
         let mut u = Upgrades::default();
-        // Only six fit at once: take the first six, then check the other three alone.
+        // Only six fit at once: take the first six, then check the others alone.
         for i in 0..MAX_SINS {
             u.apply(Choice::Sin(i), &mut p);
         }
@@ -187,17 +220,20 @@ mod tests {
         assert!((s.cooldown - base.cooldown * 0.92).abs() < 1e-6);
         assert_eq!(s.amount, base.amount + 1);
         assert!((s.speed - base.speed * 1.1).abs() < 1e-3);
-        assert_eq!(s.max_hp, base.max_hp + 20.0);
+        assert_eq!(s.max_hp, base.max_hp + 15.0);
+        assert!((s.regen - GLUTTONY_REGEN).abs() < 1e-6);
         assert!((s.pickup_radius - base.pickup_radius * 1.4).abs() < 1e-3);
         assert_eq!(p.max_hp, s.max_hp);
         let mut u = Upgrades::default();
-        for i in [DARK_SIGIL, ALLUREMENT, INFERNAL_HIDE] {
+        for i in [SLOTH, DARK_SIGIL, INFERNAL_HIDE, ENVY, PRIDE] {
             u.apply(Choice::Sin(i), &mut p);
         }
         let s = u.stats();
         assert!((s.duration - 1.1).abs() < 1e-6);
         assert!((s.area - 1.1).abs() < 1e-6);
         assert_eq!(s.armor, 1.0);
+        assert!((s.growth - 1.1).abs() < 1e-6);
+        assert!((s.curse - 0.1).abs() < 1e-6);
     }
 
     #[test]
@@ -255,16 +291,13 @@ mod tests {
     }
 
     #[test]
-    fn blood_pact_heal_is_clamped() {
+    fn gluttony_fills_the_health_it_adds() {
         let mut p = Game::new().player;
         let mut u = Upgrades::default();
-        p.hp = PLAYER_MAX_HP - 5.0;
-        u.apply(Choice::Sin(BLOOD_PACT), &mut p);
-        assert_eq!(p.max_hp, PLAYER_MAX_HP + 20.0);
-        assert_eq!(p.hp, PLAYER_MAX_HP + 20.0);
         p.hp = 10.0;
-        u.apply(Choice::Sin(BLOOD_PACT), &mut p);
-        assert_eq!(p.hp, 10.0 + BLOOD_PACT_HEAL);
+        u.apply(Choice::Sin(GLUTTONY), &mut p);
+        assert_eq!(p.max_hp, PLAYER_MAX_HP + 15.0);
+        assert_eq!(p.hp, 25.0);
     }
 
     #[test]
@@ -273,18 +306,18 @@ mod tests {
         let mut u = Upgrades::default();
         assert_eq!(u.arts[HELLFLARE], 1);
         assert_eq!(u.slots[0], Some(HELLFLARE));
-        u.apply(Choice::Art(KISS_OF_RUIN), &mut p);
-        u.apply(Choice::Art(KISS_OF_RUIN), &mut p);
-        assert_eq!(u.arts[KISS_OF_RUIN], 2);
-        assert_eq!(u.slots[..3], [Some(HELLFLARE), Some(KISS_OF_RUIN), None]);
+        u.apply(Choice::Art(TAIL_LASH), &mut p);
+        u.apply(Choice::Art(TAIL_LASH), &mut p);
+        assert_eq!(u.arts[TAIL_LASH], 2);
+        assert_eq!(u.slots[..3], [Some(HELLFLARE), Some(TAIL_LASH), None]);
         for _ in 0..20 {
-            u.apply(Choice::Art(KISS_OF_RUIN), &mut p);
+            u.apply(Choice::Art(TAIL_LASH), &mut p);
         }
-        assert_eq!(u.arts[KISS_OF_RUIN], ART_MAX_LEVEL);
+        assert_eq!(u.arts[TAIL_LASH], ART_MAX_LEVEL);
         let mut out = [None; 3];
         for _ in 0..50 {
             u.roll_choices(&mut out);
-            assert!(out.iter().all(|c| *c != Some(Choice::Art(KISS_OF_RUIN))));
+            assert!(out.iter().all(|c| *c != Some(Choice::Art(TAIL_LASH))));
         }
     }
 
@@ -321,12 +354,11 @@ mod tests {
     }
 
     #[test]
-    fn every_evolution_pairs_with_its_own_sin() {
+    fn evolutions_pair_with_sins_at_most_twice() {
         let sins: Vec<usize> = ARTS.iter().map(|a| a.evolution.sin).collect();
-        for (k, sin) in sins.iter().enumerate() {
+        for sin in &sins {
             assert!(*sin < SINS.len());
-            assert!(!sins[..k].contains(sin), "{sin} paired twice");
+            assert!(sins.iter().filter(|s| *s == sin).count() <= 2, "{sin}");
         }
-        assert!(!sins.contains(&INFERNAL_HIDE));
     }
 }

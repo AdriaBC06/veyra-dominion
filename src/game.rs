@@ -25,16 +25,17 @@ pub enum SimEvent {
     PlayerDied,
     /// Survived until VICTORY_TIME; `start_endless` keeps the run going.
     Victory,
-    /// An Abyssal Offering was opened; `reward` says what it gave.
+    /// An Abyssal Offering was opened; `reward` says what it offers. Call
+    /// `accept_offering` or `sacrifice_offering`.
     Offering,
 }
 
-/// What opening an Abyssal Offering gave.
+/// What an opened Abyssal Offering holds, until Veyra accepts or sacrifices it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Reward {
-    /// Index into `ARTS`: it took its evolved form.
+    /// Index into `ARTS`: it takes its evolved form.
     Evolution(usize),
-    /// Nothing could evolve: a free level of a random Art or Sin.
+    /// Nothing can evolve: a free level of a random Art or Sin.
     Gift(Choice),
     /// Nothing left to level either: `OFFERING_HEAL` health.
     Heal,
@@ -55,7 +56,6 @@ pub enum Cue {
     Allure,
     Hellgate,
     Chain,
-    Gust,
     /// A charmed enemy burst (Siren's Dominion).
     SirenBurst,
     /// An Abyssal Offering was opened.
@@ -72,8 +72,8 @@ pub enum Cue {
     Arrival,
 }
 
-/// Every distinct cue fits: 14 plus a second hit kind and one kill per family.
-const MAX_CUES: usize = 18;
+/// Every distinct cue fits: 13 plus a second hit kind and one kill per family.
+const MAX_CUES: usize = 16;
 
 pub struct Player {
     pub pos: Vec2,
@@ -82,7 +82,7 @@ pub struct Player {
     pub vel: Vec2,
     /// -1.0 facing left, 1.0 facing right.
     pub facing: f32,
-    /// Unit vector of the last direction moved in (Kiss of Ruin aims along it).
+    /// Unit vector of the last direction moved in.
     pub aim: Vec2,
     /// Smoothed tail offset trailing behind the movement.
     pub tail_lag: Vec2,
@@ -90,8 +90,8 @@ pub struct Player {
     pub max_hp: f32,
     /// Remaining invulnerability after a hit.
     pub iframes: f32,
-    /// Seconds since a hand-thrown Art (Hellflare, Kiss of Ruin) last fired, for the
-    /// cast animation.
+    /// Seconds since a hand-thrown Art (Hellflare, Chain of Torment) last fired, for
+    /// the cast animation.
     pub since_cast: f32,
 }
 
@@ -156,7 +156,7 @@ pub struct Game {
     pub arts: Arts,
     pub souls: Vec<Soul>,
     pub offerings: Vec<Offering>,
-    /// What the last Abyssal Offering gave, for the screen that shows it.
+    /// What the open Abyssal Offering holds, while its screen is up.
     pub reward: Option<Reward>,
     pub fades: Vec<Fade>,
     /// Fixed pool (capacity `MAX_BURST_PIXELS`), never grown.
@@ -168,6 +168,8 @@ pub struct Game {
     pub level: u32,
     /// XP gathered toward the next level.
     pub xp: u32,
+    /// Fraction of a point of XP left over from Envy's bonus.
+    xp_carry: f32,
     /// Level-ups earned but not yet spent on an upgrade.
     pub pending_levels: u32,
     pub upgrades: Upgrades,
@@ -222,6 +224,7 @@ impl Game {
             kills: 0,
             level: 1,
             xp: 0,
+            xp_carry: 0.0,
             pending_levels: 0,
             stats: upgrades.stats(),
             upgrades,
@@ -258,10 +261,13 @@ impl Game {
         self.hash.rebuild(center, &self.enemies.x, &self.enemies.y);
         self.spawn_enemies();
         self.relocate_far_enemies();
-        self.enemies.steer(TICK_DT, center, &self.hash, self.time);
+        let speed = 1.0 + self.stats.curse * PRIDE_SPEED_SHARE;
+        self.enemies
+            .steer(TICK_DT, center, &self.hash, self.time, speed);
         self.use_arts(alive);
         self.drip_bleeding();
         if alive {
+            self.regenerate();
             self.contact_damage();
         }
         self.remove_dead_enemies();
@@ -329,31 +335,51 @@ impl Game {
         true
     }
 
-    /// Evolves the first Art that can, or else grants a random level, or else heals.
+    /// Opens an Offering: decides what it holds (the first Art that can evolve, else a
+    /// random level, else health) without giving it yet.
     pub fn open_offering(&mut self) -> Reward {
         let reward = if let Some(art) = self.upgrades.evolvable() {
-            self.upgrades.evolve(art);
             Reward::Evolution(art)
         } else {
             let mut pick = [None];
             self.upgrades.roll_choices(&mut pick);
-            match pick[0] {
-                Some(choice) => {
-                    self.upgrades.apply(choice, &mut self.player);
-                    Reward::Gift(choice)
-                }
-                None => {
-                    let p = &mut self.player;
-                    p.hp = (p.hp + OFFERING_HEAL).min(p.max_hp);
-                    Reward::Heal
-                }
-            }
+            pick[0].map_or(Reward::Heal, Reward::Gift)
         };
-        self.stats = self.upgrades.stats();
-        self.arts.refresh(&self.upgrades);
         self.reward = Some(reward);
         self.cue(Cue::Offering);
         reward
+    }
+
+    /// Takes what the open Offering holds.
+    pub fn accept_offering(&mut self) {
+        match self.reward.take() {
+            Some(Reward::Evolution(art)) => self.upgrades.evolve(art),
+            Some(Reward::Gift(choice)) => self.upgrades.apply(choice, &mut self.player),
+            Some(Reward::Heal) => self.heal(OFFERING_HEAL),
+            None => return,
+        }
+        self.stats = self.upgrades.stats();
+        self.arts.refresh(&self.upgrades);
+    }
+
+    /// Destroys the open Offering for a minor reward: some health and XP.
+    pub fn sacrifice_offering(&mut self) {
+        if self.reward.take().is_some() {
+            self.heal(SACRIFICE_HEAL);
+            self.gain_xp(SACRIFICE_XP);
+        }
+    }
+
+    fn heal(&mut self, hp: f32) {
+        let p = &mut self.player;
+        p.hp = (p.hp + hp).min(p.max_hp);
+    }
+
+    /// Gluttony: a little health back every tick.
+    fn regenerate(&mut self) {
+        if self.stats.regen > 0.0 {
+            self.heal(self.stats.regen * TICK_DT);
+        }
     }
 
     /// The strongest touching enemy hurts Veyra, then she is briefly invulnerable.
@@ -391,7 +417,8 @@ impl Game {
     }
 
     fn spawn_death_smoke(&mut self) {
-        let center = self.player.pos - Vec2::Y * PROJ_DRAW_HEIGHT;
+        // Where her body burns: she is drawn `VEYRA_DROP` below a figure on her hitbox.
+        let center = self.player.pos + Vec2::Y * (VEYRA_DROP - PROJ_DRAW_HEIGHT);
         for _ in 0..DEATH_SMOKE_PUFFS {
             if self.fades.len() >= MAX_FADES {
                 break;
@@ -423,7 +450,6 @@ impl Game {
             (cues.charmed, Cue::Allure),
             (cues.gated, Cue::Hellgate),
             (cues.chained, Cue::Chain),
-            (cues.gusted, Cue::Gust),
             (cues.burst, Cue::SirenBurst),
             (cues.hits[0], Cue::Hit { armored: false }),
             (cues.hits[1], Cue::Hit { armored: true }),
@@ -583,7 +609,10 @@ impl Game {
         if gained > 0 {
             self.cue(Cue::Soul);
         }
-        self.gain_xp(gained);
+        // Envy: every soul is worth a little more; fractions carry over.
+        let xp = gained as f32 * self.stats.growth + self.xp_carry;
+        self.xp_carry = xp.fract();
+        self.gain_xp(xp as u32);
     }
 
     pub fn gain_xp(&mut self, amount: u32) {
@@ -635,11 +664,13 @@ impl Game {
     }
 
     /// Enemy HP multiplier: 1 during the run, growing after victory in endless mode.
+    /// Pride (`curse`) adds to it either way.
     fn hp_scale(&self) -> f32 {
+        let pride = 1.0 + self.stats.curse;
         if !self.endless {
-            return 1.0;
+            return pride;
         }
-        1.0 + ENDLESS_HP_GROWTH_PER_MIN * (self.time - VICTORY_TIME).max(0.0) / 60.0
+        pride * (1.0 + ENDLESS_HP_GROWTH_PER_MIN * (self.time - VICTORY_TIME).max(0.0) / 60.0)
     }
 
     fn spawn_weight(&self, kind: usize) -> f32 {
@@ -674,7 +705,7 @@ impl Game {
     }
 
     fn spawn_enemies(&mut self) {
-        self.spawn_acc += Self::spawn_rate(self.time) * TICK_DT;
+        self.spawn_acc += Self::spawn_rate(self.time) * (1.0 + self.stats.curse) * TICK_DT;
         while self.spawn_acc >= 1.0 {
             let Some(kind) = self.roll_kind() else {
                 self.spawn_acc = 0.0;
@@ -737,6 +768,39 @@ impl Game {
             self.upgrades.apply(Choice::Art(art), &mut self.player);
         }
         self.arts.refresh(&self.upgrades);
+    }
+
+    /// Debug (F2 panel): Art `art` one level up (`up`) or down, within the slot limit.
+    pub fn debug_art_level(&mut self, art: usize, up: bool) {
+        if up {
+            self.upgrades.apply(Choice::Art(art), &mut self.player);
+        } else {
+            self.upgrades.drop_art_level(art);
+        }
+        self.stats = self.upgrades.stats();
+        self.arts.refresh(&self.upgrades);
+    }
+
+    /// Debug (F2 panel): Sin `sin` one level up (`up`) or down, within the slot limit.
+    pub fn debug_sin_level(&mut self, sin: usize, up: bool) {
+        if up {
+            self.upgrades.apply(Choice::Sin(sin), &mut self.player);
+        } else {
+            self.upgrades.drop_sin_level(sin, &mut self.player);
+        }
+        self.stats = self.upgrades.stats();
+        self.arts.refresh(&self.upgrades);
+    }
+
+    /// Debug (F2 panel): evolves `art` straight away if it could evolve (top level and
+    /// its Sin owned). Returns whether it did.
+    pub fn debug_evolve(&mut self, art: usize) -> bool {
+        if !self.upgrades.can_evolve(art) {
+            return false;
+        }
+        self.upgrades.evolve(art);
+        self.arts.refresh(&self.upgrades);
+        true
     }
 
     /// Debug (F6): every enemy inside a view of `view` size around Veyra dies on the
@@ -1099,8 +1163,63 @@ mod tests {
         assert_eq!(g.tick(&InputState::default()), SimEvent::Offering);
         assert!(g.offerings.is_empty());
         assert_eq!(g.reward, Some(Reward::Evolution(HELLFLARE)));
-        assert!(g.upgrades.evolved[HELLFLARE] && g.arts.evolved(HELLFLARE));
+        assert!(!g.upgrades.evolved[HELLFLARE], "not before she accepts");
         assert!(g.cues.contains(&Cue::Offering));
+        g.accept_offering();
+        assert_eq!(g.reward, None);
+        assert!(g.upgrades.evolved[HELLFLARE] && g.arts.evolved(HELLFLARE));
+    }
+
+    #[test]
+    fn debug_panel_levels_respect_slots_and_evolution_needs_its_sin() {
+        let mut g = Game::new();
+        assert!(!g.debug_evolve(HELLFLARE), "level 1");
+        for _ in 0..10 {
+            g.debug_art_level(HELLFLARE, true);
+        }
+        assert_eq!(g.upgrades.arts[HELLFLARE], ART_MAX_LEVEL);
+        assert!(!g.debug_evolve(HELLFLARE), "no Legion");
+        g.debug_sin_level(LEGION, true);
+        assert!(g.debug_evolve(HELLFLARE) && g.arts.evolved(HELLFLARE));
+        assert!(!g.debug_evolve(HELLFLARE), "only once");
+        // Down a level loses the evolution; down to 0 frees the slot.
+        g.debug_art_level(HELLFLARE, false);
+        assert!(!g.upgrades.evolved[HELLFLARE]);
+        for _ in 0..10 {
+            g.debug_art_level(HELLFLARE, false);
+        }
+        assert_eq!(g.upgrades.owned_arts(), 0);
+        assert!(!g.arts.owns(HELLFLARE));
+        // Slots still cap new Arts and Sins.
+        for art in 0..ARTS.len() {
+            g.debug_art_level(art, true);
+        }
+        assert_eq!(g.upgrades.owned_arts(), MAX_ARTS);
+        for sin in 0..SINS.len() {
+            g.debug_sin_level(sin, true);
+        }
+        assert_eq!(g.upgrades.owned_sins(), MAX_SINS);
+        // Gluttony down keeps her health within the new maximum.
+        g.debug_sin_level(GLUTTONY, false);
+        assert_eq!(g.player.max_hp, PLAYER_MAX_HP);
+        assert!(g.player.hp <= g.player.max_hp);
+    }
+
+    #[test]
+    fn a_sacrificed_offering_heals_and_gives_xp_instead() {
+        let mut g = Game::new();
+        g.upgrades.arts[HELLFLARE] = ART_MAX_LEVEL;
+        g.upgrades.sins[ARTS[HELLFLARE].evolution.sin] = 1;
+        g.player.hp = 10.0;
+        assert_eq!(g.open_offering(), Reward::Evolution(HELLFLARE));
+        g.sacrifice_offering();
+        assert!(!g.upgrades.evolved[HELLFLARE]);
+        assert_eq!(g.player.hp, 10.0 + SACRIFICE_HEAL);
+        assert_eq!(
+            g.xp + (1..g.level).map(xp_to_next).sum::<u32>(),
+            SACRIFICE_XP
+        );
+        assert_eq!(g.reward, None);
     }
 
     #[test]
@@ -1110,6 +1229,7 @@ mod tests {
         let Reward::Gift(_) = g.open_offering() else {
             panic!("expected a gift")
         };
+        g.accept_offering();
         let after = g.upgrades.arts.iter().sum::<u8>() + g.upgrades.sins.iter().sum::<u8>();
         assert_eq!(after, before + 1);
         // Everything capped: it heals.
@@ -1121,6 +1241,7 @@ mod tests {
         }
         g.player.hp = 10.0;
         assert_eq!(g.open_offering(), Reward::Heal);
+        g.accept_offering();
         assert_eq!(g.player.hp, 10.0 + OFFERING_HEAL);
     }
 
@@ -1217,13 +1338,11 @@ mod tests {
         let mut g = Game::new();
         g.upgrades.arts = [ART_MAX_LEVEL; ARTS.len()];
         g.upgrades.evolved = [true; ARTS.len()];
-        // Siren's Dominion kills whatever it charmed, which would thin out the horde.
-        g.upgrades.evolved[ALLURE] = false;
         g.upgrades.sins = SINS.map(|d| d.max_level);
         g.stats = g.upgrades.stats();
         g.arts.refresh(&g.upgrades);
         g.time = VICTORY_TIME;
-        // Kiss of Death heals up to max_hp, so both are endless.
+        // Devouring Musk heals up to max_hp, so both are endless.
         g.player.hp = f32::INFINITY;
         g.player.max_hp = f32::INFINITY;
         while g.enemies.len() < MAX_ENEMIES {
@@ -1243,7 +1362,7 @@ mod tests {
             }
             if g.tick(&input) == SimEvent::LevelUp {
                 g.choose_upgrade(0);
-                g.player.hp = f32::INFINITY; // Blood Pact clamps hp to max_hp
+                g.player.hp = f32::INFINITY; // healing clamps hp to max_hp
             }
             assert!(g.dying.is_none());
             assert!(g.enemies.len() <= MAX_ENEMIES);
@@ -1252,7 +1371,6 @@ mod tests {
             assert!(g.arts.lashes.capacity() == MAX_LASHES);
             assert!(g.arts.gates.capacity() == MAX_GATES);
             assert!(g.arts.chains.capacity() == MAX_CHAINS);
-            assert!(g.arts.feathers.capacity() == MAX_FEATHERS);
             assert!(g.arts.siren_bursts.capacity() == MAX_SIREN_BURSTS);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);

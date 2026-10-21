@@ -81,3 +81,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Planned with the user: Arts/Sins redesign VS-style in Veyra's theme (14 Arts, 12 Sins on the deadly sins, Allure+Thralls union, Offering sacrifice), see 7.7 "Redesign direction". Merged into two sessions before V18: S14b (all Arts/Sins work) and S14c (all icons).
   - Note: real elites only come with V18, so Offerings (and evolutions) only appear via F5/F8 until then.
   - Next: S14b (V17b). Evolution pairs in 7.7 are a proposal for the user to review at its start.
+- **S14b part 1 (2026-10-21)** — Evolution pairs agreed (Black Mass + Envy, Gaze + Pride, Crimson Host without healing, Kiss of Ruin must read as Hellflare's evolution). V17b done and approved after several in-game rounds (see 7.7 "Built in V17b"). 133 tests.
+  - Asked for on the way: F2 Arts/Sins debug panel, Veyra drawn centred on her hitbox, Scent haze with a visible rim, Hellgate as irregular scorched ground with small flames (sprite pools and a plain orange ellipse were rejected as ugly/too bright).
+  - pxl reinstalled on the new PC by the user (running external code was blocked for me); it rebuilds the old sprites byte for byte.
+  - Not done: a sized Tail Lash sprite instead of the horizontal stretch (offered, no answer yet).
+  - Next: V17d (Reaper's Scythe, Profaned Cross, Wandering Sigil + Midnight Harvest, Heretic's Brand, Broken Seal), then V17e, V17f.

@@ -212,14 +212,15 @@ fn card_text(game: &Game, choice: Choice) -> (&'static str, String, String) {
     }
 }
 
-/// The card on the Abyssal Offering screen.
-pub fn offering_card(view: Vec2) -> Rect {
-    let x = Anchor::Center.x(view, CARD_W, 0.0);
-    Rect::new(x, CARDS_Y + CARD_H + CARD_GAP, CARD_W, CARD_H)
+/// The two cards on the Abyssal Offering screen: what it holds, and its sacrifice.
+pub fn offering_cards(view: Vec2) -> [Rect; 2] {
+    let cards = level_up_cards(view);
+    [cards[1], cards[2]]
 }
 
-/// Abyssal Offering screen: what the Offering gave, on one card.
-pub fn draw_offering(game: &Game, view: Vec2, ready: bool) {
+/// Abyssal Offering screen: what it holds on the first card, the sacrifice (a minor
+/// reward) on the second.
+pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
     draw_dim(view);
     draw_text_centered(
         view,
@@ -229,7 +230,6 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool) {
         TITLE_COLOR,
     );
     let Some(reward) = game.reward else { return };
-    let u = &game.upgrades;
     let (line, name, tag, desc) = match reward {
         Reward::Evolution(i) => {
             let evo = &ARTS[i].evolution;
@@ -241,28 +241,12 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool) {
                 tr(evo.desc).to_string(),
             )
         }
-        // The gift is already taken: show the level it reached and what that gave.
-        Reward::Gift(Choice::Art(i)) => {
-            let (def, lv) = (&ARTS[i], u.arts[i]);
-            let tag = trf(Key::LevelUpLevel, &[&lv, &ART_MAX_LEVEL]);
-            let desc = match lv {
-                1 => tr(def.desc).to_string(),
-                _ => gain_text(def, &def.gains[lv as usize - 2]),
-            };
+        // Not taken yet: show the level it would reach and what that gives.
+        Reward::Gift(choice) => {
+            let (name, tag, desc) = card_text(game, choice);
             (
                 tr(Key::OfferingGift).to_string(),
-                tr(def.name).to_string(),
-                tag,
-                desc,
-            )
-        }
-        Reward::Gift(Choice::Sin(i)) => {
-            let def = &SINS[i];
-            let tag = trf(Key::LevelUpLevel, &[&u.sins[i], &def.max_level]);
-            let desc = tr(def.desc).to_string();
-            (
-                tr(Key::OfferingGift).to_string(),
-                tr(def.name).to_string(),
+                name.to_string(),
                 tag,
                 desc,
             )
@@ -278,9 +262,22 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool) {
         }
     };
     draw_text_centered(view, &line, CARDS_Y + 22.0, TextStyle::Body, WHITE);
-    draw_card(offering_card(view), "", &name, &tag, &desc, true);
+    let [accept, sacrifice] = offering_cards(view);
+    let accept_tag = tr(Key::OfferingAccept);
+    let tag = if tag.is_empty() {
+        accept_tag.to_string()
+    } else {
+        tag
+    };
+    draw_card(accept, "1", &name, &tag, &desc, focus.is_highlighted(0));
+    let gain = trf(
+        Key::OfferingSacrificeDesc,
+        &[&SACRIFICE_HEAL, &SACRIFICE_XP],
+    );
+    let lit = focus.is_highlighted(1);
+    draw_card(sacrifice, "2", tr(Key::OfferingSacrifice), "", &gain, lit);
     if ready {
-        let y = CARDS_Y + 2.0 * (CARD_H + CARD_GAP) + 22.0;
+        let y = CARDS_Y + 3.0 * (CARD_H + CARD_GAP) + 22.0;
         draw_text_centered(view, tr(Key::OfferingHelp), y, TextStyle::Body, WHITE);
     }
 }
@@ -311,4 +308,147 @@ fn gain_text(def: &ArtDef, g: &ArtGain) -> String {
         .map(|(_, key, n)| trf(*key, &[n]))
         .collect();
     texts.join(", ")
+}
+
+// --- Debug panel (F2) ------------------------------------------------------
+// Developer-only, like the F3 overlay: labels stay in English, names go through `tr`.
+
+const DBG_TOP: f32 = 44.0;
+const DBG_ROW: f32 = 18.0;
+const DBG_ROW_H: f32 = 16.0;
+const DBG_NAME_W: f32 = 230.0;
+const DBG_EVO_W: f32 = 134.0;
+const DBG_SIN_W: f32 = 230.0;
+const DBG_OWNED: Color = Color::new(0.42, 0.06, 0.16, 0.95);
+const DBG_FREE: Color = Color::new(0.08, 0.06, 0.1, 0.92);
+const DBG_GOLD: Color = Color::new(0.91, 0.69, 0.29, 1.0);
+
+/// Hit rects of the debug panel: one row per Art, then one Evolve button per Art,
+/// then one row per Sin.
+pub fn debug_rects(view: Vec2) -> Vec<Rect> {
+    let x0 = Anchor::Center.x(view, DBG_NAME_W + DBG_EVO_W + 10.0 + DBG_SIN_W, 0.0);
+    let row = |k: usize| DBG_TOP + 14.0 + k as f32 * DBG_ROW;
+    let arts = (0..ARTS.len()).map(|k| Rect::new(x0, row(k), DBG_NAME_W, DBG_ROW_H));
+    let evos = (0..ARTS.len())
+        .map(|k| Rect::new(x0 + DBG_NAME_W + 4.0, row(k), DBG_EVO_W - 4.0, DBG_ROW_H));
+    let sin_x = x0 + DBG_NAME_W + DBG_EVO_W + 10.0;
+    let sins = (0..SINS.len()).map(|k| Rect::new(sin_x, row(k), DBG_SIN_W, DBG_ROW_H));
+    arts.chain(evos).chain(sins).collect()
+}
+
+/// A panel row: filled when owned, dimmed when it can't be taken, outlined when focused.
+fn debug_row(r: Rect, left: &str, right: &str, owned: bool, dim: bool, lit: bool, color: Color) {
+    draw_rectangle(r.x, r.y, r.w, r.h, if owned { DBG_OWNED } else { DBG_FREE });
+    let border = if lit {
+        WHITE
+    } else if owned {
+        color
+    } else {
+        DARKGRAY
+    };
+    draw_rectangle_lines(r.x, r.y, r.w, r.h, 1.0, border);
+    let text = if dim {
+        DARKGRAY
+    } else if owned {
+        color
+    } else {
+        GRAY
+    };
+    let y = r.y + 12.0;
+    draw_ui_text(left, r.x + 5.0, y, TextStyle::Small, text);
+    let w = measure_ui_text(right, TextStyle::Small).width;
+    draw_ui_text(right, r.x + r.w - w - 5.0, y, TextStyle::Small, text);
+}
+
+/// Debug panel: every Art and Sin, what is owned and at what level, the slot limits,
+/// and an Evolve button per Art (lit when it can evolve: top level and its Sin owned).
+pub fn draw_debug_panel(game: &Game, view: Vec2, focus: &Focus) {
+    draw_dim(view);
+    let u = &game.upgrades;
+    let rects = debug_rects(view);
+    let (n, arts_full, sins_full) = (
+        ARTS.len(),
+        u.owned_arts() >= MAX_ARTS,
+        u.owned_sins() >= MAX_SINS,
+    );
+    let header = |r: Rect, text: String, full: bool| {
+        let color = if full { TITLE_COLOR } else { WHITE };
+        draw_ui_text(&text, r.x, DBG_TOP + 8.0, TextStyle::Small, color);
+    };
+    let full = |f: bool| if f { "  FULL" } else { "" };
+    header(
+        rects[0],
+        format!("ARTS {}/{MAX_ARTS}{}", u.owned_arts(), full(arts_full)),
+        arts_full,
+    );
+    header(
+        rects[2 * n],
+        format!("SINS {}/{MAX_SINS}{}", u.owned_sins(), full(sins_full)),
+        sins_full,
+    );
+    for (i, def) in ARTS.iter().enumerate() {
+        let lv = u.arts[i];
+        let color = if u.evolved[i] { DBG_GOLD } else { WHITE };
+        let level = if lv > 0 {
+            format!("{lv}/{ART_MAX_LEVEL}")
+        } else {
+            "-".to_string()
+        };
+        let dim = lv == 0 && arts_full;
+        debug_row(
+            rects[i],
+            tr(def.name),
+            &level,
+            lv > 0,
+            dim,
+            focus.is_highlighted(i),
+            color,
+        );
+        let sin = tr(SINS[def.evolution.sin].name);
+        let (label, owned, dim, color) = if u.evolved[i] {
+            ("EVOLVED".to_string(), true, false, DBG_GOLD)
+        } else if u.can_evolve(i) {
+            ("EVOLVE".to_string(), true, false, WHITE)
+        } else {
+            (format!("+{sin}"), false, true, GRAY)
+        };
+        let lit = focus.is_highlighted(n + i);
+        debug_row(rects[n + i], &label, "", owned, dim, lit, color);
+    }
+    for (i, def) in SINS.iter().enumerate() {
+        let lv = u.sins[i];
+        let level = if lv > 0 {
+            format!("{lv}/{}", def.max_level)
+        } else {
+            "-".to_string()
+        };
+        let dim = lv == 0 && sins_full;
+        let lit = focus.is_highlighted(2 * n + i);
+        debug_row(
+            rects[2 * n + i],
+            tr(def.name),
+            &level,
+            lv > 0,
+            dim,
+            lit,
+            WHITE,
+        );
+    }
+    let help_y = DBG_TOP + 14.0 + SINS.len() as f32 * DBG_ROW + 14.0;
+    for (k, line) in [
+        "Click / Enter / Right: level up    Right-click / Left: level down",
+        "Evolve needs Lv 8 and the Sin shown    F2 / Esc: close",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let w = measure_ui_text(line, TextStyle::Small).width;
+        draw_ui_text(
+            line,
+            ((view.x - w) * 0.5).round(),
+            help_y + k as f32 * 12.0,
+            TextStyle::Small,
+            LIGHTGRAY,
+        );
+    }
 }

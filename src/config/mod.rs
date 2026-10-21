@@ -45,6 +45,9 @@ pub const PLAYER_ACCEL: f32 = 14.0;
 pub const IMPULSE_SPEED: f32 = 40.0;
 /// Hover height of the lowest pixel of the sprite above its shadow, in pixels.
 pub const HOVER_HEIGHT: f32 = 6.0;
+/// Veyra is drawn this much lower than a figure standing on her ground point would be,
+/// so her body (not her feet) sits on her hitbox; her shadow falls this far below it.
+pub const VEYRA_DROP: f32 = 29.0;
 pub const BOB_AMPLITUDE: f32 = 2.0;
 pub const BOB_HZ: f32 = 1.5;
 /// How much the shadow shrinks at the top of the bob (fraction of its size).
@@ -69,7 +72,7 @@ pub const MAX_PROJECTILES: usize = 256;
 /// Spread between Hellflare fireballs of one volley.
 pub const PROJ_SPREAD: f32 = 0.16;
 /// Tail Lash hits a box on one side of Veyra: it starts `LASH_NEAR` from her ground
-/// point, reaches `LASH_REACH` out and covers `LASH_DEPTH` of ground depth.
+/// point, reaches `LASH_REACH` (times area) out and covers `LASH_DEPTH` of ground depth.
 pub const LASH_NEAR: f32 = 4.0;
 pub const LASH_REACH: f32 = 52.0;
 pub const LASH_DEPTH: f32 = 24.0;
@@ -79,8 +82,7 @@ pub const LASH_DELAY: f32 = 0.12;
 pub const LASH_SHOW_TIME: f32 = 0.19;
 /// Lashes queued or on screen at once.
 pub const MAX_LASHES: usize = 16;
-/// Kiss of Ruin hearts fly side by side this far apart.
-pub const BOLT_SPACING: f32 = 7.0;
+/// Kiss of Ruin hearts fan out like the fireballs.
 pub const BOLT_RADIUS: f32 = 4.0;
 /// Hearts fly at this height above the ground, like the fireballs.
 pub const BOLT_DRAW_HEIGHT: f32 = 16.0;
@@ -88,11 +90,11 @@ pub const MAX_BOLTS: usize = 128;
 /// A heart remembers this many enemies it went through (more pierce than this
 /// just stops counting).
 pub const BOLT_MAX_HITS: usize = 8;
-/// Brimstone Halo: embers circle at this radius (times the Art's area), at height
+/// Brimstone Halo: flames circle at this radius (times the Art's area), at height
 /// `EMBER_DRAW_HEIGHT`, and burn an enemy at most once per `HALO_IMMUNE` seconds,
 /// pushing it `HALO_KNOCKBACK` pixels outwards.
-pub const HALO_RADIUS: f32 = 36.0;
-pub const EMBER_RADIUS: f32 = 5.0;
+pub const HALO_RADIUS: f32 = 38.0;
+pub const EMBER_RADIUS: f32 = 8.0;
 pub const EMBER_DRAW_HEIGHT: f32 = 12.0;
 pub const HALO_IMMUNE: f32 = 0.6;
 pub const HALO_KNOCKBACK: f32 = 6.0;
@@ -115,7 +117,7 @@ pub const ALLURE_WAVE_HEARTS: usize = 14;
 pub const CHARM_MARK_HEIGHT: f32 = 6.0;
 /// Charmed enemies are drawn tinted toward this colour.
 pub const CHARM_TINT: u32 = 0xff9ac8;
-/// Hellgate pools: ellipses `HELLGATE_RADIUS` wide and half as deep, centred on a
+/// Hellgate pools: ellipses `HELLGATE_RADIUS` (times area) wide and half as deep, centred on a
 /// random enemy within `HELLGATE_RANGE`. Everything inside burns every `HELLGATE_TICK`.
 pub const HELLGATE_RADIUS: f32 = 16.0;
 pub const HELLGATE_RANGE: f32 = 200.0;
@@ -123,6 +125,16 @@ pub const HELLGATE_TICK: f32 = 0.35;
 /// Pools fade in and out over this long at the ends of their life.
 pub const HELLGATE_FADE: f32 = 0.2;
 pub const MAX_GATES: usize = 32;
+/// A pool is drawn as scorched ground in `GATE_CELL` px cells: char, scorch, faint
+/// edge and ember (RGB); one cell in `GATE_EMBER_ODDS` of the char glows. One small
+/// flame burns per `GATE_FLAME_AREA` square pixels, between `GATE_MIN_FLAMES` and
+/// `GATE_MAX_FLAMES`.
+pub const GATE_COLORS: [u32; 4] = [0x1c0a0a, 0x3a1810, 0x5a3420, 0xd04818];
+pub const GATE_CELL: f32 = 2.0;
+pub const GATE_EMBER_ODDS: u32 = 9;
+pub const GATE_FLAME_AREA: f32 = 70.0;
+pub const GATE_MIN_FLAMES: usize = 4;
+pub const GATE_MAX_FLAMES: usize = 40;
 /// Chain of Torment: it bites a random enemy within `CHAIN_RANGE`, then jumps to the
 /// nearest enemy it hasn't bitten within `CHAIN_JUMP` (times area), `amount` in all.
 pub const CHAIN_RANGE: f32 = 180.0;
@@ -136,45 +148,39 @@ pub const CHAIN_DRAW_HEIGHT: f32 = 9.0;
 pub const CHAIN_KINK: f32 = 8.0;
 /// Chain colours: dark glow, body, white-hot core.
 pub const CHAIN_COLORS: [u32; 3] = [0x5c0c1c, 0xe04454, 0xffd0dc];
-/// Wing Gust: a cone `GUST_REACH` long (times area) and `GUST_HALF_ANGLE` radians to
-/// each side, toward the nearest enemy in reach (more gusts share the circle). It
-/// throws enemies out at `GUST_PUSH` px/s, less for big ones (times `GUST_REF_RADIUS /
-/// radius`, at most 1), and slows them to `GUST_SLOW` of their speed for the Art's
-/// duration. Knockback dies away at `KNOCK_DECAY` per second.
-pub const GUST_REACH: f32 = 72.0;
-pub const GUST_HALF_ANGLE: f32 = 0.6;
-pub const GUST_PUSH: f32 = 260.0;
-pub const GUST_REF_RADIUS: f32 = 6.0;
-pub const GUST_SLOW: f32 = 0.45;
-pub const KNOCK_DECAY: f32 = 9.0;
-/// Feathers thrown along each gust, and how long they fly.
-pub const GUST_FEATHERS: usize = 6;
-pub const GUST_FEATHER_LIFE: f32 = 0.4;
-pub const MAX_FEATHERS: usize = 96;
+/// Scent of Sin: a haze `SCENT_RADIUS` (times area) around her. Every burn (its
+/// cooldown) it hurts everything inside and weakens it for the Art's duration:
+/// weakened enemies take `SCENT_WEAKEN` more damage from every Art.
+pub const SCENT_RADIUS: f32 = 40.0;
+pub const SCENT_WEAKEN: f32 = 0.25;
+/// Weakened enemies are drawn tinted toward this colour.
+pub const WEAK_TINT: u32 = 0xe6c8ff;
+/// Motes drifting up through the haze, and its colour (RGB).
+pub const SCENT_MOTES: usize = 18;
+pub const SCENT_COLOR: u32 = 0xff4fb0;
 
 // --- Evolutions (7.7), opened by Abyssal Offerings --------------------------
-/// Hellstorm: `HELLSTORM_EXTRA` more fireballs per volley, each at its own random
-/// enemy within `FIRE_RANGE`.
-pub const HELLSTORM_EXTRA: u32 = 2;
+/// Kiss of Ruin (Hellflare evolved): each volley throws `KISS_EXTRA` more shots, as
+/// hearts that fly at `KISS_SPEED` for `KISS_LIFE` and go through `KISS_PIERCE` enemies.
+pub const KISS_EXTRA: u32 = 2;
+pub const KISS_SPEED: f32 = 380.0;
+pub const KISS_LIFE: f32 = 1.0;
+pub const KISS_PIERCE: u32 = 2;
 /// Barbed Scourge: a lashed enemy bleeds for the Lash's duration, taking
 /// `BLEED_SHARE` of its damage every `BLEED_TICK`.
 pub const BLEED_TICK: f32 = 0.5;
 pub const BLEED_SHARE: f32 = 0.25;
 /// Chance per tick that a bleeding enemy with blood drips on the ground.
 pub const BLEED_DRIP: f32 = 0.05;
-/// Allurement deepens the lash's band; faint copies of the lash mark its edges.
-pub const LASH_ECHO_ALPHA: f32 = 0.45;
-/// Kiss of Death: each heart that bites heals `KISS_HEAL`, at most `KISS_HEAL_CAP` per
-/// second.
-pub const KISS_HEAL: f32 = 1.0;
-pub const KISS_HEAL_CAP: f32 = 4.0;
-/// Infernal Crown: the embers never rest; one more joins them.
+/// Infernal Crown: the flames never rest; one more joins them.
 pub const CROWN_EXTRA: u32 = 1;
-/// Siren's Dominion: when a charm runs out the enemy bursts, dying and hurting the
-/// free enemies within `SIREN_BURST_RADIUS` (times area) for `SIREN_BURST_DAMAGE` times
-/// the Art's damage. The burst shows for `SIREN_BURST_TIME`.
+/// Siren's Dominion: when a charm runs out the enemy bursts, hurting the free enemies
+/// within `SIREN_BURST_RADIUS` (times area) for `SIREN_BURST_DAMAGE` times the Art's
+/// damage. It never kills: the enemy that bursts lives on, and the burst leaves
+/// everyone it hurts at `SIREN_SPARE_HP` at least. It shows for `SIREN_BURST_TIME`.
 pub const SIREN_BURST_RADIUS: f32 = 36.0;
-pub const SIREN_BURST_DAMAGE: f32 = 6.0;
+pub const SIREN_BURST_DAMAGE: f32 = 1.0;
+pub const SIREN_SPARE_HP: f32 = 1.0;
 pub const SIREN_BURST_TIME: f32 = 0.35;
 pub const SIREN_BURST_HEARTS: usize = 8;
 pub const MAX_SIREN_BURSTS: usize = 32;
@@ -185,17 +191,18 @@ pub const RIFT_PULL: f32 = 70.0;
 /// Torment Eternal: the chain keeps jumping, up to `MAX_CHAIN_LINKS`, to any enemy
 /// within `TORMENT_RADIUS` (times area) of the first one it bit.
 pub const TORMENT_RADIUS: f32 = 96.0;
-/// Tempest of Wings: one gust all around her, `TEMPEST_DAMAGE` times as hard, its
-/// feathers thrown in `TEMPEST_DIRS` directions.
-pub const TEMPEST_DAMAGE: f32 = 3.0;
-pub const TEMPEST_DIRS: usize = 6;
-/// Fireballs a Hellstorm volley can aim at once.
-pub const MAX_HELLSTORM: usize = 16;
+/// Devouring Musk: every enemy the haze burns gives her `MUSK_HEAL` health, at most
+/// `MUSK_HEAL_CAP` per second.
+pub const MUSK_HEAL: f32 = 0.5;
+pub const MUSK_HEAL_CAP: f32 = 3.0;
 /// Abyssal Offerings: dropped by elites, opened when Veyra gets this close. One with
-/// nothing to evolve or level up heals `OFFERING_HEAL` instead.
+/// nothing to evolve or level up heals `OFFERING_HEAL` instead. Sacrificed (rejected),
+/// an Offering heals `SACRIFICE_HEAL` and gives `SACRIFICE_XP` souls' worth of XP.
 pub const OFFERING_PICKUP: f32 = 12.0;
 pub const MAX_OFFERINGS: usize = 16;
 pub const OFFERING_HEAL: f32 = 50.0;
+pub const SACRIFICE_HEAL: f32 = 20.0;
+pub const SACRIFICE_XP: u32 = 25;
 
 pub const HIT_FLASH_TIME: f32 = 0.1;
 /// Dead enemies flash as a white silhouette for this long, then burst.
@@ -258,31 +265,20 @@ pub const fn xp_to_next(level: u32) -> u32 {
 }
 
 // --- Sins -----------------------------------------------------------------
-/// Health restored when Blood Pact is taken (clamped to the new maximum).
-pub const BLOOD_PACT_HEAL: f32 = 30.0;
 /// Sins owned at once, like the Arts' slots.
 pub const MAX_SINS: usize = 6;
 /// Contact damage left after armour never drops below this.
 pub const MIN_CONTACT_DAMAGE: f32 = 1.0;
+/// Gluttony: health regenerated per second per level (on top of its max HP).
+pub const GLUTTONY_REGEN: f32 = 0.2;
+/// Pride: each level adds its `step` to the spawn rate and to new enemies' health, and
+/// this share of it to their speed.
+pub const PRIDE_SPEED_SHARE: f32 = 0.5;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SinKind {
-    Wrath,
-    Bloodlust,
-    Legion,
-    NightWings,
-    BloodPact,
-    SirensCall,
-    DarkSigil,
-    Allurement,
-    InfernalHide,
-}
-
-/// A passive (docs/design.md 7.7). `step` is the per-level bonus, see `Upgrades::stats`.
-/// Wrath, Bloodlust, Legion, Dark Sigil and Allurement boost every Art. Greed joins
-/// with Tribute in V20.
+/// A passive (docs/design.md 7.7): the seven deadly sins plus infernal extras. `step`
+/// is the per-level bonus, see `Upgrades::stats`. Wrath, Bloodlust, Legion, Sloth and
+/// Dark Sigil boost every Art. Greed joins with Tribute in V20.
 pub struct SinDef {
-    pub kind: SinKind,
     pub name: Key,
     pub desc: Key,
     pub max_level: u8,
@@ -293,16 +289,17 @@ pub const WRATH: usize = 0;
 pub const BLOODLUST: usize = 1;
 pub const LEGION: usize = 2;
 pub const NIGHT_WINGS: usize = 3;
-pub const BLOOD_PACT: usize = 4;
-pub const SIRENS_CALL: usize = 5;
-pub const DARK_SIGIL: usize = 6;
-pub const ALLUREMENT: usize = 7;
+pub const GLUTTONY: usize = 4;
+pub const LUST: usize = 5;
+pub const SLOTH: usize = 6;
+pub const DARK_SIGIL: usize = 7;
 pub const INFERNAL_HIDE: usize = 8;
+pub const ENVY: usize = 9;
+pub const PRIDE: usize = 10;
 
 macro_rules! sin {
-    ($kind:ident, $name:ident, $desc:ident, $max:expr, $step:expr) => {
+    ($name:ident, $desc:ident, $max:expr, $step:expr) => {
         SinDef {
-            kind: SinKind::$kind,
             name: Key::$name,
             desc: Key::$desc,
             max_level: $max,
@@ -311,16 +308,18 @@ macro_rules! sin {
     };
 }
 
-pub const SINS: [SinDef; 9] = [
-    sin!(Wrath, SinWrath, SinWrathDesc, 5, 0.10),
-    sin!(Bloodlust, SinBloodlust, SinBloodlustDesc, 5, 0.08),
-    sin!(Legion, SinLegion, SinLegionDesc, 2, 1.0),
-    sin!(NightWings, SinNightWings, SinNightWingsDesc, 5, 0.10),
-    sin!(BloodPact, SinBloodPact, SinBloodPactDesc, 5, 20.0),
-    sin!(SirensCall, SinSirensCall, SinSirensCallDesc, 5, 0.40),
-    sin!(DarkSigil, SinDarkSigil, SinDarkSigilDesc, 5, 0.10),
-    sin!(Allurement, SinAllurement, SinAllurementDesc, 5, 0.10),
-    sin!(InfernalHide, SinInfernalHide, SinInfernalHideDesc, 5, 1.0),
+pub const SINS: [SinDef; 11] = [
+    sin!(SinWrath, SinWrathDesc, 5, 0.10),
+    sin!(SinBloodlust, SinBloodlustDesc, 5, 0.08),
+    sin!(SinLegion, SinLegionDesc, 2, 1.0),
+    sin!(SinNightWings, SinNightWingsDesc, 5, 0.10),
+    sin!(SinGluttony, SinGluttonyDesc, 5, 15.0),
+    sin!(SinLust, SinLustDesc, 5, 0.40),
+    sin!(SinSloth, SinSlothDesc, 5, 0.10),
+    sin!(SinDarkSigil, SinDarkSigilDesc, 5, 0.10),
+    sin!(SinInfernalHide, SinInfernalHideDesc, 5, 1.0),
+    sin!(SinEnvy, SinEnvyDesc, 5, 0.10),
+    sin!(SinPride, SinPrideDesc, 5, 0.10),
 ];
 
 // --- Enemies & spawning ---------------------------------------------------

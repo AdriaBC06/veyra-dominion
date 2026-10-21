@@ -35,6 +35,8 @@ enum State {
     Offering,
     GameOver,
     Victory,
+    /// The F2 debug panel: pick Arts and Sins, force evolutions.
+    Debug,
 }
 
 pub struct Run {
@@ -76,7 +78,7 @@ impl Run {
             State::Paused => Some((&PAUSE_MENU, 0)),
             State::GameOver => Some((&GAME_OVER_MENU, 1)),
             State::Victory => Some((&VICTORY_MENU, 1)),
-            State::Playing | State::LevelUp | State::Offering => None,
+            State::Playing | State::LevelUp | State::Offering | State::Debug => None,
         }
     }
 
@@ -108,8 +110,13 @@ impl Run {
                 if is_key_pressed(KeyCode::F8) {
                     self.game.debug_drop_offering();
                 }
+                if is_key_pressed(KeyCode::F2) {
+                    self.set_state(State::Debug);
+                    return None;
+                }
                 self.simulate(input, view, mouse_move);
             }
+            State::Debug => self.debug_panel(input, view),
             State::LevelUp => self.level_up(input, view),
             State::Offering => self.offering(input, view),
             _ => return self.menu_update(input, view),
@@ -173,7 +180,6 @@ impl Run {
                 Cue::Allure => Sfx::Allure,
                 Cue::Hellgate => Sfx::Hellgate,
                 Cue::Chain => Sfx::Chain,
-                Cue::Gust => Sfx::Gust,
                 Cue::SirenBurst => Sfx::SirenBurst,
                 Cue::Offering => Sfx::Offering,
                 Cue::Hit { armored: false } => Sfx::Hit,
@@ -234,14 +240,58 @@ impl Run {
         }
     }
 
-    /// The Offering screen waits for a click or Enter once `OFFERING_HOLD` has passed.
+    /// The Offering screen: accept (card 1) or sacrifice (card 2), once `OFFERING_HOLD`
+    /// has passed.
     fn offering(&mut self, input: &UiInput, view: Vec2) {
         self.offering_t += get_frame_time().min(MAX_FRAME_DT);
-        let card = [hud::offering_card(view)];
-        let action = self.focus.update(input, &card);
-        if self.offering_t >= OFFERING_HOLD && matches!(action, Action::Confirm(_)) {
-            audio::cue(Sfx::UiConfirm);
+        let cards = hud::offering_cards(view);
+        let action = self.focus.update(input, &cards);
+        if self.offering_t < OFFERING_HOLD {
+            return;
+        }
+        let keys = [KeyCode::Key1, KeyCode::Key2];
+        let pick = keys
+            .iter()
+            .position(|&k| is_key_pressed(k))
+            .or(match action {
+                Action::Confirm(slot) => Some(slot),
+                _ => None,
+            });
+        match pick {
+            Some(0) => self.game.accept_offering(),
+            Some(_) => self.game.sacrifice_offering(),
+            None => return,
+        }
+        audio::cue(Sfx::UiConfirm);
+        self.set_state(State::Playing);
+    }
+
+    /// F2 panel: up/down a level of the Art or Sin picked, or force an evolution.
+    fn debug_panel(&mut self, input: &UiInput, view: Vec2) {
+        let rects = hud::debug_rects(view);
+        let action = self.focus.update(input, &rects);
+        if is_key_pressed(KeyCode::F2) || action == Action::Back {
             self.set_state(State::Playing);
+            return;
+        }
+        let right_click = is_mouse_button_pressed(MouseButton::Right);
+        let (item, up) = match action {
+            Action::Confirm(i) => (i, true),
+            Action::Adjust(i, d) => (i, d > 0.0),
+            _ => match self.focus.hovered.filter(|_| right_click) {
+                Some(i) => (i, false),
+                None => return,
+            },
+        };
+        let n = ARTS.len();
+        if item < n {
+            self.game.debug_art_level(item, up);
+        } else if item < 2 * n {
+            if up {
+                self.game.debug_evolve(item - n);
+            }
+        } else {
+            self.game.debug_sin_level(item - 2 * n, up);
         }
     }
 
@@ -278,6 +328,7 @@ impl Run {
         draw_ground(origin, view);
         self.blood.draw(origin, view);
         draw_gates(game);
+        draw_scent(game, player_pos.round());
         draw_souls(game);
         draw_offerings(game);
         draw_bursts(game, true);
@@ -285,6 +336,7 @@ impl Run {
         draw_fades(game);
         draw_bursts(game, false);
         let pos = player_pos.round();
+        draw_scent_motes(game, pos);
         draw_allure_wave(game, pos);
         draw_siren_bursts(game);
         draw_charm_marks(game);
@@ -295,7 +347,6 @@ impl Run {
         draw_chains(game);
         draw_bolts(game, alpha);
         draw_projectiles(game);
-        draw_feathers(game);
     }
 
     /// HUD and overlays; call with the UI camera set.
@@ -307,10 +358,15 @@ impl Run {
                 hud::draw_hud(game, view);
                 return hud::draw_level_up(game, view, &self.focus);
             }
+            State::Debug => {
+                hud::draw_hud(game, view);
+                hud::draw_debug_panel(game, view, &self.focus);
+                None
+            }
             State::Offering => {
                 hud::draw_hud(game, view);
                 let ready = self.offering_t >= OFFERING_HOLD;
-                return hud::draw_offering(game, view, ready);
+                return hud::draw_offering(game, view, ready, &self.focus);
             }
             State::Paused => {
                 hud::draw_hud(game, view);
@@ -422,6 +478,8 @@ fn draw_enemies(game: &Game) {
         }
         let tint = if e.charmed(i, game.time) {
             Color::from_hex(CHARM_TINT)
+        } else if e.weak(i, game.time) && e.flash[i] <= 0.0 {
+            Color::from_hex(WEAK_TINT)
         } else {
             WHITE
         };
@@ -494,18 +552,72 @@ fn draw_offerings(game: &Game) {
     }
 }
 
-/// Hellgate pools on the ground, fading in and out.
+/// Hellgate pools: a patch of scorched ground as big as the Art's area, in 2 px cells
+/// with a ragged, fading edge and embers glowing in the char, plus small flames
+/// flickering on their own beats; all fade in and out.
 fn draw_gates(game: &Game) {
+    let rx = HELLGATE_RADIUS * game.arts.stats[HELLGATE].area;
+    let ry = rx * 0.5;
+    let [char_, scorch, edge, ember] = GATE_COLORS.map(Color::from_hex);
+    let flames =
+        ((TAU * 0.5 * rx * ry / GATE_FLAME_AREA) as usize).clamp(GATE_MIN_FLAMES, GATE_MAX_FLAMES);
+    let (cx, cy) = (
+        (rx / GATE_CELL).ceil() as i32,
+        (ry / GATE_CELL).ceil() as i32,
+    );
     for g in &game.arts.gates {
-        let frame = assets::anim_frame(SpriteId::Hellgate, g.t, true);
-        let tint = Color::new(1.0, 1.0, 1.0, g.alpha());
-        draw_sprite_tinted(
-            SpriteId::Hellgate,
-            frame,
-            g.pos.round() - vec2(18.0, 16.0),
-            false,
-            tint,
-        );
+        let a = g.alpha();
+        let p = g.pos.round();
+        for iy in -cy..=cy {
+            for ix in -cx..=cx {
+                let off = vec2(ix as f32, iy as f32) * GATE_CELL;
+                let d = ((off.x / rx).powi(2) + (off.y / ry).powi(2)).sqrt();
+                let h = jitter(
+                    g.seed
+                        ^ (ix as u32).wrapping_mul(0x9e37_79b9)
+                        ^ (iy as u32).wrapping_mul(0x85eb_ca6b),
+                );
+                // A ragged edge: each cell reaches its own distance.
+                let reach = 0.7 + 0.35 * (h & 0xff) as f32 / 255.0;
+                if d > reach {
+                    continue;
+                }
+                let k = d / reach;
+                let (mut c, alpha) = if k < 0.55 {
+                    (char_, 0.8)
+                } else if k < 0.85 {
+                    (scorch, 0.6)
+                } else {
+                    (edge, 0.3)
+                };
+                c.a = alpha * a;
+                // A few cells of the char glow like embers, breathing.
+                if k < 0.7 && (h >> 8).is_multiple_of(GATE_EMBER_ODDS) {
+                    let beat = 0.5 + 0.5 * (game.time * 5.0 + (h >> 16) as f32).sin();
+                    c = ember;
+                    c.a = (0.45 + 0.45 * beat) * a;
+                }
+                let q = p + off;
+                draw_rectangle(q.x, q.y, GATE_CELL, GATE_CELL, c);
+            }
+        }
+        // Flames on random spots of the patch, the far ones first.
+        let mut spots = [Vec2::ZERO; GATE_MAX_FLAMES];
+        for (n, spot) in spots.iter_mut().enumerate().take(flames) {
+            let h = jitter(g.seed ^ (n as u32).wrapping_mul(0x9e37_79b9));
+            let angle = (h & 0xffff) as f32 / 65536.0 * TAU;
+            let dist = (((h >> 16) & 0xff) as f32 / 256.0).sqrt() * 0.75;
+            *spot = p + vec2(angle.cos() * rx, angle.sin() * ry) * dist;
+        }
+        let spots = &mut spots[..flames];
+        spots.sort_by(|a, b| a.y.total_cmp(&b.y));
+        for (n, spot) in spots.iter().enumerate() {
+            let phase = (jitter(g.seed.wrapping_add(n as u32)) % 400) as f32 / 1000.0;
+            let frame = assets::anim_frame(SpriteId::GateFlame, g.t + phase, true);
+            let corner = spot.round() - vec2(3.0, 9.0);
+            let tint = Color::new(1.0, 1.0, 1.0, a);
+            draw_sprite_tinted(SpriteId::GateFlame, frame, corner, false, tint);
+        }
     }
 }
 
@@ -567,18 +679,6 @@ fn jitter(mut x: u32) -> u32 {
     x ^ (x >> 16)
 }
 
-/// Wing Gust feathers, fluttering away and fading.
-fn draw_feathers(game: &Game) {
-    for f in &game.arts.feathers {
-        let frame = assets::anim_frame(SpriteId::GustFeather, f.t, true);
-        // Solid for most of the flight; a long fade turns them to brown dots on the grass.
-        let fade = ((1.0 - f.t / GUST_FEATHER_LIFE) / 0.3).min(1.0);
-        let tint = Color::new(1.0, 1.0, 1.0, fade);
-        let corner = f.pos.round() - vec2(5.0, 3.0 + f.height.round());
-        draw_sprite_tinted(SpriteId::GustFeather, frame, corner, f.vel.x > 0.0, tint);
-    }
-}
-
 /// A 1 px ring in `ELITE_OUTLINE` around the sprite's own dark outline: its white
 /// silhouette tinted and drawn at the four neighbouring offsets. It breathes gently.
 fn draw_elite_outline(id: SpriteId, frame: usize, corner: Vec2, flip: bool, t: f32) {
@@ -624,29 +724,84 @@ fn draw_projectiles(game: &Game) {
     }
 }
 
-/// Tail lashes at Veyra's sides, the crescent's tips just above the ground.
+/// Tail lashes at Veyra's sides, centred on her hitbox. A longer reach (area)
+/// stretches the swing outwards.
 fn draw_lashes(game: &Game, pos: Vec2) {
     let area = game.arts.stats[TAIL_LASH].area;
     for l in game.arts.lashes.iter().filter(|l| l.delay <= 0.0) {
-        let (_, src) = sprite(SpriteId::TailLash, 0);
-        let flip = l.side > 0.0;
-        let x = if flip {
-            pos.x + 1.0
-        } else {
-            pos.x - 1.0 - src.w
-        };
         let frame = assets::anim_frame(SpriteId::TailLash, l.t, false);
-        let corner = vec2(x, pos.y - 2.0 - src.h);
-        // A deeper band (Allurement) shows as faint copies above and below.
-        let spread = (LASH_DEPTH * (area - 1.0) * 0.5).round();
-        if spread >= 1.0 {
-            let echo = Color::new(1.0, 1.0, 1.0, LASH_ECHO_ALPHA);
-            for dy in [-spread, spread] {
-                let at = corner + vec2(0.0, dy);
-                draw_sprite_tinted(SpriteId::TailLash, frame, at, flip, echo);
-            }
-        }
-        draw_sprite(SpriteId::TailLash, frame, corner, flip);
+        let (tex, src) = sprite(SpriteId::TailLash, frame);
+        let w = (src.w + LASH_REACH * (area - 1.0)).round();
+        let flip = l.side > 0.0;
+        let x = if flip { pos.x + 1.0 } else { pos.x - 1.0 - w };
+        draw_texture_ex(
+            &tex,
+            x,
+            pos.y - (src.h * 0.5).round(),
+            WHITE,
+            DrawTextureParams {
+                source: Some(src),
+                dest_size: Some(vec2(w, src.h)),
+                flip_x: flip,
+                ..Default::default()
+            },
+        );
+    }
+}
+
+/// Scent of Sin: a pink haze around her with a clear rim, and a ring that pulses out
+/// from it every time it burns.
+fn draw_scent(game: &Game, pos: Vec2) {
+    if !game.arts.owns(SCENT_OF_SIN) {
+        return;
+    }
+    let radius = SCENT_RADIUS * game.arts.stats[SCENT_OF_SIN].area;
+    let color = |a: f32| {
+        let mut c = Color::from_hex(SCENT_COLOR);
+        c.a = a;
+        c
+    };
+    // The haze breathes a little; on each burn it flares and a ring runs outwards.
+    let since = game.arts.since_scent;
+    let flare = (1.0 - since / 0.3).max(0.0);
+    let breath = 0.5 + 0.5 * (TAU * 0.6 * game.time).sin();
+    draw_circle(
+        pos.x,
+        pos.y,
+        radius,
+        color(0.2 + 0.04 * breath + 0.1 * flare),
+    );
+    draw_circle(pos.x, pos.y, radius * 0.6, color(0.06));
+    draw_circle_lines(pos.x, pos.y, radius, 2.0, color(0.85 + 0.15 * flare));
+    if since < 0.4 {
+        let k = since / 0.4;
+        draw_circle_lines(
+            pos.x,
+            pos.y,
+            radius * (1.0 + 0.25 * k),
+            2.0,
+            color(0.8 * (1.0 - k)),
+        );
+    }
+}
+
+/// Motes of the Scent drifting up through the haze and fading as they rise.
+fn draw_scent_motes(game: &Game, pos: Vec2) {
+    if !game.arts.owns(SCENT_OF_SIN) {
+        return;
+    }
+    let radius = SCENT_RADIUS * game.arts.stats[SCENT_OF_SIN].area;
+    let mut color = Color::from_hex(SCENT_COLOR);
+    for n in 0..SCENT_MOTES as u32 {
+        let h = jitter(n.wrapping_mul(0x9e37_79b9));
+        let angle = (h & 0xffff) as f32 / 65536.0 * TAU;
+        let dist = ((h >> 16) & 0xff) as f32 / 256.0;
+        // Each mote rises for 1.5 s, then starts again at its spot on the ground.
+        let life = (game.time / 1.5 + (h >> 24) as f32 / 256.0).fract();
+        let ground = pos + Vec2::from_angle(angle) * radius * dist.sqrt();
+        color.a = 0.8 * (1.0 - life);
+        let p = (ground - vec2(1.0, 2.0 + life * 20.0)).round();
+        draw_rectangle(p.x, p.y, 2.0, 2.0, color);
     }
 }
 
@@ -664,7 +819,7 @@ fn draw_bolts(game: &Game, alpha: f32) {
     }
 }
 
-/// Brimstone Halo embers circling Veyra: the ones on the far side (`front` false)
+/// Brimstone Halo flames circling Veyra: the ones on the far side (`front` false)
 /// go behind her, the near ones in front.
 fn draw_embers(game: &Game, pos: Vec2, front: bool) {
     let a = game.arts.halo_alpha();
@@ -675,8 +830,9 @@ fn draw_embers(game: &Game, pos: Vec2, front: bool) {
     let tint = Color::new(1.0, 1.0, 1.0, a);
     for off in game.arts.embers().filter(|o| (o.y >= 0.0) == front) {
         let ground = (pos + off).round();
-        draw_shadow(ground, 2.5, 1.0, 0.6 * a);
-        let corner = ground - vec2(3.0, 4.0 + EMBER_DRAW_HEIGHT);
+        draw_shadow(ground, 5.0, 1.5, 0.6 * a);
+        // The flame stands on its ground point, lifted to the orbit's height.
+        let corner = ground - vec2(6.0, 14.0 + EMBER_DRAW_HEIGHT);
         draw_sprite_tinted(SpriteId::Ember, frame, corner, false, tint);
     }
 }
@@ -696,6 +852,8 @@ fn draw_fades(game: &Game) {
 /// hair and body stacked on one pivot, or the death strip while she burns away.
 fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
     let p = &game.player;
+    // Her body sits on her hitbox; `pos` becomes the ground under her from here on.
+    let pos = pos + vec2(0.0, VEYRA_DROP);
     let bob = BOB_AMPLITUDE * (TAU * BOB_HZ * t).sin();
     let pivot = pos
         - vec2(
