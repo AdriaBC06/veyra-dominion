@@ -357,12 +357,101 @@ impl Fonts {
     }
 }
 
-/// Title-screen Veyra (V14 trial): too big for the atlas, so it is its own texture.
-/// Made by `assets/pixelize.py` (Qwen-Image-Edit + Pixel Art Fixer, see docs/design.md 7.5).
-const TITLE_PORTRAIT_PNG: &[u8] = include_bytes!("../assets/sprites/title/veyra_portrait_ai.png");
+/// Title-screen Veyra candidates (V14 trial, F2 cycles them): too big for the atlas, so each is
+/// its own texture. "px" is the generated portrait (`assets/refs/veyra_gpt_fake_pixel.png`) rebuilt
+/// as real 1:1 pixel art by `assets/depixelize.py` and animated by `assets/animate_portrait.py`
+/// (8x6 sheet of 48 frames, 12 fps). "pxl" is drawn with `assets/veyra_pxl.px.js` (8x4 sheet, shown x2);
+/// "1" and "4" are stills made by `assets/pixelize.py` (Qwen-Image-Edit + Pixel Art Fixer, docs/design.md 7.5).
+pub const TITLE_PORTRAITS: [TitlePortraitDef; 4] = [
+    TitlePortraitDef {
+        name: "px",
+        png: include_bytes!("../assets/sprites/title/veyra_portrait_px_sheet.png"),
+        cols: 8,
+        frames: 48,
+        fps: 12.0,
+        scale: 1.0,
+    },
+    TitlePortraitDef {
+        name: "pxl",
+        png: include_bytes!("../assets/sprites/title/veyra_title_sheet.png"),
+        cols: 8,
+        frames: 32,
+        fps: 10.0,
+        scale: 2.0,
+    },
+    TitlePortraitDef {
+        name: "1",
+        png: include_bytes!("../assets/sprites/title/veyra_portrait_full1.png"),
+        cols: 1,
+        frames: 1,
+        fps: 1.0,
+        scale: 1.0,
+    },
+    TitlePortraitDef {
+        name: "4",
+        png: include_bytes!("../assets/sprites/title/veyra_portrait_full4.png"),
+        cols: 1,
+        frames: 1,
+        fps: 1.0,
+        scale: 1.0,
+    },
+];
+
+pub struct TitlePortraitDef {
+    pub name: &'static str,
+    png: &'static [u8],
+    /// Frames are laid out left to right, `cols` per row.
+    cols: u32,
+    frames: u32,
+    fps: f64,
+    scale: f32,
+}
+
+/// A loaded title portrait: a sheet of equal frames drawn at an integer scale.
+#[derive(Clone)]
+pub struct TitlePortrait {
+    tex: Texture2D,
+    cols: u32,
+    frames: u32,
+    fps: f64,
+    scale: f32,
+}
+
+impl TitlePortrait {
+    fn frame_size(&self) -> Vec2 {
+        let rows = self.frames.div_ceil(self.cols);
+        vec2(
+            self.tex.width() / self.cols as f32,
+            self.tex.height() / rows as f32,
+        )
+    }
+
+    /// On-screen size.
+    pub fn size(&self) -> Vec2 {
+        self.frame_size() * self.scale
+    }
+
+    /// Draws the frame for time `t` (seconds) with its top-left corner at `pos`.
+    pub fn draw(&self, pos: Vec2, t: f64) {
+        let frame = (t * self.fps) as u32 % self.frames;
+        let fs = self.frame_size();
+        let src = Rect::new(
+            (frame % self.cols) as f32 * fs.x,
+            (frame / self.cols) as f32 * fs.y,
+            fs.x,
+            fs.y,
+        );
+        let params = DrawTextureParams {
+            source: Some(src),
+            dest_size: Some(self.size()),
+            ..Default::default()
+        };
+        draw_texture_ex(&self.tex, pos.x, pos.y, WHITE, params);
+    }
+}
 
 thread_local! {
-    static TITLE_PORTRAIT: OnceCell<Texture2D> = const { OnceCell::new() };
+    static TITLE_PORTRAIT: OnceCell<Vec<TitlePortrait>> = const { OnceCell::new() };
     static ATLAS: OnceCell<Atlas> = const { OnceCell::new() };
     static FONTS: OnceCell<Fonts> = const { OnceCell::new() };
 }
@@ -466,10 +555,19 @@ pub fn init() {
     ATLAS.with(|a| {
         let _ = a.set(Atlas { tex, rects, ranges });
     });
-    let portrait = Texture2D::from_file_with_format(TITLE_PORTRAIT_PNG, Some(ImageFormat::Png));
-    portrait.set_filter(FilterMode::Nearest);
+    let portraits = TITLE_PORTRAITS.map(|d| {
+        let tex = Texture2D::from_file_with_format(d.png, Some(ImageFormat::Png));
+        tex.set_filter(FilterMode::Nearest);
+        TitlePortrait {
+            tex,
+            cols: d.cols,
+            frames: d.frames,
+            fps: d.fps,
+            scale: d.scale,
+        }
+    });
     TITLE_PORTRAIT.with(|p| {
-        let _ = p.set(portrait);
+        let _ = p.set(portraits.to_vec());
     });
 
     let load = |bytes| {
@@ -520,11 +618,12 @@ pub fn measure_ui_text(text: &str, style: TextStyle) -> TextDimensions {
     })
 }
 
-/// Texture and source rect for a sprite frame (frame wraps around).
-pub fn title_portrait() -> Texture2D {
-    TITLE_PORTRAIT.with(|p| p.get().expect("assets::init not called").clone())
+/// Title portrait candidate `i` (index into `TITLE_PORTRAITS`).
+pub fn title_portrait(i: usize) -> TitlePortrait {
+    TITLE_PORTRAIT.with(|p| p.get().expect("assets::init not called")[i].clone())
 }
 
+/// Texture and source rect for a sprite frame (frame wraps around).
 pub fn sprite(id: SpriteId, frame: usize) -> (Texture2D, Rect) {
     ATLAS.with(|a| {
         let atlas = a.get().expect("assets::init not called");

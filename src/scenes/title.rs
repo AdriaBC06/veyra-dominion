@@ -19,21 +19,30 @@ const ITEMS: [(Key, Nav); 4] = [
 #[derive(Default)]
 pub struct Title {
     focus: Focus,
+    /// Portrait candidate shown (V14 trial, F2 cycles `assets::TITLE_PORTRAITS`).
+    portrait: usize,
 }
 
 /// The part of the view left of the portrait (never narrower than the buttons), as a view.
-fn menu_view(view: Vec2) -> Vec2 {
-    let w = assets::title_portrait().width();
+fn menu_view(view: Vec2, portrait: usize) -> Vec2 {
+    let w = assets::title_portrait(portrait).size().x;
     vec2((view.x - w).max(ui::BUTTON_W + 32.0), view.y)
 }
 
-fn buttons(view: Vec2) -> Vec<Rect> {
-    ui::button_column(menu_view(view), hud::center_screen_buttons(1), ITEMS.len())
+fn buttons(view: Vec2, portrait: usize) -> Vec<Rect> {
+    ui::button_column(
+        menu_view(view, portrait),
+        hud::center_screen_buttons(1),
+        ITEMS.len(),
+    )
 }
 
 impl Title {
     pub fn update(&mut self, input: &UiInput, view: Vec2) -> Option<Nav> {
-        match self.focus.update(input, &buttons(view)) {
+        if is_key_pressed(KeyCode::F2) {
+            self.portrait = (self.portrait + 1) % assets::TITLE_PORTRAITS.len();
+        }
+        match self.focus.update(input, &buttons(view, self.portrait)) {
             Action::Confirm(i) => Some(ITEMS[i].1),
             _ => None,
         }
@@ -42,11 +51,12 @@ impl Title {
     pub fn draw(&self, view: Vec2) {
         let tagline = trf(Key::TitleTagline, &[&hud::format_time(VICTORY_TIME)]);
         hud::draw_dim(view);
-        let portrait = assets::title_portrait();
-        let (w, h) = (portrait.width(), portrait.height());
-        draw_texture(&portrait, view.x - w, view.y - h, WHITE);
-        hud::draw_center_text(menu_view(view), GAME_TITLE, &[&tagline]);
+        let portrait = assets::title_portrait(self.portrait);
+        portrait.draw(view - portrait.size(), get_time());
+        let label = format!("F2: {}", assets::TITLE_PORTRAITS[self.portrait].name);
+        draw_text(&label, view.x - 40.0, 12.0, 16.0, GRAY);
+        hud::draw_center_text(menu_view(view, self.portrait), GAME_TITLE, &[&tagline]);
         let labels = ITEMS.map(|(k, _)| tr(k));
-        ui::draw_buttons(&buttons(view), &labels, &self.focus);
+        ui::draw_buttons(&buttons(view, self.portrait), &labels, &self.focus);
     }
 }

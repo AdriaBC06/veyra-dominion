@@ -11,13 +11,14 @@ Writes into OUT_DIR, per seed: ai_<seed>.png (raw generation), native_<seed>.png
 forced_<seed>.png (grid forced to --size) and *_x4.png previews of both.
 
     ~/.local/src/pixel-art-fixer/python/.venv/bin/python assets/pixelize.py \\
-        assets/refs/veyra_title_pose.png OUT_DIR --crop veyra --size veyra --palette veyra [--fast] [--seeds 3]
+        assets/refs/veyra_title_pose.png OUT_DIR --crop veyra --size veyra --palette veyra [--fast] [--seeds 3] [--blocks 4]
 
 Needs ComfyUI on localhost:8188 (~/comfyui/start-comfyui.sh) and the fixer checked out at
 ~/.local/src/pixel-art-fixer (python/ venv with `detector -> pixelfixer` symlink).
 """
 import argparse
 import json
+import math
 import random
 import shutil
 import sys
@@ -45,6 +46,17 @@ PROMPT = (
     "art pixel about {px} screen pixels wide. Clean dark outlines, a limited palette, flat cel "
     "shading with hard-edged clusters of colour, no anti-aliasing, no gradients, no blur, no "
     "noise, no dithering. Replace the whole background with flat solid pure green (#00FF00)."
+)
+# --blocks: the input is pre-reduced to a blocky draft, so the grid is given and the model only redraws.
+# A clean anime input is otherwise returned almost unchanged (S11c).
+BLOCKS_PROMPT = (
+    "This is a rough blocky draft on a grid of {px}x{px}-pixel blocks. Redraw it as clean, high-quality "
+    "hand-made pixel art, like a detailed 16-bit JRPG character portrait, on exactly the same grid: every "
+    "art pixel is one solid {px}x{px} block, aligned with the draft's blocks. Keep exactly the same character, "
+    "pose, framing, face, expression (closed-lip smirk showing two small fangs), eyes, hair, horns, wings, "
+    "outfit and proportions. Clean dark outlines, a limited palette, flat cel shading with hard-edged clusters "
+    "of colour, crisp gold trims, readable eyes. No anti-aliasing, no gradients, no blur, no noise, no "
+    "dithering. Keep the background flat solid pure green (#00FF00)."
 )
 NEGATIVE = "blurry, photo, smooth gradients, anti-aliasing, jpeg artifacts, noise, text, watermark"
 
@@ -129,7 +141,8 @@ def main():
     ap.add_argument("--size", required=True, help="WxH of the final sprite, or 'veyra' (CROP x SCALE)")
     ap.add_argument("--palette", default="veyra", help="'veyra', 'none' or a number of colours")
     ap.add_argument("--gen-mp", type=float, default=1.0, help="generation size in megapixels")
-    ap.add_argument("--prompt", default=PROMPT)
+    ap.add_argument("--prompt")
+    ap.add_argument("--blocks", type=int, help="pre-reduce the input to a draft of NxN blocks (art pixel size)")
     ap.add_argument("--seeds", type=int, default=1)
     ap.add_argument("--seed", type=int)
     ap.add_argument("--fast", action="store_true", help="Lightning LoRA, 8 steps")
@@ -144,7 +157,8 @@ def main():
     else:
         tw, th = map(int, a.size.split("x"))
     k = (a.gen_mp * 1e6 / (tw * th)) ** 0.5
-    gw, gh = round(tw * k / 16) * 16, round(th * k / 16) * 16
+    unit = math.lcm(16, a.blocks or 1)
+    gw, gh = round(tw * k / unit) * unit, round(th * k / unit) * unit
     print(f"target {tw}x{th}, generation {gw}x{gh} (~{gw / tw:.1f} px per art pixel)")
 
     palette = None
@@ -153,11 +167,14 @@ def main():
                             for ramp in vt.RAMPS.values() for v in ramp.values()])
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    name = "pixelize_input.png"
-    src.resize((gw, gh), Image.LANCZOS).save(COMFY / "input" / name)
+    name = f"pixelize_{out.name}.png"     # per run: queued runs must not share an input file
+    src = src.resize((gw, gh), Image.LANCZOS)
+    if a.blocks:
+        src = src.resize((gw // a.blocks, gh // a.blocks), Image.BOX).resize((gw, gh), Image.NEAREST)
+    src.save(COMFY / "input" / name)
     shutil.copy(COMFY / "input" / name, out / "input.png")
 
-    prompt = a.prompt.format(px=round(gw / tw))
+    prompt = (a.prompt or (BLOCKS_PROMPT if a.blocks else PROMPT)).format(px=a.blocks or round(gw / tw))
     seeds = [a.seed] if a.seed is not None else [random.randint(0, 2**31) for _ in range(a.seeds)]
     for seed in seeds:
         ai = generate(name, prompt, seed, a.fast)
