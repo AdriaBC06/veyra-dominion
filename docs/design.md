@@ -126,17 +126,36 @@ Modelled on the Vampire Survivors structure: up to **6 Arts + 6 Sins**, Arts rea
 
 On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Reroll charges come from Pacts.
 
-**Redesign direction (2026-10-21, user feedback after S14; V17b).** Behaviours follow Vampire Survivors items; names, look and lore are Veyra's (succubus). Details are being agreed in planning questions; the result replaces the tables above.
-- Keep: Hellflare as the starting Art; Chain of Torment as is; Hellgate and Allure; the evolution system (max level + paired Sin + Offering) and most evolutions.
-- Tail Lash: its reach grows per level (it is too short even at high levels).
-- Kiss of Ruin: too generic as an Art; it becomes Hellflare's evolution (more projectiles that pierce).
-- Brimstone Halo: starts as one bigger flame; levels add flames, spin speed and less rest time.
-- Siren's Dominion: the burst on charm expiry deals a little damage, it does not kill.
-- Hellgate: much less base damage, its size grows per level.
-- Wing Gust: removed, replaced by a Garlic-like aura.
-- Sins: same idea, small upgrades/redesign allowed.
-- Offerings: can be rejected.
-- Then V17c: icons for every Art, evolution (own icon) and Sin, drawn with the pxl skill (https://github.com/crsolver/claude-pxl, install first).
+**Redesign direction (agreed 2026-10-21, user planning questions after S14).** Behaviours follow Vampire Survivors items; names, look and lore are Veyra's (succubus). Free colour per Art (no schools). Replaces the tables above once built.
+
+*Existing Arts (V17b):*
+- Hellflare: unchanged starting Art.
+- Tail Lash: reach grows per level (too short even at high levels).
+- Kiss of Ruin: no longer an Art; it is **Hellflare's evolution** (more projectiles, piercing hearts).
+- Brimstone Halo: starts as one bigger flame; levels add flames, spin speed and less rest.
+- Allure: unchanged; Siren's Dominion's burst deals a little damage, never kills.
+- Hellgate: much less base damage, pool size grows per level.
+- Chain of Torment: unchanged.
+- Wing Gust: removed. Replaced by **Scent of Sin** (Garlic): a pink haze around her that burns slowly and weakens enemies (they take more damage). Allure commands, the Scent corrodes.
+
+*New Arts (V17d–f, 7 more, 14 in total):*
+- **Thralls** (summon): seduced villagers that turn on their own; fragile and disposable.
+- **Reaper's Scythe** (Axe): a scythe thrown in an arc.
+- **Profaned Cross** (Cross): an inverted cross from the Church that sealed her, thrown like a boomerang.
+- **Wandering Sigil** (Runetracer): her infernal sigil bouncing off the screen edges, piercing.
+- **Bat Swarm** (Peachone/Ebony as one Art): a flock that bombs areas, grows per level.
+- **Black Mass** (Pentagram): a pentagram that now and then deals massive damage to everything visible (no instant kill, so bosses/elites survive).
+- **Gaze of Desire** (Clock Lancet): her gaze freezes enemies for a moment.
+
+*Union:* **Allure + Thralls** (both max + Offering) replaces both: charmed enemies become thralls that fight for her, but they can die and do not last forever. Allure can still evolve alone into Siren's Dominion.
+
+*Sins (12): the seven deadly sins + infernal extras.* Wrath +damage · Gluttony +max HP and regen (replaces Blood Pact) · Greed +Tribute (with V20) · Sloth +duration · Lust +pickup radius · Envy +XP per soul (the user rejected luck: that belongs to permanent Pacts) · Pride = Curse (more, faster, tougher enemies for more souls) · Legion +amount · Bloodlust −cooldown · Night Wings +speed · Infernal Hide +armour · Dark Sigil +area. Old Siren's Call and Allurement go.
+
+*Evolution pairs (proposal, user to review in V17b):* Hellflare + Legion → Kiss of Ruin · Tail Lash + Wrath → Barbed Scourge · Brimstone Halo + Sloth → Infernal Crown · Allure + Lust → Siren's Dominion · Hellgate + Dark Sigil → Abyssal Rift · Chain + Bloodlust → Torment Eternal · Scent of Sin + Gluttony → (drains and heals) · Scythe + Night Wings · Cross + Wrath · Sigil + Infernal Hide (lore: the seal breaks) · Bats + Gluttony (blood drinking) · Black Mass + Pride · Gaze + Envy (the evil eye). Names for the new ones when they are built.
+
+*Offerings:* can be rejected as a **sacrifice**: destroyed for a minor reward (heal, souls or, from V20, Tribute).
+
+*Icons (V17c):* pxl skill (https://github.com/crsolver/claude-pxl, install first); every Art, evolution (own icon) and Sin; shown on level-up/Offering cards and the HUD. New Arts get their icon when built.
 
 **Built in V15 (S12):**
 - `src/arts.rs` (not `weapons.rs`): `Arts` owns the fixed pools (fireballs, lashes, hearts) and the Halo state, the cooldowns and the effective stats; `Game::tick` calls `arts.update(World { player, enemies, hash, time }, alive)` where Hellflare used to fire. Levels live in `Upgrades` (`arts[i]`, 0 = not owned, plus `slots`, 6 max); every run starts with Hellflare at level 1. Call `arts.refresh(&upgrades)` after any change.
