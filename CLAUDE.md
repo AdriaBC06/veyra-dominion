@@ -29,7 +29,7 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 
 - `src/main.rs` window + loop · `scenes/` (`App`, `Nav`: title, run, settings, credits) · `screen.rs` layout/render target · `ui.rs` widgets/focus
 - Sim: `game.rs`, `enemies.rs` + `config/enemies.rs` (kinds, behaviours, timeline), `spatial.rs`, `upgrades.rs` (Sins), `arts.rs` + `config/arts.rs`, `blood.rs`
-- `balance.rs` (test only): kiting bot that plays whole runs, `cargo test --release balance -- --ignored --nocapture`
+- `balance.rs` (test only): kiting bot that plays whole runs, `cargo test --release balance -- --ignored --nocapture`; `BALANCE_ONLY=<art index>` runs one Art alone
 - `assets.rs` embedded PNG atlas (`assets/sprites/`), fonts in `assets/fonts/` · `audio/` own chip synth + tracker (`assets/music/*.vtrk`) · `save.rs` settings/save files · `i18n.rs`
 - Art as code: `assets/*.px.js` (enemy effects: `enemy_fx.px.js` → `assets/sprites/enemy_fx`; roster sheet: `python3 assets/bestiary_sheet.py` → `docs/art/ashford_bestiary.png`); title portrait: `assets/depixelize.py` + `assets/animate_portrait.py` (see docs/design.md, V14 phase 2)
 - `examples/render_audio.rs` writes WAVs to `target/audio/`

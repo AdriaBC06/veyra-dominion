@@ -15,6 +15,13 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V17c Icons for every Art, evolution (own icon) and Sin, in cards and HUD
 - **S15 — Enemy AI**
   - [x] V18 Enemy behaviours and elites (Ashford roster of 12, approved by the user)
+  - [x] V17g Whip of Torment: Chain renamed, whip icon
+  - [ ] V17h Wandering Sigil stutter on 75 Hz (interpolation sign)
+  - [x] V17i Black Mass / Witches' Sabbath nerf
+  - [ ] V17j Wandering Sigil sprite + matching icon *(user approval)*
+  - [ ] V17k Animated fireballs (Hellflare) and flame hearts (Kiss of Ruin) *(user approval)*
+  - [ ] V17l Bat Swarm / Crimson Host icons like their bats *(user approval)*
+  - [ ] V17m Thralls icon reads as a thrall *(user approval)*
   - [ ] V18b Progression rebalance (10:00 Ashford timeline, stepped XP curve, soul tiers and drop chances, HP per minute; plan in design.md 7.8)
 - **S16 — First boss**
   - [ ] V19 Boss framework + first boss
@@ -49,6 +56,13 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 |---|---|---|---|
 | V17c | Icons (pxl skill) for all Arts, evolutions and Sins, in cards and HUD | User approves | `feat: art and sin icons` |
 | V18 | New behaviours (Ranged, Charger, Support, Swarm, Shielded, Flyer) + hostile shots + elites | Behaviour tests green | `feat: enemy behaviours and elites` |
+| V17g | Chain of Torment → Whip of Torment / Látigo del tormento, whip icon | User approves | `feat: whip of torment (chain renamed, new icon)` |
+| V17h | Sigil drawn along its real velocity (was extrapolated the wrong way when flying left) | Smooth on 75 Hz | `fix: sigil interpolation` |
+| V17i | Black Mass 12 dmg / 20 s (42 / 14 s maxed), Sabbath ×0.8; `BALANCE_ONLY` probe | Probe: Mass alone no longer outlevels Hellflare alone | `balance: nerf black mass` |
+| V17j | New Wandering Sigil (6 tiers) and the same design as its icon | User approves | `feat: new wandering sigil` |
+| V17k | Animated fireball strip, Kiss of Ruin as flaming hearts, icons to match | User approves | `feat: animated fireballs` |
+| V17l | Bat Swarm / Crimson Host icons drawn from the in-game bats | User approves | `feat: bat icons` |
+| V17m | Thralls icon: one of the summoned villagers | User approves | `feat: thrall icon` |
 | V18b | 10:00 Ashford timeline (retirements, pressure events, elites), stepped XP curve, soul tiers + phase drop chances, HP per minute; tuned with the balance probe | Probe hits the 7.8 level targets | `feat: progression rebalance` |
 | V19 | Boss framework + Captain of the Watch | Boss beatable | `feat: boss framework and first boss` |
 | **CP7** | **Checkpoint 7 — Combat depth** | | |

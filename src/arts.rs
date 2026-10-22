@@ -2207,8 +2207,8 @@ mod tests {
         assert_eq!((bats.amount, bats.damage), (5, 30.0));
         assert!((bats.area - 1.3).abs() < 1e-5);
         let mass = ARTS[BLACK_MASS].stats(ART_MAX_LEVEL);
-        assert_eq!(mass.damage, 140.0);
-        assert!((mass.cooldown - 12.0 * 0.7).abs() < 1e-4);
+        assert_eq!(mass.damage, 42.0);
+        assert!((mass.cooldown - 20.0 * 0.7).abs() < 1e-4);
         let gaze = ARTS[GAZE_OF_DESIRE].stats(ART_MAX_LEVEL);
         assert_eq!(gaze.amount, 3);
         assert!((gaze.duration - 2.0).abs() < 1e-5 && (gaze.area - 1.4).abs() < 1e-5);

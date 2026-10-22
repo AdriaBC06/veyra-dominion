@@ -732,8 +732,8 @@ pub const ARTS: [ArtDef; 14] = [
         desc: Key::ArtBlackMassDesc,
         amount_key: Key::ArtGainArea,
         base: ArtStats {
-            damage: 40.0,
-            cooldown: 12.0,
+            damage: 12.0,
+            cooldown: 20.0,
             amount: 0,
             area: 1.0,
             speed: 0.0,
@@ -742,7 +742,7 @@ pub const ARTS: [ArtDef; 14] = [
         },
         gains: [
             ArtGain {
-                damage: 20.0,
+                damage: 6.0,
                 ..NO_GAIN
             },
             ArtGain {
@@ -750,7 +750,7 @@ pub const ARTS: [ArtDef; 14] = [
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 20.0,
+                damage: 6.0,
                 ..NO_GAIN
             },
             ArtGain {
@@ -758,7 +758,7 @@ pub const ARTS: [ArtDef; 14] = [
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 20.0,
+                damage: 6.0,
                 ..NO_GAIN
             },
             ArtGain {
@@ -766,7 +766,7 @@ pub const ARTS: [ArtDef; 14] = [
                 ..NO_GAIN
             },
             ArtGain {
-                damage: 40.0,
+                damage: 12.0,
                 ..NO_GAIN
             },
         ],

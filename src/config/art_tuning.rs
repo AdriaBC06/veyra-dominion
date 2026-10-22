@@ -261,7 +261,7 @@ pub const HOST_EXTRA: u32 = 3;
 pub const HOST_BLAST: f32 = 1.4;
 /// Witches' Sabbath (Black Mass evolved): comes `SABBATH_COOLDOWN` times as often and
 /// draws every soul on the map to her at `SABBATH_SOUL_SPEED`.
-pub const SABBATH_COOLDOWN: f32 = 0.6;
+pub const SABBATH_COOLDOWN: f32 = 0.8;
 pub const SABBATH_SOUL_SPEED: f32 = 420.0;
 /// Evil Eye (Gaze evolved): one more beam, and frozen enemies take `EVIL_EYE_VULN`
 /// more damage from everything.

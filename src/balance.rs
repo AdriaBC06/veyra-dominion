@@ -4,6 +4,7 @@
 
 use crate::config::*;
 use crate::game::{Game, InputState, SimEvent};
+use crate::upgrades::Choice;
 use macroquad::math::Vec2;
 use macroquad::rand::{gen_range, srand};
 
@@ -55,6 +56,15 @@ fn steer(g: &Game) -> Vec2 {
 fn play(seed: u64, max_secs: f32, verbose: bool) -> (Option<f32>, u32, u32) {
     srand(seed);
     let mut g = Game::new();
+    let only = only_art();
+    if let Some(art) = only {
+        // Swap the starting Hellflare for the Art under test.
+        g.upgrades.arts[HELLFLARE] = 0;
+        g.upgrades.arts[art] = 1;
+        g.upgrades.slots[0] = Some(art);
+        g.stats = g.upgrades.stats();
+        g.arts.refresh(&g.upgrades);
+    }
     let mut input = InputState::default();
     let mut next_minute = 60.0;
     loop {
@@ -62,7 +72,21 @@ fn play(seed: u64, max_secs: f32, verbose: bool) -> (Option<f32>, u32, u32) {
         match g.tick(&input) {
             SimEvent::LevelUp => {
                 let n = g.choices.iter().flatten().count();
-                g.choose_upgrade(gen_range(0, n));
+                let slot = match only {
+                    // Only that Art and Sins; a random pick otherwise.
+                    Some(art) => g
+                        .choices
+                        .iter()
+                        .position(|c| *c == Some(Choice::Art(art)))
+                        .or_else(|| {
+                            g.choices
+                                .iter()
+                                .position(|c| matches!(c, Some(Choice::Sin(_))))
+                        })
+                        .unwrap_or(n),
+                    None => gen_range(0, n),
+                };
+                g.choose_upgrade(slot);
             }
             SimEvent::Offering => g.accept_offering(),
             SimEvent::Victory => g.start_endless(),
@@ -91,6 +115,12 @@ fn play(seed: u64, max_secs: f32, verbose: bool) -> (Option<f32>, u32, u32) {
             return (None, g.level, g.kills);
         }
     }
+}
+
+/// `BALANCE_ONLY=<index into ARTS>`: the bot starts with that Art instead of
+/// Hellflare and never takes another, to see whether it carries a run alone.
+fn only_art() -> Option<usize> {
+    std::env::var("BALANCE_ONLY").ok()?.parse().ok()
 }
 
 #[test]
