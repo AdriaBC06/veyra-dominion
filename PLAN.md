@@ -18,7 +18,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V17g Whip of Torment: Chain renamed, whip icon
   - [x] V17h Wandering Sigil stutter on 75 Hz (interpolation sign)
   - [x] V17i Black Mass / Witches' Sabbath nerf
-  - [ ] V17j Wandering Sigil sprite + matching icon *(user approval)*
+  - [x] V17j Wandering Sigil sprite + matching icon *(user approval)*
   - [ ] V17k Animated fireballs (Hellflare) and flame hearts (Kiss of Ruin) *(user approval)*
   - [ ] V17l Bat Swarm / Crimson Host icons like their bats *(user approval)*
   - [ ] V17m Thralls icon reads as a thrall *(user approval)*

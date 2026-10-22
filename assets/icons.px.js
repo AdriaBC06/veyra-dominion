@@ -109,20 +109,26 @@ function cross(c, body, light, dark) {
 }
 
 // Ring of runes with a horned heart inside.
-function sigil(c, ringCol, heart, broken) {
-  c.ring(7, 7, 6, ringCol)
-  for (const [x, y] of [[7, 0], [13, 7], [7, 13], [0, 7]]) c.px(x, y, "V")
-  c.grid(4, 3, `
-    h.....h
-    hhh.hhh
-    hhhhhhh
-    .hhhhh.
-    ..hhh..
-    ...h...`.replaceAll("h", heart))
+// Wandering Sigil: the same seal as the Art (`arts.px.js`), Lilith's glyph in a ring
+// with four runes; Broken Seal cracks it, sparks flying.
+function sigil(c, broken) {
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const d = Math.hypot(x - 6.5, y - 6.5)
+    if (d <= 7 && d > 6) c.px(x, y, "i")
+  }
+  for (const [x, y] of [[6, 0], [7, 0], [13, 6], [13, 7], [6, 13], [7, 13], [0, 6], [0, 7]]) c.px(x, y, "I")
+  c.grid(0, 2, `
+    ...I......I...
+    ...II....II...
+    ....II..II....
+    .....IIII.....
+    ......WW......
+    ....IIIIII....
+    ......II......
+    ......II......`)
   if (broken) {
-    c.line(9, 0, 6, 6, "_")
-    c.line(6, 6, 8, 9, "_")
-    for (const [x, y] of [[11, 0], [12, 2], [4, 0]]) c.px(x, y, "F")
+    c.line(10, 0, 8, 4, "_"); c.line(8, 4, 9, 6, "_")
+    for (const [x, y] of [[12, 1], [11, 3], [5, 0]]) c.px(x, y, "F")
   }
 }
 
@@ -232,7 +238,7 @@ icon("reapers_scythe", (c) => scythe(c, "S", "w", "B"))
 
 icon("profaned_cross", (c) => cross(c, "y", "Y", "o"))
 
-icon("wandering_sigil", (c) => sigil(c, "v", "h", false))
+icon("wandering_sigil", (c) => sigil(c, false))
 
 half("bat_swarm", (c) => {
   c.grid(0, 3, BAT_HALF)
@@ -375,7 +381,7 @@ icon("heretics_brand", (c) => {
   flame(c, 11, 8, 4, 1, ["x", "f", "F"])
 })
 
-icon("broken_seal", (c) => sigil(c, "v", "q", true))
+icon("broken_seal", (c) => sigil(c, true))
 
 // Crimson Host (Bat Swarm): red bats with golden eyes.
 half("crimson_host", (c) => {

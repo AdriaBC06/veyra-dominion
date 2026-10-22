@@ -207,34 +207,36 @@ tiered("cross_burning", 8 * CROSS_SCALE, { fps: 25, outline: "X" }, (c, size, sc
   })
 })
 
-// Wandering Sigil: a ring of 4 runes turning around her mark (a horned heart), which
-// stays upright. 17x17 at tier 0, 8 frames (a quarter turn: the runes repeat).
-function mark(u, v) {
-  // Horns: two short strokes rising out of the heart's lobes.
-  for (const side of [-1, 1]) {
-    const hx = u * side - 1.6, hy = v + 2.2
-    if (hx >= 0 && hx <= 1.4 && Math.abs(hy + hx * 1.3) <= 0.6) return "h"
-  }
-  // The heart: (x² + y² - 1)³ ≤ x² y³, y up.
-  const x = u / 2.6, y = -(v - 0.2) / 2.6
-  const f = (x * x + y * y - 1) ** 3 - x * x * y ** 3
-  if (f > 0) return null
-  if (x < -0.15 && y > 0.25 && y < 0.75) return "I"
-  if (x + y < -0.55) return "H"
-  return x < 0 && y > 0 ? "i" : "h"
+// Wandering Sigil: Lilith's glyph (a crescent, horns up, over a cross) inside a ring
+// whose 4 runes turn around it; the glyph stays upright. 17x17 at tier 0, 8 frames (a
+// quarter turn: the runes repeat). The icon (`icons.px.js`) is the same seal.
+function lilith(u, v) {
+  // The crescent: the lower half of a ring centred 3 above the middle, and its horn tips.
+  const d = Math.hypot(u, v + 3)
+  if (v >= -4 && d <= 3.6 && d > 2.4) return "I"
+  if (Math.abs(Math.abs(u) - 3) <= 0.5 && Math.abs(v + 5) <= 0.5) return "i"
+  if (Math.abs(u) <= 0.5 && Math.abs(v - 1) <= 0.5) return "e"       // where they meet
+  if (Math.abs(u) <= 0.5 && v >= 1 && v <= 5.5) return "I"           // the stem
+  if (Math.abs(v - 3) <= 0.5 && Math.abs(u) <= 2.5) return "I"       // the bar
+  return null
 }
 tiered("sigil", 7.2, { fps: 20, outline: "k" }, (c, size, scale) => {
-  const m = (size - 1) / 2, turn = c.phase * Math.PI * 2 / 4
+  const m = (size - 1) / 2, turn = c.phase * Math.PI / 2, band = Math.round(scale)
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const dx = (x - m) / scale, dy = (y - m) / scale, r = Math.hypot(dx, dy)
-      if (r <= 7.2 && r >= 5.6) {
-        const a = Math.atan2(dy, dx) - turn
-        const rune = ((a / (Math.PI / 2)) % 1 + 1) % 1
-        c.px(x, y, rune < 0.18 ? "I" : rune < 0.3 ? "i" : "H")
+      const d = Math.hypot(x - m, y - m)
+      // A rune every quarter, turning: `off` is how far round the ring (in pixels).
+      const a = Math.atan2(y - m, x - m) - turn
+      const off = m * Math.abs((((a + Math.PI / 4) % (Math.PI / 2)) + Math.PI / 2) % (Math.PI / 2) - Math.PI / 4)
+      if (d <= m + 0.5 && d > m + 0.5 - band) {
+        c.px(x, y, off < 0.6 * scale ? "e" : off < 1.6 * scale ? "I" : "i")
         continue
       }
-      const key = mark(dx, dy)
+      if (d <= m + 0.5 - band && d > m + 0.5 - 2 * band) {
+        c.px(x, y, off < 0.6 * scale ? "I" : "H")     // the rune bites into the ring
+        continue
+      }
+      const key = lilith((x - m) / scale, (y - m) / scale)
       if (key) c.px(x, y, key)
     }
   }
