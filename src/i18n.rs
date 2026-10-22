@@ -122,7 +122,9 @@ keys! {
     CreditsThanks => "Special thanks", "Agradecimientos";
     CreditsThanksYou => "You, for playing", "A ti, por jugar";
     CreditsLicences => "Licences", "Licencias";
-    CreditsLicenceFiles => "Full texts in the licences folder", "Textos completos en la carpeta de licencias";
+    CreditsLicenceFiles => "Full texts in the licenses folder", "Textos completos en la carpeta licenses";
+    CreditsEula => "Use of the game is subject to the EULA", "El uso del juego se rige por el EULA";
+    CreditsRights => "All rights reserved", "Todos los derechos reservados";
     CreditsHelp => "Esc or click to return", "Esc o clic para volver";
     On => "On", "Sí";
     Off => "Off", "No";

@@ -157,6 +157,6 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 | V28 | Story cards, boss lines, Memories, Codex | All text EN/ES | `feat: story and codex` |
 | **CP9** | **Checkpoint 9 — Content** | | |
 | V29 | Balance pass, juice (hit-stop, shake, damage numbers), accessibility (flash/shake toggles) | Playtest notes in README | `feat: balance and game feel pass` |
-| V30 | Release: Windows + Linux builds, icon, `strip = true`, licences bundle (`licences/` folder: OFL texts + macroquad MIT, the credits point to it), README/press kit | Builds run on both | `chore: release packaging` |
+| V30 | Release: Windows + Linux builds, icon, `strip = true`, licences bundle next to the executable (`LICENSE`, EULA, `THIRD-PARTY-NOTICES.md` and the `licenses/` folder: OFL texts + every crate licence; the credits point to it; regenerate if dependencies changed), README/press kit | Builds run on both | `chore: release packaging` |
 | **CP10** | **Checkpoint 10 — Release candidate** | | |
 

@@ -1,5 +1,6 @@
 //! Credits: a slowly scrolling list of names. The full licence texts (OFL for the
-//! fonts, MIT for macroquad) ship as files next to the game, not on screen.
+//! fonts, MIT and friends for macroquad and its dependencies) ship in the `licenses/`
+//! folder next to the game, with the EULA, not on screen.
 
 use super::Nav;
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
@@ -10,6 +11,8 @@ use crate::ui::{self, UiInput};
 use macroquad::prelude::*;
 
 const AUTHOR: &str = "Adrià Bonnin Catalán";
+/// The game is proprietary (see `LICENSE`); `©` is not pre-rasterised, hence `(c)`.
+const COPYRIGHT_YEAR: u32 = 2026;
 const TOP_Y: f32 = 70.0;
 /// Seconds before the list starts scrolling on its own.
 const SCROLL_DELAY: f32 = 2.0;
@@ -113,6 +116,8 @@ impl Credits {
 fn build_lines() -> Vec<(Kind, String)> {
     let mut lines = vec![
         (Kind::Title, GAME_TITLE.to_owned()),
+        (Kind::Name, format!("(c) {COPYRIGHT_YEAR} {AUTHOR}")),
+        (Kind::Name, tr(Key::CreditsRights).to_owned()),
         (Kind::Gap, String::new()),
     ];
     let mut section = |heading: Key, names: &[&str]| {
@@ -136,7 +141,10 @@ fn build_lines() -> Vec<(Kind, String)> {
         &["macroquad - Fedor Logachev", "MIT / Apache-2.0"],
     );
     section(Key::CreditsThanks, &[tr(Key::CreditsThanksYou)]);
-    section(Key::CreditsLicences, &[tr(Key::CreditsLicenceFiles)]);
+    section(
+        Key::CreditsLicences,
+        &[tr(Key::CreditsLicenceFiles), tr(Key::CreditsEula)],
+    );
     lines
 }
 
