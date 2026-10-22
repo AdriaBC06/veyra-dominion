@@ -12,7 +12,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 
 - **S14c — Icons** *(user approval)*
   - [x] Install the pxl pixel-art skill: https://github.com/crsolver/claude-pxl
-  - [ ] V17c Icons for every Art, evolution (own icon) and Sin, in cards and HUD
+  - [x] V17c Icons for every Art, evolution (own icon) and Sin, in cards and HUD
 - **S15 — Enemy AI**
   - [ ] V18 Enemy behaviours and elites
 - **S16 — First boss**

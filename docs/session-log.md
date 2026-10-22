@@ -117,3 +117,9 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Generated from `cargo metadata` + `~/.cargo/registry/src` with a throwaway script (not in the repo); redo it when dependencies change (V30).
   - `save.rs` checked: only `settings.txt`/`save.txt` in the user data folder, no network code, so the EULA's "no telemetry" holds. Adding Steamworks/Steam Cloud later means updating that clause.
   - Pending: EULA needs a lawyer before selling; commits published under GPL stay GPL for anyone who already got them.
+- **S14c (2026-10-22)** — V17c icons, approved by the user after two review rounds.
+  - Done: `assets/icons.px.js` (39 icons, 16×16), one `Icons` strip + `hud::Icon`, icons on the level-up/Offering cards (2×) and two HUD rows (1×). Checked EN/ES level-up captures with the temporary `VEYRA_CAPTURE` hack (reverted).
+  - Decisions: cards widen with the view (max 520) and wrap the description to two lines (the ES texts already overflowed). Icon style rules (say what it does, deadly-sin imagery, top-left light, `sym()` for exact symmetry) are in design.md 7.7.
+  - User picks: keep Hellflare, Allure, Profaned Cross, Bat Swarm, Heretic's Brand; Lust = pink ♀ and blue ♂ interlocked; Night Wings = Veyra's own bat wings; the line pentagram over a filled star.
+  - Gotchas: pxl drops all-dot edge rows of a grid string, so place icons that need empty top rows with `c.grid(x, y, ...)`; a 13 px pentagram only reads hand-drawn.
+  - Pending: in-game review of Thralls / Infernal Court (V17f). Next: S15 enemy AI (V18).

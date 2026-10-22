@@ -66,9 +66,10 @@ pub enum SpriteId {
     Smoke,
     Soul,
     Ground,
+    Icons,
 }
 
-const SPRITE_COUNT: usize = 55;
+const SPRITE_COUNT: usize = 56;
 
 /// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
 /// times the base sprite.
@@ -115,6 +116,10 @@ pub fn size_tier(area: f32) -> usize {
 pub const FLASH_FRAME_OFFSET: usize = 2;
 
 pub const GROUND_TILE: u16 = 32;
+
+/// Icons of every Art, evolution, union and Sin (`assets/icons.px.js`): one strip of
+/// square frames, outline included; `hud::Icon::frame` picks one.
+pub const ICON_SIZE: f32 = 16.0;
 pub const GROUND_VARIANTS: usize = 6;
 
 const ATLAS_W: u16 = 1024;
@@ -313,6 +318,7 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     sheet!(Smoke, "smoke", 1, false),
     sheet!(Soul, "soul", 1, false),
     sheet!(Ground, "ground", GROUND_VARIANTS, false),
+    sheet!(Icons, "icons/icons", crate::hud::ICON_COUNT, false),
 ];
 
 struct Atlas {
@@ -756,6 +762,8 @@ mod tests {
             assert_eq!(size(id), (66, 50), "{id:?}");
         }
         assert_eq!(size(SpriteId::Ground), (GROUND_TILE, GROUND_TILE));
+        let icon = ICON_SIZE as u16;
+        assert_eq!(size(SpriteId::Icons), (icon, icon));
         // Enemy sizes from docs/design.md 7.6, outline included (the rat's 12 is its body length);
         // `EnemyDef::size` must match its strip, since radius and burst derive from it.
         assert_eq!(size(SpriteId::Rat), (17, 9));

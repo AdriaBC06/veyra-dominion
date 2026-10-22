@@ -1,11 +1,11 @@
 //! Screen-space UI drawn into the logical frame (call with the UI camera set).
 
-use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
+use crate::assets::{draw_ui_text, measure_ui_text, sprite, SpriteId, TextStyle, ICON_SIZE};
 use crate::config::*;
 use crate::game::{Game, Reward};
 use crate::i18n::{tr, trf, Key};
 use crate::ui::Focus;
-use crate::upgrades::Choice;
+use crate::upgrades::{Choice, Upgrades};
 use macroquad::prelude::*;
 
 pub const TITLE_COLOR: Color = Color::new(0.88, 0.19, 0.29, 1.0);
@@ -43,6 +43,72 @@ pub fn format_time(t: f32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
+/// An icon in the `Icons` strip (`assets/icons.px.js` writes it in this order).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Icon {
+    Art(usize),
+    /// Art `i`'s evolution (only Arts that have one get a frame).
+    Evolution(usize),
+    Union(usize),
+    Sin(usize),
+}
+
+/// How many of the first `n` Arts have an evolution.
+const fn evolutions_before(n: usize) -> usize {
+    let mut count = 0;
+    let mut i = 0;
+    while i < n {
+        if ARTS[i].evolution.is_some() {
+            count += 1;
+        }
+        i += 1;
+    }
+    count
+}
+
+const FIRST_EVOLUTION_ICON: usize = ARTS.len();
+const FIRST_UNION_ICON: usize = FIRST_EVOLUTION_ICON + evolutions_before(ARTS.len());
+const FIRST_SIN_ICON: usize = FIRST_UNION_ICON + UNIONS.len();
+pub const ICON_COUNT: usize = FIRST_SIN_ICON + SINS.len();
+
+impl Icon {
+    pub const fn frame(self) -> usize {
+        match self {
+            Icon::Art(i) => i,
+            Icon::Evolution(i) => FIRST_EVOLUTION_ICON + evolutions_before(i),
+            Icon::Union(u) => FIRST_UNION_ICON + u,
+            Icon::Sin(i) => FIRST_SIN_ICON + i,
+        }
+    }
+
+    /// What owned Art `i` shows: its union, else its evolution, else itself.
+    pub fn of_art(upgrades: &Upgrades, i: usize) -> Icon {
+        match upgrades.union_of(i) {
+            Some(u) => Icon::Union(u),
+            None if upgrades.evolved[i] => Icon::Evolution(i),
+            None => Icon::Art(i),
+        }
+    }
+
+    fn of_choice(choice: Choice) -> Icon {
+        match choice {
+            Choice::Art(i) => Icon::Art(i),
+            Choice::Sin(i) => Icon::Sin(i),
+        }
+    }
+}
+
+/// Draws `icon` with its top-left at (`x`, `y`), `scale` times its pixel size.
+pub fn draw_icon(icon: Icon, x: f32, y: f32, scale: f32) {
+    let (tex, src) = sprite(SpriteId::Icons, icon.frame());
+    let params = DrawTextureParams {
+        source: Some(src),
+        dest_size: Some(Vec2::splat(ICON_SIZE * scale)),
+        ..Default::default()
+    };
+    draw_texture_ex(&tex, x, y, WHITE, params);
+}
+
 const HP_COLOR: Color = Color::new(0.78, 0.16, 0.22, 1.0);
 const XP_COLOR: Color = Color::new(0.45, 0.72, 0.95, 1.0);
 const BAR_BG: Color = Color::new(0.0, 0.0, 0.0, 0.55);
@@ -52,7 +118,13 @@ fn draw_bar(x: f32, y: f32, w: f32, h: f32, frac: f32, color: Color) {
     draw_rectangle(x, y, (w * frac.clamp(0.0, 1.0)).round(), h, color);
 }
 
-/// XP bar across the top, HP bar under it, timer centred, level and kills on the right.
+/// The HUD's rows of owned Arts (slot order) and Sins, under the HP bar.
+const HUD_ICONS_X: f32 = 6.0;
+const HUD_ICONS_Y: f32 = 26.0;
+const HUD_ICON_STEP: f32 = ICON_SIZE + 2.0;
+
+/// XP bar across the top, HP bar under it, timer centred, level and kills on the right;
+/// owned Arts and Sins below the HP bar.
 pub fn draw_hud(game: &Game, view: Vec2) {
     let p = &game.player;
     draw_bar(
@@ -72,6 +144,15 @@ pub fn draw_hud(game: &Game, view: Vec2) {
     let dims = measure_ui_text(&right, TextStyle::Body);
     let x = Anchor::Right.x(view, dims.width, 6.0);
     draw_ui_text(&right, x, 21.0, TextStyle::Body, WHITE);
+    let u = &game.upgrades;
+    let x = |n: usize| HUD_ICONS_X + n as f32 * HUD_ICON_STEP;
+    for (n, &i) in u.slots.iter().flatten().enumerate() {
+        draw_icon(Icon::of_art(u, i), x(n), HUD_ICONS_Y, 1.0);
+    }
+    let sins = (0..SINS.len()).filter(|&i| u.sins[i] > 0);
+    for (n, i) in sins.enumerate() {
+        draw_icon(Icon::Sin(i), x(n), HUD_ICONS_Y + HUD_ICON_STEP, 1.0);
+    }
 }
 
 /// F3 overlay: frame timing and entity counts.
@@ -97,9 +178,9 @@ pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
     ));
     lines.push(format!("spawn {:.1}/s", Game::spawn_rate(game.time)));
     let h = lines.len() as f32 * 11.0 + 6.0;
-    draw_rectangle(4.0, 28.0, 200.0, h, Color::new(0.0, 0.0, 0.0, 0.6));
+    draw_rectangle(4.0, 64.0, 200.0, h, Color::new(0.0, 0.0, 0.0, 0.6));
     for (i, line) in lines.iter().enumerate() {
-        draw_ui_text(line, 8.0, 40.0 + i as f32 * 11.0, TextStyle::Small, LIME);
+        draw_ui_text(line, 8.0, 76.0 + i as f32 * 11.0, TextStyle::Small, LIME);
     }
 }
 
@@ -127,17 +208,21 @@ pub fn center_screen_buttons(lines: usize) -> f32 {
     SCREEN_TITLE_Y + 20.0 + 24.0 * lines as f32
 }
 
-const CARD_W: f32 = 420.0;
-const CARD_H: f32 = 56.0;
-const CARD_GAP: f32 = 8.0;
-const CARDS_Y: f32 = 100.0;
+/// Cards take the view's width up to this, less a margin on each side.
+const CARD_MAX_W: f32 = 520.0;
+const CARD_MARGIN: f32 = 12.0;
+/// Tall enough for the name and two lines of description.
+const CARD_H: f32 = 70.0;
+const CARD_GAP: f32 = 6.0;
+const CARDS_Y: f32 = 94.0;
 
 /// Hit rects of the level-up cards, one per choice slot.
 pub fn level_up_cards(view: Vec2) -> [Rect; 3] {
-    let x = Anchor::Center.x(view, CARD_W, 0.0);
+    let w = (view.x - 2.0 * CARD_MARGIN).min(CARD_MAX_W);
+    let x = Anchor::Center.x(view, w, 0.0);
     std::array::from_fn(|slot| {
         let y = CARDS_Y + slot as f32 * (CARD_H + CARD_GAP);
-        Rect::new(x, y, CARD_W, CARD_H)
+        Rect::new(x, y, w, CARD_H)
     })
 }
 
@@ -157,7 +242,8 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
         let (name, lv, desc) = card_text(game, choice);
         let num = (slot + 1).to_string();
         let lit = focus.is_highlighted(slot);
-        draw_card(cards[slot], &num, name, &lv, &desc, lit);
+        let icon = Some(Icon::of_choice(choice));
+        draw_card(cards[slot], &num, icon, name, &lv, &desc, lit);
     }
     draw_text_centered(
         view,
@@ -168,17 +254,56 @@ pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
     );
 }
 
-/// A card: `num` in the corner, name with a tag on the right, a description below.
-fn draw_card(rect: Rect, num: &str, name: &str, tag: &str, desc: &str, lit: bool) {
+/// Card icons are drawn at twice their pixel size, centred in the card's height.
+const CARD_ICON_SCALE: f32 = 2.0;
+const CARD_ICON_X: f32 = 26.0;
+const CARD_TEXT_X: f32 = CARD_ICON_X + ICON_SIZE * CARD_ICON_SCALE + 8.0;
+
+/// A card: `num` in the corner, then the icon, the name with a tag on the right and a
+/// description below.
+fn draw_card(
+    rect: Rect,
+    num: &str,
+    icon: Option<Icon>,
+    name: &str,
+    tag: &str,
+    desc: &str,
+    lit: bool,
+) {
     let Rect { x, y, w, h } = rect;
     let border = if lit { TITLE_COLOR } else { GRAY };
     draw_rectangle(x, y, w, h, Color::new(0.08, 0.04, 0.1, 0.95));
     draw_rectangle_lines(x, y, w, h, 2.0, border);
     draw_ui_text(num, x + 10.0, y + 22.0, TextStyle::Body, GRAY);
-    draw_ui_text(name, x + 28.0, y + 22.0, TextStyle::Body, WHITE);
+    if let Some(icon) = icon {
+        let size = ICON_SIZE * CARD_ICON_SCALE;
+        let iy = (y + (h - size) * 0.5).round();
+        draw_icon(icon, x + CARD_ICON_X, iy, CARD_ICON_SCALE);
+    }
+    draw_ui_text(name, x + CARD_TEXT_X, y + 22.0, TextStyle::Body, WHITE);
     let tag_w = measure_ui_text(tag, TextStyle::Body).width;
     draw_ui_text(tag, x + w - tag_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
-    draw_ui_text(desc, x + 28.0, y + 45.0, TextStyle::Body, LIGHTGRAY);
+    let (first, second) = wrap_two(desc, w - CARD_TEXT_X - 10.0);
+    draw_ui_text(first, x + CARD_TEXT_X, y + 44.0, TextStyle::Body, LIGHTGRAY);
+    draw_ui_text(second, x + CARD_TEXT_X, y + 62.0, TextStyle::Body, LIGHTGRAY);
+}
+
+/// Splits `text` at a space into two lines when it is wider than `width`: the first
+/// takes as many words as fit.
+fn wrap_two(text: &str, width: f32) -> (&str, &str) {
+    let fits = |t: &str| measure_ui_text(t, TextStyle::Body).width <= width;
+    if fits(text) {
+        return (text, "");
+    }
+    let cut = text
+        .match_indices(' ')
+        .map(|(i, _)| i)
+        .take_while(|&i| fits(&text[..i]))
+        .last();
+    match cut {
+        Some(i) => (&text[..i], &text[i + 1..]),
+        None => (text, ""),
+    }
 }
 
 /// Name, level tag and description of a level-up card. A new Art or Sin shows what
@@ -230,7 +355,7 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
         TITLE_COLOR,
     );
     let Some(reward) = game.reward else { return };
-    let (line, name, tag, desc) = match reward {
+    let (line, icon, name, tag, desc) = match reward {
         Reward::Evolution(i) => {
             let line = trf(Key::OfferingEvolved, &[&tr(ARTS[i].name)]);
             let evo = ARTS[i]
@@ -238,13 +363,21 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
                 .as_ref()
                 .expect("only Arts with one evolve");
             let (name, desc) = (tr(evo.name), tr(evo.desc));
-            (line, name.to_string(), String::new(), desc.to_string())
+            let icon = Some(Icon::Evolution(i));
+            (
+                line,
+                icon,
+                name.to_string(),
+                String::new(),
+                desc.to_string(),
+            )
         }
         Reward::Union(u) => {
             let def = &UNIONS[u];
             let [a, b] = def.arts.map(|i| tr(ARTS[i].name));
             (
                 trf(Key::OfferingUnited, &[&a, &b]),
+                Some(Icon::Union(u)),
                 tr(def.name).to_string(),
                 String::new(),
                 tr(def.desc).to_string(),
@@ -255,6 +388,7 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
             let (name, tag, desc) = card_text(game, choice);
             (
                 tr(Key::OfferingGift).to_string(),
+                Some(Icon::of_choice(choice)),
                 name.to_string(),
                 tag,
                 desc,
@@ -264,6 +398,7 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
             let hp = trf(Key::OfferingHealDesc, &[&OFFERING_HEAL]);
             (
                 tr(Key::OfferingHeal).to_string(),
+                None,
                 hp,
                 String::new(),
                 String::new(),
@@ -278,13 +413,22 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
     } else {
         tag
     };
-    draw_card(accept, "1", &name, &tag, &desc, focus.is_highlighted(0));
+    draw_card(
+        accept,
+        "1",
+        icon,
+        &name,
+        &tag,
+        &desc,
+        focus.is_highlighted(0),
+    );
     let gain = trf(
         Key::OfferingSacrificeDesc,
         &[&SACRIFICE_HEAL, &SACRIFICE_XP],
     );
     let lit = focus.is_highlighted(1);
-    draw_card(sacrifice, "2", tr(Key::OfferingSacrifice), "", &gain, lit);
+    let sacrifice_name = tr(Key::OfferingSacrifice);
+    draw_card(sacrifice, "2", None, sacrifice_name, "", &gain, lit);
     if ready {
         let y = CARDS_Y + 3.0 * (CARD_H + CARD_GAP) + 22.0;
         draw_text_centered(view, tr(Key::OfferingHelp), y, TextStyle::Body, WHITE);
@@ -487,5 +631,29 @@ pub fn draw_debug_panel(game: &Game, view: Vec2, focus: &Focus) {
             TextStyle::Small,
             LIGHTGRAY,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn icon_frames_cover_the_strip_once() {
+        let mut seen = [false; ICON_COUNT];
+        let evolving = (0..ARTS.len()).filter(|&i| ARTS[i].evolution.is_some());
+        let icons = (0..ARTS.len())
+            .map(Icon::Art)
+            .chain(evolving.map(Icon::Evolution))
+            .chain((0..UNIONS.len()).map(Icon::Union))
+            .chain((0..SINS.len()).map(Icon::Sin));
+        for icon in icons {
+            let f = icon.frame();
+            assert!(f < ICON_COUNT && !seen[f], "{icon:?}");
+            seen[f] = true;
+        }
+        assert!(seen.iter().all(|&s| s));
+        assert_eq!(Icon::Evolution(HELLFLARE).frame(), ARTS.len());
+        assert_eq!(Icon::Sin(0).frame(), ICON_COUNT - SINS.len());
     }
 }
