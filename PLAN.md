@@ -65,7 +65,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S11 — Title screen** *(user approval)*
   - [ ] V14 Animated title scene
     - [x] Phase 1 composition approved
-    - [ ] Phase 2 Veyra portrait: AI pipeline built, trial portrait in the menu (see 7.5); pick size + final image
+    - [x] Phase 2 Veyra portrait: animated 1:1 pixel-art portrait on the title screen (approved)
     - [ ] Phases 3–5 (backdrop, logo + buttons, integration)
   - [ ] **CP6 Look & feel**
 - **S12 — Arts I**

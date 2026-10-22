@@ -1,9 +1,11 @@
 # Layered idle animation for the title Veyra, pixel-art safe.
 # - wings and tail are cut into layers and swung as rigid parts with RotSprite (Scale2x x3, rotate,
 #   sample back), so they keep clean pixel clusters at every angle
-# - the wing layers are extended under the hair, so no holes open when they move
+# - the wings continue a few pixels under the hair at their roots, so no slit opens when they move
 # - breathing lifts everything above the waist 1px (the seam hides in the corset)
 # - a wave runs down the outer hair; embers and sparks drift up; gems glint; one blink
+# Usage: python3 assets/animate_portrait.py assets/sprites/title/veyra_portrait_px.png \
+#            assets/sprites/title/veyra_portrait_px_sheet.png preview.gif
 import sys, math
 from PIL import Image, ImageDraw
 import numpy as np

@@ -1,5 +1,8 @@
 # Fake pixel art -> real pixel art: sample each grid cell's dominant colour, hard alpha,
 # palette quantisation, then remove noise pixels that are close in colour to their surroundings.
+# The grid (PX/OX/PY/OY) was measured on assets/refs/veyra_gpt_fake_pixel.png.
+# Usage: python3 assets/depixelize.py assets/refs/veyra_gpt_fake_pixel.png \
+#            assets/sprites/title/veyra_portrait_px.png 56
 import sys
 from PIL import Image
 import numpy as np
