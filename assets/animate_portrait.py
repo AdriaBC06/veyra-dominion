@@ -138,8 +138,11 @@ def extend(wing_mask, ext):
     fill = ext & covered & ~wing_mask
     lay[fill] = dark
     return lay
-wingL = extend(WING_L, WING_L_EXT | GLOVE_L)
-wingR = extend(WING_R, WING_R_EXT)
+# the wings continue a few pixels under the hair with their own membrane (nearest colours), so
+# no slit opens between strands while flapping and no flat patch shows either
+wingL = grow(layer(WING_L), (WING_L_EXT | GLOVE_L) & covered, 5)
+ROOT_BAND = np.zeros_like(opaque); ROOT_BAND[:140 + PADT] = True
+wingR = grow(layer(WING_R), (WING_R_EXT | HAIRZONE) & covered & ROOT_BAND, 5)
 # close the pinholes the hair left inside each wing (only where the wing surrounds them)
 wingL = grow(wingL, FOOT_L & ~WING_L, 3)
 wingR = grow(wingR, FOOT_R & ~WING_R, 3)
