@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "blood_bomb_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 6,
+    "h": 6
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 6,
+    "h": 6
+   },
+   "sourceSize": {
+    "w": 6,
+    "h": 6
+   },
+   "duration": 125
+  },
+  "blood_bomb_1": {
+   "frame": {
+    "x": 6,
+    "y": 0,
+    "w": 6,
+    "h": 6
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 6,
+    "h": 6
+   },
+   "sourceSize": {
+    "w": 6,
+    "h": 6
+   },
+   "duration": 125
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "blood_bomb.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 12,
+   "h": 6
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "blood_bomb",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

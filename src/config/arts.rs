@@ -1,7 +1,8 @@
 //! The Arts table: per-Art base numbers and level gains (docs/design.md 7.7).
 
 use super::{
-    BLOODLUST, DARK_SIGIL, GLUTTONY, INFERNAL_HIDE, LEGION, LUST, NIGHT_WINGS, SLOTH, WRATH,
+    BLOODLUST, DARK_SIGIL, ENVY, GLUTTONY, INFERNAL_HIDE, LEGION, LUST, NIGHT_WINGS, PRIDE, SLOTH,
+    WRATH,
 };
 use crate::i18n::Key;
 
@@ -20,25 +21,29 @@ pub enum ArtKind {
     ReapersScythe,
     ProfanedCross,
     WanderingSigil,
+    BatSwarm,
+    BlackMass,
+    GazeOfDesire,
 }
 
 /// An Art's numbers at some level. Each Art reads the ones it uses:
 /// - `amount`: fireballs per volley, lashes per attack, flames, enemies charmed per
-///   pulse, pools per cast, enemies a chain bites, scythes, crosses and sigils (the
-///   Scent has none);
+///   pulse, pools per cast, enemies a chain bites, scythes, crosses, sigils, bats and
+///   gaze beams (the Scent and Black Mass have none);
 /// - `cooldown`: seconds between attacks (the Halo: seconds off between spells; the
 ///   Scent: between burns);
 /// - `area`: lash reach, Halo orbit radius, Allure radius, pool size, chain jump, haze
-///   radius, rift pull multiplier, and the size of scythes, crosses and sigils (sprite
-///   and hit);
-/// - `speed`: projectile pixels per second (the Halo: radians per second);
+///   radius, rift pull multiplier, the size of scythes, crosses and sigils (sprite
+///   and hit), bat blasts and gaze beams (length and width);
+/// - `speed`: projectile pixels per second (the Halo and the bats: radians per second);
 /// - `pierce`: enemies a scythe goes through after the first;
 /// - `duration`: projectile lifetime (the Halo: seconds each spell burns; Allure:
 ///   charm; Hellgate: pool life; Tail Lash: bleed once evolved; the Scent: weakness;
-///   the Sigil: how long it wanders; the Cross has none, it flies until it is back).
+///   the Sigil: how long it wanders; the Gaze: freeze; the Cross has none, it flies
+///   until it is back).
 ///   Sloth lengthens every one but the projectile flights (see `ArtDef::sloth`).
 /// - `damage`: per hit (Allure: per pulse and per charmed bite; Hellgate and the
-///   Scent: per burn).
+///   Scent: per burn; the Gaze deals none).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ArtStats {
     pub damage: f32,
@@ -104,8 +109,11 @@ pub const SCENT_OF_SIN: usize = 6;
 pub const REAPERS_SCYTHE: usize = 7;
 pub const PROFANED_CROSS: usize = 8;
 pub const WANDERING_SIGIL: usize = 9;
+pub const BAT_SWARM: usize = 10;
+pub const BLACK_MASS: usize = 11;
+pub const GAZE_OF_DESIRE: usize = 12;
 
-pub const ARTS: [ArtDef; 10] = [
+pub const ARTS: [ArtDef; 13] = [
     // Fireballs at the nearest enemy (Magic Wand). Evolves into Kiss of Ruin.
     ArtDef {
         kind: ArtKind::Hellflare,
@@ -646,6 +654,166 @@ pub const ARTS: [ArtDef; 10] = [
             sin: INFERNAL_HIDE,
             name: Key::EvoBrokenSeal,
             desc: Key::EvoBrokenSealDesc,
+        },
+    },
+    // A flock circling her that bombs the horde, bigger every few levels (Peachone and
+    // Ebony Wings as one Art).
+    ArtDef {
+        kind: ArtKind::BatSwarm,
+        name: Key::ArtBatSwarm,
+        desc: Key::ArtBatSwarmDesc,
+        amount_key: Key::ArtMoreBats,
+        base: ArtStats {
+            damage: 15.0,
+            cooldown: 2.5,
+            amount: 2,
+            area: 1.0,
+            speed: 1.6,
+            pierce: 0,
+            duration: 0.0,
+        },
+        gains: [
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 5.0,
+                area: 0.15,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 5.0,
+                area: 0.15,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                damage: 5.0,
+                ..NO_GAIN
+            },
+        ],
+        evolution: Evolution {
+            sin: GLUTTONY,
+            name: Key::EvoCrimsonHost,
+            desc: Key::EvoCrimsonHostDesc,
+        },
+    },
+    // Now and then a rite that strikes everything in sight hard, never an instant
+    // kill (Pentagram).
+    ArtDef {
+        kind: ArtKind::BlackMass,
+        name: Key::ArtBlackMass,
+        desc: Key::ArtBlackMassDesc,
+        amount_key: Key::ArtGainArea,
+        base: ArtStats {
+            damage: 40.0,
+            cooldown: 12.0,
+            amount: 0,
+            area: 1.0,
+            speed: 0.0,
+            pierce: 0,
+            duration: 0.0,
+        },
+        gains: [
+            ArtGain {
+                damage: 20.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 20.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 20.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 40.0,
+                ..NO_GAIN
+            },
+        ],
+        evolution: Evolution {
+            sin: ENVY,
+            name: Key::EvoWitchesSabbath,
+            desc: Key::EvoWitchesSabbathDesc,
+        },
+    },
+    // Her gaze: beams that freeze what they touch for a moment (Clock Lancet).
+    ArtDef {
+        kind: ArtKind::GazeOfDesire,
+        name: Key::ArtGazeOfDesire,
+        desc: Key::ArtGazeOfDesireDesc,
+        amount_key: Key::ArtMoreGazes,
+        base: ArtStats {
+            damage: 0.0,
+            cooldown: 2.0,
+            amount: 1,
+            area: 1.0,
+            speed: 0.0,
+            pierce: 0,
+            duration: 1.0,
+        },
+        gains: [
+            ArtGain {
+                duration: 0.25,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                duration: 0.25,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                area: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                cooldown: 0.1,
+                duration: 0.5,
+                ..NO_GAIN
+            },
+        ],
+        evolution: Evolution {
+            sin: PRIDE,
+            name: Key::EvoEvilEye,
+            desc: Key::EvoEvilEyeDesc,
         },
     },
 ];

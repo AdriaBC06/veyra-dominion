@@ -172,6 +172,14 @@ keys! {
     ArtMoreScythes => "+{} scythe", "+{} guadaña";
     ArtMoreCrosses => "+{} cross", "+{} cruz";
     ArtMoreSigils => "+{} sigil", "+{} sigilo";
+    ArtBatSwarm => "Bat Swarm", "Enjambre de murciélagos";
+    ArtBatSwarmDesc => "Her bats circle and bomb the horde", "Sus murciélagos la rodean y bombardean a la horda";
+    ArtBlackMass => "Black Mass", "Misa negra";
+    ArtBlackMassDesc => "Now and then a rite strikes all in sight", "De vez en cuando un rito golpea a todo lo que ve";
+    ArtGazeOfDesire => "Gaze of Desire", "Mirada del deseo";
+    ArtGazeOfDesireDesc => "Her gaze freezes foes for a moment", "Su mirada congela a los enemigos un instante";
+    ArtMoreBats => "+{} bat", "+{} murciélago";
+    ArtMoreGazes => "+{} gaze", "+{} mirada";
     ArtMoreCharmed => "+{} charmed", "+{} hechizado";
     ArtMorePools => "+{} pool", "+{} charco";
     ArtMoreJumps => "+{} link", "+{} eslabón";
@@ -204,6 +212,12 @@ keys! {
     EvoHereticsBrandDesc => "The crosses set foes ablaze", "Las cruces prenden fuego a los enemigos";
     EvoBrokenSeal => "Broken Seal", "Sello roto";
     EvoBrokenSealDesc => "The sigil explodes on every bounce", "El sigilo estalla en cada rebote";
+    EvoCrimsonHost => "Crimson Host", "Hueste carmesí";
+    EvoCrimsonHostDesc => "A bigger flock with bigger bombs", "Una bandada mayor con bombas mayores";
+    EvoWitchesSabbath => "Witches' Sabbath", "Aquelarre";
+    EvoWitchesSabbathDesc => "More often, and every soul flies to her", "Más a menudo, y todas las almas vuelan a ella";
+    EvoEvilEye => "Evil Eye", "Mal de ojo";
+    EvoEvilEyeDesc => "Frozen foes take more damage", "Los congelados reciben más daño";
     OfferingTitle => "Abyssal Offering", "Ofrenda abisal";
     OfferingEvolved => "{} can evolve", "{} puede evolucionar";
     OfferingGift => "The Abyss offers a gift", "El Abismo ofrece un don";

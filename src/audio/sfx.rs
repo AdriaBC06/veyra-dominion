@@ -32,6 +32,10 @@ pub enum Sfx {
     Cross,
     Sigil,
     SealBlast,
+    Bats,
+    BatBlast,
+    BlackMass,
+    Gaze,
     SirenBurst,
     Offering,
     Hit,
@@ -53,7 +57,7 @@ pub enum Sfx {
 }
 
 impl Sfx {
-    pub const COUNT: usize = 29;
+    pub const COUNT: usize = 33;
     pub const ALL: [Sfx; Sfx::COUNT] = [
         Sfx::Fire,
         Sfx::Lash,
@@ -66,6 +70,10 @@ impl Sfx {
         Sfx::Cross,
         Sfx::Sigil,
         Sfx::SealBlast,
+        Sfx::Bats,
+        Sfx::BatBlast,
+        Sfx::BlackMass,
+        Sfx::Gaze,
         Sfx::SirenBurst,
         Sfx::Offering,
         Sfx::Hit,
@@ -99,6 +107,10 @@ impl Sfx {
             Sfx::Cross => "cross",
             Sfx::Sigil => "sigil",
             Sfx::SealBlast => "seal_blast",
+            Sfx::Bats => "bats",
+            Sfx::BatBlast => "bat_blast",
+            Sfx::BlackMass => "black_mass",
+            Sfx::Gaze => "gaze",
             Sfx::SirenBurst => "siren_burst",
             Sfx::Offering => "offering",
             Sfx::Hit => "hit",
@@ -129,6 +141,8 @@ impl Sfx {
             | Sfx::Gust
             | Sfx::Scythe
             | Sfx::SealBlast
+            | Sfx::Bats
+            | Sfx::BatBlast
             | Sfx::Hit
             | Sfx::HitArmored
             | Sfx::KillBeast
@@ -141,7 +155,8 @@ impl Sfx {
             | Sfx::Hellgate
             | Sfx::SirenBurst
             | Sfx::Cross
-            | Sfx::Sigil => &JITTER[1..4],
+            | Sfx::Sigil
+            | Sfx::Gaze => &JITTER[1..4],
             Sfx::Soul => &COMBO_STEPS,
             _ => &[0.0],
         }
@@ -161,6 +176,10 @@ impl Sfx {
             Sfx::Cross => 0.6,
             Sfx::Sigil => 0.4,
             Sfx::SealBlast => 0.35,
+            Sfx::Bats => 0.35,
+            Sfx::BatBlast => 0.3,
+            Sfx::BlackMass => 2.2,
+            Sfx::Gaze => 0.45,
             Sfx::SirenBurst => 0.4,
             Sfx::Offering => 2.0,
             Sfx::Hit => 0.1,
@@ -185,7 +204,7 @@ impl Sfx {
     pub fn cap(self) -> usize {
         match self {
             Sfx::Hit | Sfx::KillBeast | Sfx::KillHuman | Sfx::KillArmored => 4,
-            Sfx::Fire | Sfx::Soul | Sfx::HitArmored => 3,
+            Sfx::Fire | Sfx::Soul | Sfx::HitArmored | Sfx::BatBlast => 3,
             Sfx::Lash
             | Sfx::Kiss
             | Sfx::Allure
@@ -196,6 +215,8 @@ impl Sfx {
             | Sfx::Cross
             | Sfx::Sigil
             | Sfx::SealBlast
+            | Sfx::Bats
+            | Sfx::Gaze
             | Sfx::SirenBurst => 2,
             Sfx::UiMove | Sfx::UiConfirm | Sfx::UiBack => 2,
             _ => 1,
@@ -216,6 +237,8 @@ impl Sfx {
             | Sfx::Gust
             | Sfx::Scythe
             | Sfx::SealBlast
+            | Sfx::Bats
+            | Sfx::BatBlast
             | Sfx::SirenBurst => 0.05,
             _ => 0.0,
         }
@@ -235,6 +258,10 @@ impl Sfx {
             Sfx::Cross => 0.1,
             Sfx::Sigil => 0.08,
             Sfx::SealBlast => 0.15,
+            Sfx::Bats => 0.1,
+            Sfx::BatBlast => 0.15,
+            Sfx::BlackMass => 0.35,
+            Sfx::Gaze => 0.08,
             Sfx::SirenBurst => 0.12,
             Sfx::Offering => 0.42,
             Sfx::Hit => 0.22,
@@ -792,6 +819,119 @@ fn patch(sfx: Sfx) -> Patch {
                 note(0.01, Pulse1, 86.0, 2, 0.7),
             ],
             echo: dry,
+        },
+        // Bat Swarm: the flock lets go, a flurry of leathery wingbeats and a thin
+        // squeak sliding up from D to E flat, her minor 2nd.
+        Sfx::Bats => Patch {
+            instruments: vec![
+                env(&[5, 1, 6, 1, 5, 1, 4, 1, 3, 1, 2, 0]),
+                Instrument {
+                    pitch: Macro::new(&[0, 4, 8, 12, 16]),
+                    ..with_duty(env(&[0, 5, 6, 4, 2, 0]), 0)
+                },
+            ],
+            notes: vec![
+                note(0.0, Noise, 70.0, 0, 1.0),
+                note(0.03, Pulse1, 98.0, 1, 0.5),
+                note(0.12, Pulse1, 98.0, 1, 0.3),
+            ],
+            echo: dry,
+        },
+        // A blood bomb bursting: a wet splat over a short low thump.
+        Sfx::BatBlast => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: -50.0,
+                    ..env(&[13, 9, 5, 2, 1, 0])
+                },
+                Instrument {
+                    sweep: -80.0,
+                    ..env(&[12, 8, 5, 3, 2, 1, 0])
+                },
+            ],
+            notes: vec![
+                note(0.0, Triangle, 47.0, 0, 1.0),
+                note(0.0, Noise, 82.0, 1, 1.0),
+            ],
+            echo: dry,
+        },
+        // Black Mass: the rite strikes. A low bell tolls under an organ holding D
+        // against E flat, a sine choir rising an octave above as it rings out.
+        Sfx::BlackMass => {
+            let mut held = vec![6, 10, 12, 12, 11];
+            held.extend(fade(11, 90));
+            let organ = Instrument {
+                vibrato: Vibrato {
+                    depth: 0.15,
+                    rate_hz: 5.0,
+                    delay: 0.2,
+                },
+                ..with_duty(env(&held), 2)
+            };
+            let mut choir = vec![0, 2, 4, 6, 7, 7];
+            choir.extend(fade(7, 80));
+            Patch {
+                instruments: vec![
+                    Instrument {
+                        sweep: -1.5,
+                        ..env(&fade(15, 110))
+                    },
+                    organ.clone(),
+                    with_duty(organ, 1),
+                    Instrument {
+                        vibrato: Vibrato {
+                            depth: 0.25,
+                            rate_hz: 6.0,
+                            delay: 0.1,
+                        },
+                        ..env(&choir)
+                    },
+                    Instrument {
+                        sweep: -30.0,
+                        ..env(&[14, 10, 7, 5, 3, 2, 1, 0])
+                    },
+                ],
+                notes: vec![
+                    note(0.0, Noise, 60.0, 4, 1.0),
+                    note(0.0, Triangle, 38.0, 0, 1.0),
+                    note(0.0, Pulse1, 62.0, 1, 0.7),
+                    note(0.0, Pulse2, 63.0, 2, 0.5),
+                    note(0.15, Wave, 74.0, 3, 0.8),
+                ],
+                echo: Echo {
+                    delay: 0.22,
+                    feedback: 0.4,
+                    mix: 0.35,
+                },
+            }
+        }
+        // Gaze of Desire: her eyes catch the light, a glassy sine gliding up with a
+        // quick shimmer, the tritone glinting over it.
+        Sfx::Gaze => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: 6.0,
+                    vibrato: Vibrato {
+                        depth: 0.3,
+                        rate_hz: 11.0,
+                        delay: 0.0,
+                    },
+                    ..env(&[3, 7, 9, 9, 8, 7, 6, 5, 4, 3, 2, 2, 1, 1, 0])
+                },
+                Instrument {
+                    arp: Macro::new(&[0, 0, 6, 6]),
+                    ..with_duty(env(&[0, 3, 4, 3, 2, 1, 1, 0]), 0)
+                },
+            ],
+            notes: vec![
+                note(0.0, Wave, 81.0, 0, 1.0),
+                note(0.02, Pulse1, 93.0, 1, 0.5),
+            ],
+            echo: Echo {
+                delay: 0.06,
+                feedback: 0.25,
+                mix: 0.2,
+            },
         },
         Sfx::SirenBurst => Patch {
             instruments: vec![

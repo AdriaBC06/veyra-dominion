@@ -104,6 +104,29 @@ pub struct SealBlast {
     pub t: f32,
 }
 
+/// A Bat Swarm blood bomb lobbed from a bat over `from` onto `to`: it lands when `t`
+/// reaches `BAT_DROP_TIME` and bursts over `radius`, shown for `BAT_BLAST_TIME` more.
+pub struct Bomb {
+    pub from: Vec2,
+    pub to: Vec2,
+    pub t: f32,
+    pub radius: f32,
+}
+
+impl Bomb {
+    pub fn landed(&self) -> bool {
+        self.t >= BAT_DROP_TIME
+    }
+}
+
+/// A Gaze of Desire beam from `from` along `dir`, `len` long; `t` is its age.
+pub struct Gaze {
+    pub from: Vec2,
+    pub dir: Vec2,
+    pub len: f32,
+    pub t: f32,
+}
+
 /// Brimstone Halo: its flames burn for `duration`, rest for `cooldown`, and again. `t` is the
 /// time spent in the current phase.
 #[derive(Default)]
@@ -178,6 +201,13 @@ pub struct ArtCues {
     pub sealed: bool,
     /// A charmed enemy burst (Siren's Dominion).
     pub burst: bool,
+    /// Bats dropped bombs / a bomb burst.
+    pub bats: bool,
+    pub bat_blast: bool,
+    /// Black Mass struck; with Witches' Sabbath every soul flies to her.
+    pub mass: bool,
+    pub sabbath: bool,
+    pub gazed: bool,
     /// A hit landed on flesh / on armour.
     pub hits: [bool; 2],
 }
@@ -205,6 +235,12 @@ pub struct Arts {
     pub crosses: Vec<Cross>,
     pub sigils: Vec<Sigil>,
     pub seal_blasts: Vec<SealBlast>,
+    pub bombs: Vec<Bomb>,
+    pub gazes: Vec<Gaze>,
+    /// Where the bats are on their orbit (radians).
+    pub bat_angle: f32,
+    /// Seconds since the last Black Mass (its circle and flash fade over it).
+    pub since_mass: f32,
     /// Seconds since the Scent of Sin last burned (the haze swells a little then).
     pub since_scent: f32,
     /// Level of each Art (0 = not owned), copied from `Upgrades` on `refresh`.
@@ -241,6 +277,10 @@ impl Arts {
             crosses: Vec::with_capacity(MAX_CROSSES),
             sigils: Vec::with_capacity(MAX_SIGILS),
             seal_blasts: Vec::with_capacity(MAX_SEAL_BLASTS),
+            bombs: Vec::with_capacity(MAX_BOMBS),
+            gazes: Vec::with_capacity(MAX_GAZES),
+            bat_angle: 0.0,
+            since_mass: f32::INFINITY,
             since_scent: f32::INFINITY,
             levels: [0; ARTS.len()],
             evolved: [false; ARTS.len()],
@@ -283,6 +323,9 @@ impl Arts {
                     ArtKind::BrimstoneHalo => s.amount += CROWN_EXTRA,
                     ArtKind::ReapersScythe => s.amount += HARVEST_EXTRA,
                     ArtKind::ProfanedCross => s.amount += BRAND_EXTRA,
+                    ArtKind::BatSwarm => s.amount += HOST_EXTRA,
+                    ArtKind::BlackMass => s.cooldown *= SABBATH_COOLDOWN,
+                    ArtKind::GazeOfDesire => s.amount += EVIL_EYE_EXTRA,
                     _ => {}
                 }
             }
@@ -316,6 +359,11 @@ impl Arts {
     /// already flying keeps going either way.
     pub fn update(&mut self, w: &mut World, alive: bool) -> ArtCues {
         let mut cues = ArtCues::default();
+        w.enemies.frozen_vuln = if self.evolved[GAZE_OF_DESIRE] {
+            EVIL_EYE_VULN
+        } else {
+            0.0
+        };
         if alive {
             for (art, def) in ARTS.iter().enumerate() {
                 if !self.owns(art) || art == BRIMSTONE_HALO {
@@ -336,6 +384,9 @@ impl Arts {
                     ArtKind::ReapersScythe => self.reap(w, &mut cues),
                     ArtKind::ProfanedCross => self.throw_crosses(w, &mut cues),
                     ArtKind::WanderingSigil => self.cast_sigils(w, &mut cues),
+                    ArtKind::BatSwarm => self.drop_bombs(w, &mut cues),
+                    ArtKind::BlackMass => self.black_mass(w, &mut cues),
+                    ArtKind::GazeOfDesire => self.gaze(w, &mut cues),
                 };
                 if attacked {
                     self.cooldown[art] = self.stats[art].cooldown;
@@ -353,6 +404,12 @@ impl Arts {
         self.update_crosses(w, &mut cues);
         self.update_brand(w, &mut cues);
         self.update_sigils(w, &mut cues);
+        self.update_bombs(w, &mut cues);
+        self.since_mass += TICK_DT;
+        self.gazes.retain_mut(|g| {
+            g.t += TICK_DT;
+            g.t < GAZE_SHOW
+        });
         self.heal_budget = (self.heal_budget + MUSK_HEAL_CAP * TICK_DT).min(MUSK_HEAL_CAP);
         self.since_scent += TICK_DT;
         self.siren_bursts.retain_mut(|b| {
@@ -653,6 +710,139 @@ impl Arts {
         }
         cues.sigiled = true;
         true
+    }
+
+    /// Bat Swarm: every bat lobs a bomb at a random enemy in range (they wait while
+    /// nobody is). Crimson Host bombs burst wider.
+    fn drop_bombs(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let s = self.stats[BAT_SWARM];
+        let host = if self.evolved[BAT_SWARM] {
+            HOST_BLAST
+        } else {
+            1.0
+        };
+        let radius = BAT_BLAST_RADIUS * s.area * host;
+        let mut dropped = false;
+        for off in bat_offsets(self.bat_angle, s.amount) {
+            if self.bombs.len() >= MAX_BOMBS {
+                break;
+            }
+            let Some(j) = random_enemy(w, BAT_RANGE) else {
+                break;
+            };
+            let scatter = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, BAT_SCATTER);
+            self.bombs.push(Bomb {
+                from: w.player.pos + off,
+                to: w.enemies.pos(j) + scatter,
+                t: 0.0,
+                radius,
+            });
+            dropped = true;
+        }
+        cues.bats |= dropped;
+        dropped
+    }
+
+    /// The bats circle on; bombs land and burst on whatever is under them.
+    fn update_bombs(&mut self, w: &mut World, cues: &mut ArtCues) {
+        let s = self.stats[BAT_SWARM];
+        if self.owns(BAT_SWARM) {
+            self.bat_angle = (self.bat_angle + s.speed * TICK_DT) % TAU;
+        }
+        let time = w.time;
+        let enemies = &mut *w.enemies;
+        let extra = enemies.max_radius();
+        self.bombs.retain_mut(|b| {
+            let falling = !b.landed();
+            b.t += TICK_DT;
+            if falling && b.landed() {
+                w.hash.query_radius(b.to, b.radius + extra, |j, _| {
+                    if touches(enemies, j, b.to, b.radius) {
+                        strike(enemies, j, s.damage, time, &mut cues.hits);
+                    }
+                });
+                cues.bat_blast = true;
+            }
+            b.t < BAT_DROP_TIME + BAT_BLAST_TIME
+        });
+    }
+
+    /// Black Mass: strikes every enemy in view (plus a margin); waits while there is
+    /// none. Witches' Sabbath also calls every soul to her (the game does that).
+    fn black_mass(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let damage = self.stats[BLACK_MASS].damage;
+        let (center, time) = (w.player.pos, w.time);
+        let half = w.view * 0.5 + Vec2::splat(MASS_MARGIN);
+        let enemies = &mut *w.enemies;
+        let mut any = false;
+        for i in 0..enemies.len() {
+            let off = (enemies.pos(i) - center).abs();
+            if enemies.hp[i] > 0.0 && off.x <= half.x && off.y <= half.y {
+                strike(enemies, i, damage, time, &mut cues.hits);
+                any = true;
+            }
+        }
+        if any {
+            self.since_mass = 0.0;
+            w.player.since_cast = 0.0;
+            cues.mass = true;
+            cues.sabbath = self.evolved[BLACK_MASS];
+        }
+        any
+    }
+
+    /// Gaze of Desire: `amount` beams, the first at the nearest enemy in range, the
+    /// rest evenly around; whatever they touch is frozen. Waits while nobody is near.
+    fn gaze(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        let from = w.player.pos;
+        let Some(first) = w.hash.nearest(from, GAZE_RANGE) else {
+            return false;
+        };
+        let s = self.stats[GAZE_OF_DESIRE];
+        let aim = (w.enemies.pos(first) - from).normalize_or(Vec2::X);
+        let (len, width) = (GAZE_REACH * s.area, GAZE_WIDTH * s.area);
+        let (time, until) = (w.time, w.time + s.duration);
+        let enemies = &mut *w.enemies;
+        let extra = enemies.max_radius();
+        let n = s.amount.max(1);
+        for k in 0..n {
+            let dir = Vec2::from_angle(k as f32 * TAU / n as f32).rotate(aim);
+            let mid = from + dir * len * 0.5;
+            w.hash.query_radius(mid, len * 0.5 + width + extra, |j, p| {
+                let r = ENEMY_DEFS[enemies.kind[j] as usize].radius();
+                let off = p - from;
+                let along = off.dot(dir);
+                let inside =
+                    along >= -r && along <= len + r && off.perp_dot(dir).abs() <= width + r;
+                if enemies.hp[j] > 0.0 && inside {
+                    enemies.frozen_until[j] = enemies.frozen_until[j].max(until);
+                    if s.damage > 0.0 {
+                        strike(enemies, j, s.damage, time, &mut cues.hits);
+                    }
+                }
+            });
+            if self.gazes.len() < MAX_GAZES {
+                self.gazes.push(Gaze {
+                    from,
+                    dir,
+                    len,
+                    t: 0.0,
+                });
+            }
+        }
+        w.player.since_cast = 0.0;
+        cues.gazed = true;
+        true
+    }
+
+    /// Where the bats are around Veyra's ground point (none unless she owns them).
+    pub fn bats(&self) -> impl Iterator<Item = Vec2> {
+        let n = if self.owns(BAT_SWARM) {
+            self.stats[BAT_SWARM].amount
+        } else {
+            0
+        };
+        bat_offsets(self.bat_angle, n)
     }
 
     /// Scythes fall (Midnight Harvest ones curl outwards) and cut what they cross.
@@ -1088,6 +1278,15 @@ fn ember_offsets(angle: f32, s: &ArtStats) -> impl Iterator<Item = Vec2> {
     (0..n).map(move |k| Vec2::from_angle(angle + k as f32 * TAU / n as f32) * radius)
 }
 
+/// `n` bats evenly spread on their orbit, an ellipse seen from above at an angle.
+fn bat_offsets(angle: f32, n: u32) -> impl Iterator<Item = Vec2> {
+    let n = (n as usize).min(MAX_BATS);
+    (0..n).map(move |k| {
+        let v = Vec2::from_angle(angle + k as f32 * TAU / n as f32) * BAT_ORBIT;
+        vec2(v.x, v.y * 0.5)
+    })
+}
+
 /// Sideways speed of scythe `k` of `n`: with an odd count the first goes straight up,
 /// the rest pair off to either side, each pair `SCYTHE_SPREAD` wider.
 fn scythe_spread(k: u32, n: u32) -> f32 {
@@ -1123,14 +1322,17 @@ fn touches(enemies: &Enemies, j: usize, pos: Vec2, radius: f32) -> bool {
     enemies.hp[j] > 0.0 && enemies.pos(j).distance_squared(pos) <= reach * reach
 }
 
-/// Hurts enemy `j`; weakened enemies (Scent of Sin) take `SCENT_WEAKEN` more.
+/// Hurts enemy `j`; weakened enemies (Scent of Sin) take `SCENT_WEAKEN` more, frozen
+/// ones `frozen_vuln` more (Evil Eye).
 fn strike(enemies: &mut Enemies, j: usize, damage: f32, time: f32, hits: &mut [bool; 2]) {
-    let weak = if enemies.weak(j, time) {
-        1.0 + SCENT_WEAKEN
-    } else {
-        1.0
-    };
-    enemies.hp[j] -= damage * weak;
+    let mut scale = 1.0;
+    if enemies.weak(j, time) {
+        scale *= 1.0 + SCENT_WEAKEN;
+    }
+    if enemies.frozen(j, time) {
+        scale *= 1.0 + enemies.frozen_vuln;
+    }
+    enemies.hp[j] -= damage * scale;
     enemies.flash[j] = HIT_FLASH_TIME;
     let family = ENEMY_DEFS[enemies.kind[j] as usize].family;
     hits[(family == Family::Armored) as usize] = true;
@@ -1740,5 +1942,151 @@ mod tests {
         );
         let taken = before - g.enemies.hp[0];
         assert!((taken - dmg * (1.0 + SCENT_WEAKEN)).abs() < 1e-3, "{taken}");
+    }
+
+    #[test]
+    fn bats_mass_and_gaze_level_tables() {
+        let bats = ARTS[BAT_SWARM].stats(ART_MAX_LEVEL);
+        assert_eq!((bats.amount, bats.damage), (5, 30.0));
+        assert!((bats.area - 1.3).abs() < 1e-5);
+        let mass = ARTS[BLACK_MASS].stats(ART_MAX_LEVEL);
+        assert_eq!(mass.damage, 140.0);
+        assert!((mass.cooldown - 12.0 * 0.7).abs() < 1e-4);
+        let gaze = ARTS[GAZE_OF_DESIRE].stats(ART_MAX_LEVEL);
+        assert_eq!(gaze.amount, 3);
+        assert!((gaze.duration - 2.0).abs() < 1e-5 && (gaze.area - 1.4).abs() < 1e-5);
+    }
+
+    #[test]
+    fn bats_bomb_random_foes_and_the_blast_hurts_around_it() {
+        let mut g = game_with(BAT_SWARM, 1);
+        tick(&mut g, 1);
+        assert!(g.arts.bombs.is_empty(), "nobody to bomb");
+        assert_eq!(g.arts.bats().count(), ARTS[BAT_SWARM].base.amount as usize);
+        g.enemies.spawn(KNIGHT, vec2(120.0, 0.0), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(120.0, 12.0), 100.0);
+        // Out of the bats' range: never a target, and far from the blasts.
+        g.enemies
+            .spawn(KNIGHT, vec2(-(BAT_RANGE + 40.0), 0.0), 100.0);
+        tick(&mut g, 1);
+        assert!(g.cues.contains(&Cue::Bats));
+        assert_eq!(g.arts.bombs.len(), 2);
+        assert!(!hurt(&g, 0), "still falling");
+        tick(&mut g, (BAT_DROP_TIME / TICK_DT) as usize + 2);
+        assert!(hurt(&g, 0) && hurt(&g, 1), "the blast covers both");
+        assert!(!hurt(&g, 2));
+        tick(&mut g, (BAT_BLAST_TIME / TICK_DT) as usize + 2);
+        assert!(g.arts.bombs.is_empty());
+    }
+
+    #[test]
+    fn crimson_host_is_a_bigger_flock_with_wider_blasts() {
+        let mut g = evolved(BAT_SWARM);
+        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        let n = ARTS[BAT_SWARM].stats(ART_MAX_LEVEL).amount + HOST_EXTRA;
+        assert_eq!(g.arts.bats().count(), n as usize);
+        assert_eq!(g.arts.bombs.len(), n as usize);
+        let area = ARTS[BAT_SWARM].stats(ART_MAX_LEVEL).area;
+        let r = g.arts.bombs[0].radius;
+        assert!((r - BAT_BLAST_RADIUS * area * HOST_BLAST).abs() < 1e-4);
+    }
+
+    #[test]
+    fn black_mass_strikes_everything_in_view_and_waits_for_a_target() {
+        let mut g = game_with(BLACK_MASS, 1);
+        tick(&mut g, 1);
+        assert!(g.arts.since_mass.is_infinite(), "nothing in view");
+        let half = vec2(DEFAULT_VIEW_W, LOGICAL_H) * 0.5;
+        g.enemies.spawn(KNIGHT, vec2(half.x - 4.0, 0.0), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(0.0, -half.y + 4.0), 100.0);
+        g.enemies
+            .spawn(KNIGHT, vec2(half.x + MASS_MARGIN + 40.0, 0.0), 100.0);
+        g.enemies.spawn(RAT, vec2(30.0, 0.0), 1.0);
+        tick(&mut g, 1);
+        assert!(g.cues.contains(&Cue::BlackMass));
+        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let dmg = ARTS[BLACK_MASS].base.damage;
+        assert_eq!(g.enemies.hp[0], full - dmg);
+        assert_eq!(g.enemies.hp[1], full - dmg);
+        assert_eq!(g.enemies.hp[2], full, "out of view");
+        assert_eq!(g.kills, 1, "the rat could not take it");
+    }
+
+    #[test]
+    fn witches_sabbath_comes_sooner_and_calls_every_soul() {
+        let mut g = evolved(BLACK_MASS);
+        let top = ARTS[BLACK_MASS].stats(ART_MAX_LEVEL).cooldown;
+        assert!((g.arts.stats[BLACK_MASS].cooldown - top * SABBATH_COOLDOWN).abs() < 1e-4);
+        g.souls.push(crate::game::Soul {
+            pos: vec2(600.0, 0.0),
+            xp: 3,
+            called: false,
+        });
+        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        assert!(g.souls[0].called);
+        let xp = g.xp;
+        tick(&mut g, (600.0 / SABBATH_SOUL_SPEED / TICK_DT) as usize + 4);
+        assert!(g.souls.is_empty() && g.xp > xp, "flew all the way to her");
+
+        // Without the evolution, far souls stay where they are.
+        let mut g = game_with(BLACK_MASS, ART_MAX_LEVEL);
+        g.souls.push(crate::game::Soul {
+            pos: vec2(600.0, 0.0),
+            xp: 3,
+            called: false,
+        });
+        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        tick(&mut g, 60);
+        assert_eq!(g.souls[0].pos, vec2(600.0, 0.0));
+    }
+
+    #[test]
+    fn gaze_freezes_what_it_touches_harmless_until_it_thaws() {
+        let mut g = game_with(GAZE_OF_DESIRE, 1);
+        g.player.iframes = 0.0;
+        // One in the beam right next to her, one off it.
+        g.enemies.spawn(KNIGHT, vec2(8.0, 0.0), 100.0);
+        g.enemies.spawn(KNIGHT, vec2(0.0, 60.0), 100.0);
+        tick(&mut g, 1);
+        assert!(g.cues.contains(&Cue::Gaze));
+        assert_eq!(g.arts.gazes.len(), 1);
+        assert!(g.enemies.frozen(0, g.time) && !g.enemies.frozen(1, g.time));
+        assert!(!hurt(&g, 0), "the gaze does no damage");
+        g.arts.hold();
+        let at = g.enemies.pos(0);
+        tick(&mut g, 20);
+        assert_eq!(g.enemies.pos(0), at, "frozen in place");
+        assert_eq!(g.player.hp, PLAYER_MAX_HP, "and harmless on top of her");
+        tick(
+            &mut g,
+            (ARTS[GAZE_OF_DESIRE].base.duration / TICK_DT) as usize,
+        );
+        assert!(!g.enemies.frozen(0, g.time));
+        assert!(g.player.hp < PLAYER_MAX_HP, "thawed, it bites");
+    }
+
+    #[test]
+    fn evil_eye_frozen_foes_take_more_damage() {
+        let mut g = evolved(GAZE_OF_DESIRE);
+        assert_eq!(
+            g.arts.stats[GAZE_OF_DESIRE].amount,
+            ARTS[GAZE_OF_DESIRE].stats(ART_MAX_LEVEL).amount + EVIL_EYE_EXTRA
+        );
+        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        assert!(g.enemies.frozen(0, g.time));
+        let mut hits = [false; 2];
+        let before = g.enemies.hp[0];
+        strike(&mut g.enemies, 0, 10.0, g.time, &mut hits);
+        assert!((before - g.enemies.hp[0] - 10.0 * (1.0 + EVIL_EYE_VULN)).abs() < 1e-3);
+        // Unevolved, frozen foes take the plain damage.
+        let mut g = game_with(GAZE_OF_DESIRE, ART_MAX_LEVEL);
+        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        let before = g.enemies.hp[0];
+        strike(&mut g.enemies, 0, 10.0, g.time, &mut hits);
+        assert_eq!(before - g.enemies.hp[0], 10.0);
     }
 }

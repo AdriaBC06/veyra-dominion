@@ -239,3 +239,107 @@ tiered("sigil", 7.2, { fps: 20, outline: "k" }, (c, size, scale) => {
     }
   }
 })
+
+// ---- V17e -----------------------------------------------------------------
+
+pal({ m: "#b04a8a" })                                      // wing rim catching the light
+
+// Bat Swarm: a plum bat with red eyes, flapping (up, level, down, level). 15x9. The
+// Crimson Host's bats are the same flock in blood red with golden eyes.
+const BAT_UP = `
+  .m...........m.
+  .vw.........wv.
+  ..vw..W.W..wv..
+  ..wvw.WWW.wvw..
+  ...wwwqWqwww...
+  ......WWW......
+  .......W.......
+  ...............
+  ...............`
+const BAT_MID = `
+  ...............
+  ...............
+  ......W.W......
+  .mm...WWW...mm.
+  mvvwwwqWqwwwvvm
+  .wvwvwWWWwvwvw.
+  ..w.w..W..w.w..
+  ...............
+  ...............`
+const BAT_DOWN = `
+  ...............
+  ...............
+  ......W.W......
+  ......WWW......
+  ....mmqWqmm....
+  ...mvwWWWwvm...
+  ..wvw..W..wvw..
+  .wvw.......wvw.
+  .w...........w.`
+function batAnim(name, swap) {
+  const g = (s) => grid(0, 0, s.replace(/[a-zA-Z]/g, (k) => swap[k] ?? k))
+  anim(name, { w: 15, h: 9, fps: 12, outline: "k" },
+    frame(g(BAT_UP)), frame(g(BAT_MID)), frame(g(BAT_DOWN)), frame(g(BAT_MID)))
+}
+batAnim("bat", {})
+batAnim("bat_host", { W: "R", w: "r", v: "q", m: "Q", q: "F" })
+
+// A blood bomb the bats drop: a crimson orb with a glint that winks.
+anim("blood_bomb", { outline: "k", fps: 8 }, `
+  .rr.
+  rQqr
+  rqrR
+  .RR.`, frame(), frame(grid(1, 1, "qQ")))
+
+// Black Mass: the ritual circle under her, seen on the ground (an ellipse twice as
+// wide as deep): two rings with runes between them around an inverted pentagram (one
+// point toward the viewer). 141x71, 4 frames: the runes flicker round the ring.
+// Witches' Sabbath draws it in brimstone gold with pink runes.
+const MASS_RX = 70, MASS_RY = 35
+function massCircle(c, line, dark, rune, hot) {
+  const cx = MASS_RX, cy = MASS_RY
+  // The star's points on the inner ring, projected onto the ground.
+  const pts = []
+  for (let k = 0; k < 5; k++) {
+    const a = Math.PI / 2 + k * 2 * Math.PI / 5           // first point down (toward us)
+    pts.push([cx + Math.cos(a) * (MASS_RX - 12), cy + Math.sin(a) * (MASS_RY - 6)])
+  }
+  const segDist = (x, y, [ax, ay], [bx, by]) => {
+    const dx = bx - ax, dy = by - ay
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+    return Math.hypot(x - ax - t * dx, y - ay - t * dy)
+  }
+  for (let y = 0; y <= 2 * MASS_RY; y++) {
+    for (let x = 0; x <= 2 * MASS_RX; x++) {
+      const e = (rx, ry) => Math.hypot((x - cx) / rx, (y - cy) / ry)
+      if (e(MASS_RX, MASS_RY) <= 1 && e(MASS_RX - 2, MASS_RY - 1.2) > 1) { c.px(x, y, line); continue }
+      if (e(MASS_RX - 12, MASS_RY - 6) <= 1 && e(MASS_RX - 13.5, MASS_RY - 6.8) > 1) { c.px(x, y, dark); continue }
+      // Runes in the band between the rings: short strokes, one lit at a time.
+      const band = e(MASS_RX - 4, MASS_RY - 2) <= 1 && e(MASS_RX - 10, MASS_RY - 5) > 1
+      if (band) {
+        const a = (Math.atan2((y - cy) / MASS_RY, (x - cx) / MASS_RX) / (2 * Math.PI) + 1) % 1
+        const slot = Math.floor(a * 20), within = a * 20 - slot
+        if (within > 0.35 && within < 0.65 && (slot + y) % 3 !== 0) {
+          c.px(x, y, slot % 4 === c.frame ? hot : rune)
+        }
+        continue
+      }
+      for (let k = 0; k < 5; k++) {
+        if (segDist(x, y, pts[k], pts[(k + 2) % 5]) <= 0.72) { c.px(x, y, line); break }
+      }
+    }
+  }
+  for (const [px, py] of pts) c.px(Math.round(px), Math.round(py), hot)
+}
+anim("black_mass", { w: 2 * MASS_RX + 1, h: 2 * MASS_RY + 1, frames: 4, fps: 8 },
+  (c) => massCircle(c, "q", "r", "R", "Q"))
+anim("sabbath", { w: 2 * MASS_RX + 1, h: 2 * MASS_RY + 1, frames: 4, fps: 8 },
+  (c) => massCircle(c, "g", "G", "i", "I"))
+
+// Evil Eye: a golden eye that floats over every frozen foe, its iris smouldering.
+anim("evil_eye", { outline: "k", fps: 4 }, `
+  ..GGG..
+  .GIqIG.
+  GIqkqIG
+  .GIqIG.
+  ..GGG..`, frame(), frame(grid(2, 2, "Q.Q")))

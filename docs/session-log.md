@@ -97,3 +97,7 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - CP6: release binary 3.66 MB (3.42 MB stripped), up from 2.31 MB (portrait sheet ~1 MB, Arts sprites).
   - Gotchas: a stray click on the window at launch can start a run in capture runs; fire positions are duplicated in `scenes/backdrop.rs` (`FIRES`, `VILLAGE`).
   - Offered, no answer yet: the premium buttons in the other menus (pause, game over, settings).
+- **S14b part 3 (2026-10-22)** — V17e done and approved ("está bastante bien", see 7.7 "Built in V17e"): Bat Swarm, Black Mass, Gaze of Desire + Crimson Host, Witches' Sabbath, Evil Eye. 13 Arts, 150 tests, stress 0.33 ms (frozen enemies skip steering).
+  - Decisions taken alone: the Gaze deals no damage and frozen enemies are harmless; Black Mass covers the view + 16 px; Art tuning constants moved to `config/art_tuning.rs`.
+  - Gotcha: a dead enemy is removed (and counted as a kill) in the same tick it dies.
+  - Next: V17f (Thralls + Allure/Thralls union, Infernal Court).

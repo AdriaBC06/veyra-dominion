@@ -27,6 +27,10 @@ pub struct Enemies {
     pub bleed_until: Vec<f32>,
     /// Game time until which it burns (Heretic's Brand).
     pub burn_until: Vec<f32>,
+    /// Game time until which it stands frozen (Gaze of Desire): no moving, no hurting.
+    pub frozen_until: Vec<f32>,
+    /// Extra damage frozen enemies take (Evil Eye; 0 otherwise), set by the Arts.
+    pub frozen_vuln: f32,
     next_uid: u32,
     /// Live enemies per kind, so the largest radius in play is cheap to find.
     counts: [u32; ENEMY_DEFS.len()],
@@ -48,6 +52,8 @@ impl Enemies {
             weak_until: Vec::with_capacity(n),
             bleed_until: Vec::with_capacity(n),
             burn_until: Vec::with_capacity(n),
+            frozen_until: Vec::with_capacity(n),
+            frozen_vuln: 0.0,
             next_uid: 0,
             counts: [0; ENEMY_DEFS.len()],
         }
@@ -81,6 +87,7 @@ impl Enemies {
         self.weak_until.push(0.0);
         self.bleed_until.push(0.0);
         self.burn_until.push(0.0);
+        self.frozen_until.push(0.0);
         self.counts[kind] += 1;
     }
 
@@ -99,6 +106,7 @@ impl Enemies {
         self.weak_until.swap_remove(i);
         self.bleed_until.swap_remove(i);
         self.burn_until.swap_remove(i);
+        self.frozen_until.swap_remove(i);
     }
 
     /// Largest collision radius among the kinds currently alive (0 when empty); spatial
@@ -114,6 +122,10 @@ impl Enemies {
 
     pub fn weak(&self, i: usize, time: f32) -> bool {
         self.weak_until[i] > time
+    }
+
+    pub fn frozen(&self, i: usize, time: f32) -> bool {
+        self.frozen_until[i] > time
     }
 
     /// Where charmed enemy `i` heads: the nearest free enemy within `CHARM_SEEK`, or
@@ -132,7 +144,8 @@ impl Enemies {
     }
 
     /// Moves every enemy according to its behaviour plus soft separation, using the
-    /// position snapshot in `hash` for neighbours. Charmed enemies hunt the horde.
+    /// position snapshot in `hash` for neighbours. Charmed enemies hunt the horde;
+    /// frozen ones stay put.
     /// `time` is the game time; `speed_scale` multiplies every speed (Pride).
     pub fn steer(
         &mut self,
@@ -143,6 +156,10 @@ impl Enemies {
         speed_scale: f32,
     ) {
         for i in 0..self.len() {
+            self.flash[i] = (self.flash[i] - dt).max(0.0);
+            if self.frozen(i, time) {
+                continue;
+            }
             let def = &ENEMY_DEFS[self.kind[i] as usize];
             let p = self.pos(i);
             let goal = if self.charmed(i, time) {
@@ -173,7 +190,6 @@ impl Enemies {
                 n < SEPARATION_MAX_NEIGHBOURS
             });
             self.set_pos(i, p + (desired + push * SEPARATION_PUSH) * dt);
-            self.flash[i] = (self.flash[i] - dt).max(0.0);
         }
     }
 }

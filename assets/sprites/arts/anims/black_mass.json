@@ -1,0 +1,106 @@
+{
+ "frames": {
+  "black_mass_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 141,
+    "h": 71
+   },
+   "duration": 125
+  },
+  "black_mass_1": {
+   "frame": {
+    "x": 141,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 141,
+    "h": 71
+   },
+   "duration": 125
+  },
+  "black_mass_2": {
+   "frame": {
+    "x": 282,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 141,
+    "h": 71
+   },
+   "duration": 125
+  },
+  "black_mass_3": {
+   "frame": {
+    "x": 423,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 141,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 141,
+    "h": 71
+   },
+   "duration": 125
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "black_mass.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 564,
+   "h": 71
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "black_mass",
+    "from": 0,
+    "to": 3,
+    "direction": "forward"
+   }
+  ]
+ }
+}

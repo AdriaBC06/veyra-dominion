@@ -184,6 +184,10 @@ impl Run {
                 Cue::Cross => Sfx::Cross,
                 Cue::Sigil => Sfx::Sigil,
                 Cue::SealBlast => Sfx::SealBlast,
+                Cue::Bats => Sfx::Bats,
+                Cue::BatBlast => Sfx::BatBlast,
+                Cue::BlackMass => Sfx::BlackMass,
+                Cue::Gaze => Sfx::Gaze,
                 Cue::SirenBurst => Sfx::SirenBurst,
                 Cue::Offering => Sfx::Offering,
                 Cue::Hit { armored: false } => Sfx::Hit,
@@ -332,6 +336,7 @@ impl Run {
         draw_ground(origin, view);
         self.blood.draw(origin, view);
         draw_gates(game);
+        draw_mass_circle(game, player_pos.round());
         draw_scent(game, player_pos.round());
         draw_souls(game);
         draw_offerings(game);
@@ -345,9 +350,14 @@ impl Run {
         draw_siren_bursts(game);
         draw_charm_marks(game);
         draw_burn_marks(game);
+        draw_eye_marks(game);
+        draw_bomb_blasts(game);
         draw_embers(game, pos, false);
+        draw_bats(game, pos, false);
         draw_veyra(game, pos, game.time + alpha * TICK_DT);
         draw_embers(game, pos, true);
+        draw_bats(game, pos, true);
+        draw_gazes(game);
         draw_lashes(game, pos);
         draw_chains(game);
         draw_seal_blasts(game);
@@ -356,6 +366,8 @@ impl Run {
         draw_scythes(game, alpha);
         draw_bolts(game, alpha);
         draw_projectiles(game);
+        draw_bombs(game);
+        draw_mass_flash(game, origin, view);
     }
 
     /// HUD and overlays; call with the UI camera set.
@@ -468,7 +480,14 @@ fn draw_enemies(game: &Game) {
     for i in 0..e.len() {
         let pos = e.pos(i).round();
         let def = &ENEMY_DEFS[e.kind[i] as usize];
-        let mut frame = (game.time * ENEMY_ANIM_FPS + e.phase[i]) as usize % 2;
+        // Frozen ones (Gaze of Desire) hold their step.
+        let frozen = e.frozen(i, game.time);
+        let walk = if frozen {
+            0.0
+        } else {
+            game.time * ENEMY_ANIM_FPS
+        };
+        let mut frame = (walk + e.phase[i]) as usize % 2;
         if e.flash[i] > 0.0 {
             frame += FLASH_FRAME_OFFSET;
         }
@@ -487,6 +506,8 @@ fn draw_enemies(game: &Game) {
         }
         let tint = if e.charmed(i, game.time) {
             Color::from_hex(CHARM_TINT)
+        } else if frozen && e.flash[i] <= 0.0 {
+            Color::from_hex(FROZEN_TINT)
         } else if e.weak(i, game.time) && e.flash[i] <= 0.0 {
             Color::from_hex(WEAK_TINT)
         } else {
@@ -505,6 +526,20 @@ fn draw_charm_marks(game: &Game) {
         let bob = (TAU * 2.0 * game.time + e.phase[i]).sin().round();
         let corner = e.pos(i).round() - vec2(3.0, h + CHARM_MARK_HEIGHT + 7.0 + bob);
         draw_sprite(SpriteId::CharmHeart, frame, corner, false);
+    }
+}
+
+/// Evil Eye: a golden eye over every frozen enemy's head.
+fn draw_eye_marks(game: &Game) {
+    if !game.arts.evolved(GAZE_OF_DESIRE) {
+        return;
+    }
+    let e = &game.enemies;
+    let frame = assets::anim_frame(SpriteId::EvilEye, game.time, true);
+    for i in (0..e.len()).filter(|&i| e.frozen(i, game.time)) {
+        let h = ENEMY_DEFS[e.kind[i] as usize].size.1 as f32;
+        let corner = e.pos(i).round() - vec2(4.0, h + CHARM_MARK_HEIGHT + 7.0);
+        draw_sprite(SpriteId::EvilEye, frame, corner, false);
     }
 }
 
@@ -903,6 +938,115 @@ fn draw_seal_blasts(game: &Game) {
             let mut c = colors[n % 2];
             c.a = fade.min(1.0);
             draw_rectangle(p.x - 1.0, p.y - 1.0, 2.0, 2.0, c);
+        }
+    }
+}
+
+/// Bat Swarm: the bats circling her, the far ones (`front` false) behind her, each
+/// flapping and bobbing on its own beat. Crimson Host bats are blood red.
+fn draw_bats(game: &Game, pos: Vec2, front: bool) {
+    let id = if game.arts.evolved(BAT_SWARM) {
+        SpriteId::BatHost
+    } else {
+        SpriteId::Bat
+    };
+    for (k, off) in game.arts.bats().enumerate() {
+        if (off.y >= 0.0) != front {
+            continue;
+        }
+        let beat = k as f32 * 0.29;
+        let ground = (pos + off).round();
+        let bob = (BAT_BOB * (TAU * 1.3 * game.time + beat * TAU).sin()).round();
+        draw_shadow(ground + vec2(0.0, VEYRA_DROP), 4.0, 1.0, 0.4);
+        let frame = assets::anim_frame(id, game.time + beat, true);
+        let corner = ground - vec2(8.0, 5.0 + BAT_DRAW_HEIGHT + bob);
+        draw_sprite(id, frame, corner, false);
+    }
+}
+
+/// Blood bombs falling from the bats onto their mark, in a short arc.
+fn draw_bombs(game: &Game) {
+    let frame = assets::anim_frame(SpriteId::BloodBomb, game.time, true);
+    for b in game.arts.bombs.iter().filter(|b| !b.landed()) {
+        let k = b.t / BAT_DROP_TIME;
+        let ground = b.from.lerp(b.to, k);
+        let height = BAT_DRAW_HEIGHT * (1.0 - k) + 24.0 * k * (1.0 - k);
+        draw_shadow(ground.round(), 2.0, 1.0, 0.5 * k);
+        draw_sprite(
+            SpriteId::BloodBomb,
+            frame,
+            (ground - vec2(3.0, 3.0 + height)).round(),
+            false,
+        );
+    }
+}
+
+/// Bomb bursts: a dark red splash and a ring of drops spreading on the ground.
+fn draw_bomb_blasts(game: &Game) {
+    let colors = [Color::from_hex(0xe04454), Color::from_hex(0x5c0c1c)];
+    for b in game.arts.bombs.iter().filter(|b| b.landed()) {
+        let k = ((b.t - BAT_DROP_TIME) / BAT_BLAST_TIME).min(1.0);
+        let spread = 1.0 - (1.0 - k).powi(2);
+        let fade = 1.0 - k;
+        let r = b.radius * spread;
+        let mut splash = Color::from_hex(0xa8182e);
+        splash.a = 0.45 * fade;
+        draw_ellipse(b.to.x, b.to.y, r, r * 0.5, 0.0, splash);
+        for n in 0..BAT_BLAST_SPARKS {
+            let angle = n as f32 * TAU / BAT_BLAST_SPARKS as f32 + b.radius;
+            let off = Vec2::from_angle(angle) * r;
+            // The drops fly up a little before they land.
+            let lift = 10.0 * k * (1.0 - k) * 4.0;
+            let p = (b.to + vec2(off.x, off.y * 0.5 - lift)).round();
+            let mut c = colors[n % 2];
+            c.a = fade.min(1.0);
+            draw_rectangle(p.x - 1.0, p.y - 1.0, 2.0, 2.0, c);
+        }
+    }
+}
+
+/// Black Mass: the ritual circle under her, flaring up and fading out. Witches'
+/// Sabbath draws it in gold.
+fn draw_mass_circle(game: &Game, pos: Vec2) {
+    let t = game.arts.since_mass;
+    if t >= MASS_SHOW {
+        return;
+    }
+    let id = if game.arts.evolved(BLACK_MASS) {
+        SpriteId::Sabbath
+    } else {
+        SpriteId::BlackMass
+    };
+    let a = (t / 0.08).min(1.0) * (1.0 - t / MASS_SHOW).powf(0.7);
+    let frame = assets::anim_frame(id, t, true);
+    let (_, src) = sprite(id, frame);
+    let corner = pos + vec2(0.0, VEYRA_DROP) - vec2(src.w * 0.5, src.h * 0.5).floor();
+    draw_sprite_tinted(id, frame, corner, false, Color::new(1.0, 1.0, 1.0, a));
+}
+
+/// Black Mass: everything in view flashes red as the rite strikes.
+fn draw_mass_flash(game: &Game, origin: Vec2, view: Vec2) {
+    let t = game.arts.since_mass;
+    if t >= MASS_FLASH {
+        return;
+    }
+    let mut c = Color::from_hex(MASS_FLASH_COLOR);
+    c.a = MASS_FLASH_ALPHA * (1.0 - t / MASS_FLASH).powi(2);
+    draw_rectangle(origin.x, origin.y, view.x, view.y, c);
+}
+
+/// Gaze of Desire: golden beams from her eyes, shooting out and fading.
+fn draw_gazes(game: &Game) {
+    let [glow, body, core] = GAZE_COLORS.map(Color::from_hex);
+    for g in &game.arts.gazes {
+        let k = g.t / GAZE_SHOW;
+        let fade = (1.0 - k).min(1.0);
+        let reach = (g.t / 0.06).min(1.0);
+        let a = (g.from - vec2(0.0, GAZE_DRAW_HEIGHT)).round();
+        let b = (g.from + g.dir * g.len * reach - vec2(0.0, CHAIN_DRAW_HEIGHT)).round();
+        for (width, mut col) in [(5.0, glow), (3.0, body), (1.0, core)] {
+            col.a = fade * if width > 4.0 { 0.6 } else { 1.0 };
+            draw_line(a.x, a.y, b.x, b.y, width, col);
         }
     }
 }

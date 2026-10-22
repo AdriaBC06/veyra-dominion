@@ -61,6 +61,11 @@ pub enum Cue {
     Sigil,
     /// A sigil blasted on a bounce (Broken Seal).
     SealBlast,
+    /// Bats dropped their bombs / a bomb burst.
+    Bats,
+    BatBlast,
+    BlackMass,
+    Gaze,
     /// A charmed enemy burst (Siren's Dominion).
     SirenBurst,
     /// An Abyssal Offering was opened.
@@ -77,8 +82,8 @@ pub enum Cue {
     Arrival,
 }
 
-/// Every distinct cue fits (21 so far).
-const MAX_CUES: usize = 24;
+/// Every distinct cue fits (25 so far).
+const MAX_CUES: usize = 28;
 
 pub struct Player {
     pub pos: Vec2,
@@ -100,10 +105,12 @@ pub struct Player {
     pub since_cast: f32,
 }
 
-/// A dropped soul worth `xp`; drifts to Veyra once she is within `PICKUP_RADIUS`.
+/// A dropped soul worth `xp`; drifts to Veyra once she is within `PICKUP_RADIUS`, or
+/// from anywhere once `called` (Witches' Sabbath).
 pub struct Soul {
     pub pos: Vec2,
     pub xp: u32,
+    pub called: bool,
 }
 
 /// A short-lived visual left by the simulation (enemy vanish, smoke puff).
@@ -407,7 +414,8 @@ impl Game {
             let def = &ENEMY_DEFS[enemies.kind[j] as usize];
             let reach = PLAYER_RADIUS + def.radius();
             let close = enemies.pos(j).distance_squared(p.pos) <= reach * reach;
-            if enemies.hp[j] > 0.0 && !enemies.charmed(j, time) && close {
+            let harmless = enemies.charmed(j, time) || enemies.frozen(j, time);
+            if enemies.hp[j] > 0.0 && !harmless && close {
                 damage = damage.max(def.contact_damage);
             }
         });
@@ -465,12 +473,21 @@ impl Game {
             (cues.crossed, Cue::Cross),
             (cues.sigiled, Cue::Sigil),
             (cues.sealed, Cue::SealBlast),
+            (cues.bats, Cue::Bats),
+            (cues.bat_blast, Cue::BatBlast),
+            (cues.mass, Cue::BlackMass),
+            (cues.gazed, Cue::Gaze),
             (cues.burst, Cue::SirenBurst),
             (cues.hits[0], Cue::Hit { armored: false }),
             (cues.hits[1], Cue::Hit { armored: true }),
         ] {
             if on {
                 self.cue(cue);
+            }
+        }
+        if cues.sabbath {
+            for s in &mut self.souls {
+                s.called = true;
             }
         }
     }
@@ -587,7 +604,11 @@ impl Game {
 
     fn drop_soul(&mut self, pos: Vec2, xp: u32) {
         if self.souls.len() < MAX_SOULS {
-            self.souls.push(Soul { pos, xp });
+            self.souls.push(Soul {
+                pos,
+                xp,
+                called: false,
+            });
             return;
         }
         let nearest = self.souls.iter_mut().min_by(|a, b| {
@@ -611,8 +632,13 @@ impl Game {
                 gained += s.xp;
                 return false;
             }
-            if d2 <= pickup * pickup {
-                let step = SOUL_MAGNET_SPEED * TICK_DT;
+            if s.called || d2 <= pickup * pickup {
+                let speed = if s.called {
+                    SABBATH_SOUL_SPEED
+                } else {
+                    SOUL_MAGNET_SPEED
+                };
+                let step = speed * TICK_DT;
                 s.pos = if d2 <= step * step {
                     target
                 } else {
@@ -1126,10 +1152,12 @@ mod tests {
         g.souls.push(Soul {
             pos: vec2(PICKUP_RADIUS - 1.0, 0.0),
             xp: 5,
+            called: false,
         });
         g.souls.push(Soul {
             pos: vec2(PICKUP_RADIUS * 3.0, 0.0),
             xp: 5,
+            called: false,
         });
         for _ in 0..30 {
             g.tick(&InputState::default());
@@ -1391,6 +1419,8 @@ mod tests {
             assert!(g.arts.crosses.capacity() == MAX_CROSSES);
             assert!(g.arts.sigils.capacity() == MAX_SIGILS);
             assert!(g.arts.seal_blasts.capacity() == MAX_SEAL_BLASTS);
+            assert!(g.arts.bombs.capacity() == MAX_BOMBS);
+            assert!(g.arts.gazes.capacity() == MAX_GAZES);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);
             assert!(g.bursts.capacity() == MAX_BURST_PIXELS);

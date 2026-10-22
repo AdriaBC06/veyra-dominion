@@ -31,6 +31,12 @@ pub enum SpriteId {
     GateFlame,
     ChainSpark,
     Offering,
+    Bat,
+    BatHost,
+    BloodBomb,
+    BlackMass,
+    Sabbath,
+    EvilEye,
     Scythe0,
     Scythe1,
     Scythe2,
@@ -61,7 +67,7 @@ pub enum SpriteId {
     Ground,
 }
 
-const SPRITE_COUNT: usize = 48;
+const SPRITE_COUNT: usize = 54;
 
 /// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
 /// times the base sprite.
@@ -192,6 +198,10 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
 
         SpriteId::ChainSpark => &[63; 2],
         SpriteId::Offering => &[167; 4],
+        SpriteId::Bat | SpriteId::BatHost => &[83; 4],
+        SpriteId::BloodBomb => &[125; 2],
+        SpriteId::BlackMass | SpriteId::Sabbath => &[125; 4],
+        SpriteId::EvilEye => &[250; 2],
         SpriteId::Scythe0
         | SpriteId::Scythe1
         | SpriteId::Scythe2
@@ -267,6 +277,12 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     art!(GateFlame, "gate_flame"),
     art!(ChainSpark, "chain_spark"),
     art!(Offering, "offering"),
+    art!(Bat, "bat"),
+    art!(BatHost, "bat_host"),
+    art!(BloodBomb, "blood_bomb"),
+    art!(BlackMass, "black_mass"),
+    art!(Sabbath, "sabbath"),
+    art!(EvilEye, "evil_eye"),
     art!(Scythe0, "scythe_0"),
     art!(Scythe1, "scythe_1"),
     art!(Scythe2, "scythe_2"),
@@ -781,6 +797,12 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/gate_flame.json"),
             include_str!("../assets/sprites/arts/anims/chain_spark.json"),
             include_str!("../assets/sprites/arts/anims/offering.json"),
+            include_str!("../assets/sprites/arts/anims/bat.json"),
+            include_str!("../assets/sprites/arts/anims/bat_host.json"),
+            include_str!("../assets/sprites/arts/anims/blood_bomb.json"),
+            include_str!("../assets/sprites/arts/anims/black_mass.json"),
+            include_str!("../assets/sprites/arts/anims/sabbath.json"),
+            include_str!("../assets/sprites/arts/anims/evil_eye.json"),
             include_str!("../assets/sprites/arts/anims/scythe_0.json"),
             include_str!("../assets/sprites/arts/anims/scythe_1.json"),
             include_str!("../assets/sprites/arts/anims/scythe_2.json"),
@@ -814,6 +836,12 @@ mod tests {
             SpriteId::GateFlame,
             SpriteId::ChainSpark,
             SpriteId::Offering,
+            SpriteId::Bat,
+            SpriteId::BatHost,
+            SpriteId::BloodBomb,
+            SpriteId::BlackMass,
+            SpriteId::Sabbath,
+            SpriteId::EvilEye,
             SpriteId::Scythe0,
             SpriteId::Scythe1,
             SpriteId::Scythe2,
