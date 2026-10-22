@@ -129,3 +129,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Added `src/balance.rs` probe (bot runs, per-minute level/kills/HP). Finding: the linear XP curve and always-dropping souls snowball levels (lv 21–24 at 4:00).
   - Gotchas: `MODE_WINDUP` in a match pattern without importing it compiles as a catch-all binding (only a warning); Arts tests now use `DUMMY` (villager) since the knight has armour; moving dummies make area tests flaky, freeze them.
   - Next: V18b progression rebalance (plan in design.md 7.8), then V19 boss. Pending: in-game review of Thralls / Infernal Court (V17f).
+- **S15 cont. (2026-10-23)** — Arts review (V17g–V17k), approved by the user in-game.
+  - Done: Chain of Torment → Whip of Torment / Látigo del tormento (not "Azote": Barbed Scourge is Azote de púas); Black Mass nerf (12 dmg / 20 s, Sabbath ×0.8) measured with the new `BALANCE_ONLY=<art>` probe; Wandering Sigil redrawn as Lilith's glyph (icon = sprite); Hellflare throws flames, the Halo circles fireballs centred on her, Kiss of Ruin flaming hearts (9 headings × 4 flickers, `draw_flying`); Broken Seal own sprite, throbbing cracks, `seal_burst` + shockwave at the true radius, distinct icon.
+  - Stutter on a 75 Hz monitor: sigils were extrapolated the wrong way when flying left and Hellflare projectiles were not interpolated at all; anything drawn from sim positions must use `pos + vel * (alpha - 1) * TICK_DT`.
+  - Gotchas: `W` is a dark wing colour in `arts.px.js` (white-ish is `e`); a new sprite needs `SPRITE_COUNT` bumped; the icons build writes `icons.json` + `sprites/` next to the sheet, delete them.
+  - Next: V17l bat icons, V17m thrall icon, V17n visible evolutions (6 still look like their base Art), then V18b.
