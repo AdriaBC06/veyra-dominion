@@ -16,7 +16,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S15 — Enemy AI**
   - [x] V18 Enemy behaviours and elites (Ashford roster of 12, approved by the user)
   - [x] V17g Whip of Torment: Chain renamed, whip icon
-  - [ ] V17h Wandering Sigil stutter on 75 Hz (interpolation sign)
+  - [x] V17h Wandering Sigil stutter on 75 Hz (interpolation sign)
   - [x] V17i Black Mass / Witches' Sabbath nerf
   - [ ] V17j Wandering Sigil sprite + matching icon *(user approval)*
   - [ ] V17k Animated fireballs (Hellflare) and flame hearts (Kiss of Ruin) *(user approval)*

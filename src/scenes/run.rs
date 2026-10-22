@@ -1038,10 +1038,11 @@ fn draw_sigils(game: &Game, alpha: f32) {
     for (k, g) in game.arts.sigils.iter().enumerate() {
         let tint = Color::new(1.0, 1.0, 1.0, (g.life / SIGIL_FADE).min(1.0));
         let turns = game.time * SIGIL_SPIN + k as f32 * 0.37;
-        // The runes keep turning one way, whichever way it flies.
+        // Interpolated along its real flight; the runes keep turning one way, whichever
+        // way it flies, so it is drawn with a rightward velocity and no extra step.
+        let at = g.pos + g.vel * (alpha - 1.0) * TICK_DT;
         let vel = vec2(g.vel.x.abs(), g.vel.y);
-        let at = g.pos + (vel - g.vel) * (alpha - 1.0) * TICK_DT;
-        draw_spinning(id, at, vel, alpha, SIGIL_DRAW_HEIGHT, turns, tint);
+        draw_spinning(id, at, vel, 1.0, SIGIL_DRAW_HEIGHT, turns, tint);
     }
 }
 
