@@ -25,6 +25,21 @@ pub enum SpriteId {
     Knight,
     Brute,
     Thrall,
+    Crow,
+    Hound,
+    Torchbearer,
+    Shepherd,
+    Barricader,
+    Curate,
+    Ratcatcher,
+    Zealot,
+    Stone,
+    TorchSpin,
+    FirePatch,
+    ZealotBlast,
+    SoulFaint,
+    SoulRadiant,
+    Bless,
     TailLash,
     HeartBolt,
     Ember,
@@ -69,7 +84,7 @@ pub enum SpriteId {
     Icons,
 }
 
-const SPRITE_COUNT: usize = 56;
+const SPRITE_COUNT: usize = 71;
 
 /// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
 /// times the base sprite.
@@ -186,6 +201,19 @@ macro_rules! art {
     };
 }
 
+/// One of the enemies' effect strips in `assets/sprites/enemy_fx/anims/`
+/// (`assets/enemy_fx.px.js`).
+macro_rules! fx {
+    ($id:ident, $file:literal) => {
+        Sheet {
+            id: SpriteId::$id,
+            png: include_bytes!(concat!("../assets/sprites/enemy_fx/anims/", $file, ".png")),
+            frames: frame_ms(SpriteId::$id).len(),
+            flash: false,
+        }
+    };
+}
+
 /// Per-frame durations (ms) of the animated strips, as in the `.json` beside each one.
 pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
     match id {
@@ -208,6 +236,11 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         SpriteId::BloodBomb => &[125; 2],
         SpriteId::BlackMass | SpriteId::Sabbath => &[125; 4],
         SpriteId::EvilEye => &[250; 2],
+        SpriteId::TorchSpin => &[83; 4],
+        SpriteId::FirePatch => &[125; 3],
+        SpriteId::ZealotBlast => &[71; 5],
+        SpriteId::SoulRadiant => &[333; 2],
+        SpriteId::Bless => &[250; 2],
         SpriteId::Scythe0
         | SpriteId::Scythe1
         | SpriteId::Scythe2
@@ -277,6 +310,21 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     enemy!(Knight, "knight"),
     enemy!(Brute, "brute"),
     enemy!(Thrall, "thrall"),
+    enemy!(Crow, "crow"),
+    enemy!(Hound, "hound"),
+    enemy!(Torchbearer, "torchbearer"),
+    enemy!(Shepherd, "shepherd"),
+    enemy!(Barricader, "barricader"),
+    enemy!(Curate, "curate"),
+    enemy!(Ratcatcher, "ratcatcher"),
+    enemy!(Zealot, "zealot"),
+    sheet!(Stone, "enemy_fx/sprites/stone", 1, false),
+    fx!(TorchSpin, "torch_spin"),
+    fx!(FirePatch, "fire_patch"),
+    fx!(ZealotBlast, "zealot_blast"),
+    sheet!(SoulFaint, "enemy_fx/sprites/soul_faint", 1, false),
+    fx!(SoulRadiant, "soul_radiant"),
+    fx!(Bless, "bless"),
     art!(TailLash, "tail_lash"),
     art!(HeartBolt, "heart_bolt"),
     art!(Ember, "ember"),
@@ -838,6 +886,11 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/sigil_3.json"),
             include_str!("../assets/sprites/arts/anims/sigil_4.json"),
             include_str!("../assets/sprites/arts/anims/sigil_5.json"),
+            include_str!("../assets/sprites/enemy_fx/anims/torch_spin.json"),
+            include_str!("../assets/sprites/enemy_fx/anims/fire_patch.json"),
+            include_str!("../assets/sprites/enemy_fx/anims/zealot_blast.json"),
+            include_str!("../assets/sprites/enemy_fx/anims/soul_radiant.json"),
+            include_str!("../assets/sprites/enemy_fx/anims/bless.json"),
         ];
         let arts = [
             SpriteId::TailLash,
@@ -877,6 +930,11 @@ mod tests {
             SpriteId::Sigil3,
             SpriteId::Sigil4,
             SpriteId::Sigil5,
+            SpriteId::TorchSpin,
+            SpriteId::FirePatch,
+            SpriteId::ZealotBlast,
+            SpriteId::SoulRadiant,
+            SpriteId::Bless,
         ];
         for (id, json) in VEYRA.into_iter().chain(arts).zip(json) {
             let ms: Vec<u16> = json

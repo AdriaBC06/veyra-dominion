@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "crow_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 15,
+    "h": 11
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 15,
+    "h": 11
+   },
+   "sourceSize": {
+    "w": 15,
+    "h": 11
+   },
+   "duration": 125
+  },
+  "crow_1": {
+   "frame": {
+    "x": 15,
+    "y": 0,
+    "w": 15,
+    "h": 11
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 15,
+    "h": 11
+   },
+   "sourceSize": {
+    "w": 15,
+    "h": 11
+   },
+   "duration": 125
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "crow.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 30,
+   "h": 11
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "crow",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

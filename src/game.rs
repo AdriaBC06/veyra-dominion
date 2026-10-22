@@ -3,7 +3,9 @@
 use crate::arts::{Arts, Fallen, World};
 use crate::assets::{SpriteId, FLASH_FRAME_OFFSET};
 use crate::config::*;
-use crate::enemies::Enemies;
+use crate::enemies::{Action, Enemies};
+#[cfg(test)]
+use crate::enemies::{MODE_DASH, MODE_WINDUP};
 use crate::spatial::SpatialHash;
 use crate::upgrades::{Choice, PlayerStats, Upgrades};
 use macroquad::math::{vec2, Vec2};
@@ -41,6 +43,43 @@ pub enum Reward {
     Gift(Choice),
     /// Nothing left to level either: `OFFERING_HEAL` health.
     Heal,
+}
+
+/// A hostile projectile: a stone flying straight, or a torch lobbed at `to` (`t`
+/// counts up to `TORCH_FLIGHT`).
+pub struct Shot {
+    pub kind: ShotKind,
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub to: Vec2,
+    pub t: f32,
+    pub damage: f32,
+}
+
+impl Shot {
+    /// Height above the ground: a torch's arc, a stone's throw height.
+    pub fn height(&self) -> f32 {
+        match self.kind {
+            ShotKind::Stone => PROJ_DRAW_HEIGHT * 0.6,
+            ShotKind::Torch => {
+                let k = (self.t / TORCH_FLIGHT).clamp(0.0, 1.0);
+                4.0 * TORCH_ARC * k * (1.0 - k)
+            }
+        }
+    }
+}
+
+/// A patch of burning ground left by a torch; hurts Veyra while she stands in it.
+pub struct Fire {
+    pub pos: Vec2,
+    pub t: f32,
+    pub damage: f32,
+}
+
+/// A Bomber's explosion, kept for drawing.
+pub struct Blast {
+    pub pos: Vec2,
+    pub t: f32,
 }
 
 /// An Abyssal Offering lying where an elite died.
@@ -84,10 +123,14 @@ pub enum Cue {
     Died,
     /// A new enemy kind joined the waves after the start.
     Arrival,
+    /// An enemy threw a stone or a torch.
+    Throw,
+    /// A Zealot blew himself up.
+    Blast,
 }
 
-/// Every distinct cue fits (25 so far).
-const MAX_CUES: usize = 28;
+/// Every distinct cue fits (27 so far).
+const MAX_CUES: usize = 30;
 
 pub struct Player {
     pub pos: Vec2,
@@ -172,6 +215,12 @@ pub struct Game {
     pub arts: Arts,
     pub souls: Vec<Soul>,
     pub offerings: Vec<Offering>,
+    /// Hostile shots in flight, burning patches and blasts (fixed pools).
+    pub shots: Vec<Shot>,
+    pub fires: Vec<Fire>,
+    pub blasts: Vec<Blast>,
+    /// Enemies released by dying Ratcatchers this tick: (kind, where, how many).
+    splits: Vec<(usize, Vec2, u8)>,
     /// What the open Abyssal Offering holds, while its screen is up.
     pub reward: Option<Reward>,
     pub fades: Vec<Fade>,
@@ -235,6 +284,10 @@ impl Game {
             arts: Arts::new(&upgrades),
             souls: Vec::with_capacity(MAX_SOULS),
             offerings: Vec::with_capacity(MAX_OFFERINGS),
+            shots: Vec::with_capacity(MAX_SHOTS),
+            fires: Vec::with_capacity(MAX_FIRES),
+            blasts: Vec::with_capacity(MAX_BLASTS),
+            splits: Vec::with_capacity(MAX_SPLITS),
             reward: None,
             fades: Vec::with_capacity(MAX_FADES),
             bursts: Vec::with_capacity(MAX_BURST_PIXELS),
@@ -285,13 +338,16 @@ impl Game {
         let speed = 1.0 + self.stats.curse * PRIDE_SPEED_SHARE;
         self.enemies
             .steer(TICK_DT, center, &self.hash, self.time, speed);
+        self.resolve_actions(alive);
         self.use_arts(alive);
         self.drip_bleeding();
+        self.update_shots(alive);
         if alive {
             self.regenerate();
             self.contact_damage();
         }
         self.remove_dead_enemies();
+        self.release_splits();
         let mut opened = false;
         if alive {
             self.update_souls();
@@ -423,11 +479,19 @@ impl Game {
             let close = enemies.pos(j).distance_squared(p.pos) <= reach * reach;
             let harmless = enemies.charmed(j, time) || enemies.frozen(j, time);
             if enemies.hp[j] > 0.0 && !harmless && close {
-                damage = damage.max(def.contact_damage);
+                let elite = if enemies.elite[j] { ELITE_DAMAGE } else { 1.0 };
+                damage = damage.max(def.contact_damage * elite);
             }
         });
-        if damage <= 0.0 {
-            return;
+        self.hurt(damage);
+    }
+
+    /// Veyra takes a blow of `damage` (softened by armour) unless she is still
+    /// invulnerable from the last one; returns whether it landed.
+    fn hurt(&mut self, damage: f32) -> bool {
+        let p = &mut self.player;
+        if damage <= 0.0 || p.iframes > 0.0 || self.dying.is_some() {
+            return false;
         }
         let damage = (damage - self.stats.armor).max(MIN_CONTACT_DAMAGE);
         p.hp = (p.hp - damage).max(0.0);
@@ -439,6 +503,130 @@ impl Game {
         } else {
             self.cue(Cue::Hurt);
         }
+        true
+    }
+
+    /// Turns what the horde did this tick into shots and blasts.
+    fn resolve_actions(&mut self, alive: bool) {
+        for k in 0..self.enemies.actions.len() {
+            match self.enemies.actions[k] {
+                Action::Shot {
+                    kind,
+                    from,
+                    to,
+                    damage,
+                } => {
+                    if self.shots.len() >= MAX_SHOTS {
+                        continue;
+                    }
+                    let vel = match kind {
+                        ShotKind::Stone => (to - from).normalize_or_zero() * STONE_SPEED,
+                        ShotKind::Torch => (to - from) / TORCH_FLIGHT,
+                    };
+                    self.shots.push(Shot {
+                        kind,
+                        pos: from,
+                        vel,
+                        to,
+                        t: 0.0,
+                        damage,
+                    });
+                    self.cue(Cue::Throw);
+                }
+                Action::Blast {
+                    pos,
+                    radius,
+                    damage,
+                    enemy_damage,
+                } => {
+                    if self.blasts.len() < MAX_BLASTS {
+                        self.blasts.push(Blast { pos, t: 0.0 });
+                    }
+                    self.cue(Cue::Blast);
+                    let reach = radius + PLAYER_RADIUS;
+                    if alive && self.player.pos.distance_squared(pos) <= reach * reach {
+                        self.hurt(damage);
+                    }
+                    // The oil burns his own kind too.
+                    let e = &mut self.enemies;
+                    let query = radius + e.max_radius();
+                    self.hash.query_radius(pos, query, |j, q| {
+                        let r = radius + ENEMY_DEFS[e.kind[j] as usize].radius();
+                        if e.hp[j] > 0.0 && q.distance_squared(pos) <= r * r {
+                            e.hp[j] -= enemy_damage;
+                            e.flash[j] = HIT_FLASH_TIME;
+                        }
+                    });
+                }
+            }
+        }
+        self.enemies.actions.clear();
+    }
+
+    /// Moves hostile shots, lands torches as fires, burns her in the fires and ages
+    /// the blasts.
+    fn update_shots(&mut self, alive: bool) {
+        let me = self.player.pos;
+        let mut damage = 0.0f32;
+        let fires = &mut self.fires;
+        self.shots.retain_mut(|s| {
+            s.t += TICK_DT;
+            s.pos += s.vel * TICK_DT;
+            match s.kind {
+                ShotKind::Stone => {
+                    let reach = PLAYER_RADIUS + STONE_RADIUS;
+                    if s.pos.distance_squared(me) <= reach * reach {
+                        damage = damage.max(s.damage);
+                        return false;
+                    }
+                    s.t < STONE_LIFE
+                }
+                ShotKind::Torch => {
+                    if s.t < TORCH_FLIGHT {
+                        return true;
+                    }
+                    if fires.len() < MAX_FIRES {
+                        fires.push(Fire {
+                            pos: s.to,
+                            t: 0.0,
+                            damage: s.damage,
+                        });
+                    }
+                    false
+                }
+            }
+        });
+        self.fires.retain_mut(|f| {
+            f.t += TICK_DT;
+            let d = (me - f.pos) / vec2(FIRE_RADIUS, FIRE_RADIUS * 0.5);
+            if d.length_squared() <= 1.0 {
+                damage = damage.max(f.damage);
+            }
+            f.t < FIRE_LIFE
+        });
+        self.blasts.retain_mut(|b| {
+            b.t += TICK_DT;
+            b.t < BLAST_SHOW
+        });
+        if alive {
+            self.hurt(damage);
+        }
+    }
+
+    /// Ratcatchers' cages open: their rats join the horde where they fell.
+    fn release_splits(&mut self) {
+        let hp_scale = self.hp_scale();
+        for k in 0..self.splits.len() {
+            let (kind, pos, n) = self.splits[k];
+            for _ in 0..n {
+                if self.enemies.len() >= MAX_ENEMIES {
+                    break;
+                }
+                let off = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(2.0, 10.0);
+                self.enemies.spawn(kind, pos + off, hp_scale);
+            }
+        }
+        self.splits.clear();
     }
 
     fn spawn_death_smoke(&mut self) {
@@ -566,7 +754,15 @@ impl Game {
             }
             self.kills += 1;
             let def = &ENEMY_DEFS[self.enemies.kind[i] as usize];
-            let (xp, family) = (def.soul_xp, def.family);
+            let (mut xp, family) = (def.soul_xp, def.family);
+            if self.enemies.elite[i] {
+                xp *= ELITE_SOUL;
+            }
+            if let Some((kind, n)) = def.split {
+                if self.splits.len() < MAX_SPLITS {
+                    self.splits.push((kind, self.enemies.pos(i), n));
+                }
+            }
             self.spawn_burst(def, self.enemies.pos(i));
             if def.blood {
                 splat(&mut self.splats, self.enemies.pos(i), def.pool_radius());
@@ -736,7 +932,14 @@ impl Game {
                         self.cue(Cue::Arrival);
                     }
                 }
+                EventKind::Elite => self.spawn_elite(),
                 EventKind::Victory => victory = !self.endless,
+            }
+        }
+        if self.endless {
+            let since = self.time - VICTORY_TIME;
+            if since > 0.0 && (since % ENDLESS_ELITE_EVERY) < TICK_DT {
+                self.spawn_elite();
             }
         }
         victory
@@ -783,6 +986,27 @@ impl Game {
             .find(|&k| self.spawn_weight(k) > 0.0)
     }
 
+    /// An elite on the spawn ring, of an unlocked kind picked by its health (the
+    /// toughest kinds lead the charge).
+    fn spawn_elite(&mut self) {
+        let weight = |k: usize| if self.unlocked[k] { ENEMY_DEFS[k].hp } else { 0.0 };
+        let total: f32 = (0..ENEMY_DEFS.len()).map(weight).sum();
+        if total <= 0.0 || self.enemies.len() >= MAX_ENEMIES {
+            return;
+        }
+        let mut r = gen_range(0.0, total);
+        let kind = (0..ENEMY_DEFS.len())
+            .find(|&k| {
+                r -= weight(k);
+                r < 0.0
+            })
+            .unwrap_or(0);
+        let pos = self.ring_point(gen_range(0.0, TAU));
+        self.enemies.spawn(kind, pos, self.hp_scale());
+        let i = self.enemies.len() - 1;
+        self.enemies.make_elite(i);
+    }
+
     fn ring_point(&self, angle: f32) -> Vec2 {
         self.player.pos + Vec2::from_angle(angle) * self.spawn_ring
     }
@@ -813,10 +1037,10 @@ impl Game {
     /// Debug (F4): one group of every enemy kind on the spawn ring, spread around Veyra.
     pub fn debug_spawn_all(&mut self) {
         let hp_scale = self.hp_scale();
-        for kind in 0..ENEMY_DEFS.len() {
+        for (kind, def) in ENEMY_DEFS.iter().enumerate() {
             let angle = kind as f32 * TAU / ENEMY_DEFS.len() as f32 + gen_range(0.0, 0.5);
             let center = self.player.pos + Vec2::from_angle(angle) * self.spawn_ring * 0.6;
-            for _ in 0..[8, 6, 4, 2][kind % 4] {
+            for _ in 0..def.group.1.max(2) {
                 if self.enemies.len() >= MAX_ENEMIES {
                     return;
                 }
@@ -826,13 +1050,13 @@ impl Game {
         }
     }
 
-    /// Debug (F5): enemies near Veyra become elites (real elites spawn from V18).
+    /// Debug (F5): enemies near Veyra become elites.
     pub fn debug_make_elites(&mut self) {
         let e = &mut self.enemies;
         let near = DEBUG_ELITE_RADIUS * DEBUG_ELITE_RADIUS;
         for i in 0..e.len() {
             if e.pos(i).distance_squared(self.player.pos) <= near {
-                e.elite[i] = true;
+                e.make_elite(i);
             }
         }
     }
@@ -999,7 +1223,7 @@ mod tests {
     #[test]
     fn radii_and_bursts_follow_sprite_size() {
         // Derived from the sprites, these match the hand-tuned radii they replace.
-        let radii: Vec<f32> = ENEMY_DEFS.iter().map(|d| d.radius()).collect();
+        let radii = [RAT, VILLAGER, KNIGHT, BRUTE].map(|k| ENEMY_DEFS[k].radius());
         assert_eq!(radii, [5.0, 6.0, 7.0, 11.0]);
         assert_eq!(largest_radius(), 11.0);
         assert!(ENEMY_DEFS
@@ -1386,18 +1610,200 @@ mod tests {
     #[test]
     fn knights_only_after_two_minutes() {
         let mut g = Game::new();
-        g.time = 119.0;
         g.run_events();
         assert!(g.cues.is_empty(), "the opening unlocks are silent");
+        g.time = 119.0;
+        g.run_events();
         assert_eq!(g.spawn_weight(KNIGHT), 0.0);
         assert!(g.spawn_weight(RAT) > 0.0 && g.spawn_weight(VILLAGER) > 0.0);
         for _ in 0..200 {
             assert_ne!(g.roll_kind(), Some(KNIGHT));
         }
+        g.cues.clear();
         g.time = 121.0;
         g.run_events();
         assert!(g.spawn_weight(KNIGHT) > 0.0);
         assert_eq!(g.cues, [Cue::Arrival]);
+    }
+
+    #[test]
+    fn timeline_is_sorted_and_brings_scheduled_elites() {
+        assert!(EVENTS.windows(2).all(|w| w[0].time <= w[1].time));
+        let mut g = quiet();
+        g.time = 60.5;
+        g.run_events();
+        let elites = (0..g.enemies.len()).filter(|&i| g.enemies.elite[i]).count();
+        assert_eq!(elites, 1);
+        let i = g.enemies.len() - 1;
+        let kind = g.enemies.kind[i] as usize;
+        assert_eq!(g.enemies.hp[i], ENEMY_DEFS[kind].hp * ELITE_HP);
+    }
+
+    /// No spawns, no Arts: only what a test puts in.
+    fn quiet() -> Game {
+        let mut g = Game::new();
+        g.spawn_acc = f32::NEG_INFINITY;
+        g.arts.hold();
+        g
+    }
+
+    fn run(g: &mut Game, ticks: usize) {
+        for _ in 0..ticks {
+            g.tick(&InputState::default());
+        }
+    }
+
+    #[test]
+    fn hounds_wind_up_then_lunge() {
+        let mut g = quiet();
+        g.player.hp = f32::INFINITY;
+        g.enemies.spawn(HOUND, vec2(150.0, 0.0), 1.0);
+        let Behavior::Charger {
+            windup, dash_speed, ..
+        } = ENEMY_DEFS[HOUND].behavior
+        else {
+            panic!("hounds charge");
+        };
+        let mut wound = false;
+        for _ in 0..120 {
+            run(&mut g, 1);
+            if g.enemies.mode[0] == MODE_WINDUP {
+                wound = true;
+                break;
+            }
+        }
+        assert!(wound, "it stops to wind up once close");
+        let x = g.enemies.x[0];
+        run(&mut g, (windup / TICK_DT) as usize - 2);
+        assert!((g.enemies.x[0] - x).abs() < 2.0, "it holds still while winding up");
+        run(&mut g, 6);
+        assert_eq!(g.enemies.mode[0], MODE_DASH);
+        let before = g.enemies.x[0];
+        run(&mut g, 1);
+        let step = (before - g.enemies.x[0]).abs();
+        assert!(step > dash_speed * TICK_DT * 0.8, "then lunges at dash speed");
+    }
+
+    #[test]
+    fn shepherds_keep_their_distance_and_sling_stones() {
+        let mut g = quiet();
+        g.enemies.spawn(SHEPHERD, vec2(60.0, 0.0), 1.0);
+        let Behavior::Ranged { keep, damage, .. } = ENEMY_DEFS[SHEPHERD].behavior else {
+            panic!("shepherds shoot");
+        };
+        let mut hit = false;
+        for _ in 0..600 {
+            run(&mut g, 1);
+            hit |= g.player.hp < PLAYER_MAX_HP;
+        }
+        let d = g.enemies.pos(0).length();
+        assert!((d - keep).abs() <= KEEP_SLACK + 5.0, "holds {keep} px, at {d}");
+        assert!(hit, "a stone found her");
+        assert!(g.player.hp <= PLAYER_MAX_HP - damage + 0.01);
+    }
+
+    #[test]
+    fn torches_land_where_she_stood_and_burn_there() {
+        let mut g = quiet();
+        g.enemies.actions.push(Action::Shot {
+            kind: ShotKind::Torch,
+            from: vec2(120.0, 0.0),
+            to: Vec2::ZERO,
+            damage: 10.0,
+        });
+        run(&mut g, 1);
+        assert_eq!(g.shots.len(), 1);
+        assert!(g.cues.contains(&Cue::Throw));
+        run(&mut g, (TORCH_FLIGHT / TICK_DT) as usize + 2);
+        assert!(g.shots.is_empty());
+        assert_eq!(g.fires.len(), 1);
+        assert!(g.player.hp < PLAYER_MAX_HP, "she stood in it");
+        run(&mut g, (FIRE_LIFE / TICK_DT) as usize);
+        assert!(g.fires.is_empty(), "burns out");
+    }
+
+    #[test]
+    fn curates_heal_the_hurt_around_them() {
+        let mut g = quiet();
+        g.player.pos = vec2(-400.0, 0.0);
+        g.enemies.spawn(CURATE, vec2(0.0, 0.0), 1.0);
+        g.enemies.spawn(KNIGHT, vec2(20.0, 0.0), 1.0);
+        g.enemies.hp[1] = 10.0;
+        run(&mut g, (2.0 * SUPPORT_PULSE / TICK_DT) as usize + 2);
+        assert!(g.enemies.hp[1] > 10.0, "healed");
+        assert!(g.enemies.hp[1] <= g.enemies.max_hp[1]);
+        assert_eq!(g.enemies.hp[0], g.enemies.max_hp[0], "not himself, he was whole");
+    }
+
+    #[test]
+    fn zealots_blow_up_near_her_and_burn_their_own() {
+        let mut g = quiet();
+        g.enemies.spawn(ZEALOT, vec2(30.0, 0.0), 1.0);
+        g.enemies.spawn(VILLAGER, vec2(20.0, 8.0), 1.0);
+        g.enemies.frozen_until[1] = f32::INFINITY;
+        run(&mut g, 120);
+        assert!(g.cues.contains(&Cue::Blast) || !g.blasts.is_empty());
+        assert!(g.player.hp < PLAYER_MAX_HP, "caught in the blast");
+        assert_eq!(g.enemies.len(), 0, "the villager burned too");
+        assert_eq!(g.kills, 1, "only the villager counts");
+    }
+
+    #[test]
+    fn a_zealot_killed_in_time_fizzles() {
+        let mut g = quiet();
+        g.enemies.spawn(ZEALOT, vec2(30.0, 0.0), 1.0);
+        run(&mut g, 2);
+        assert_eq!(g.enemies.mode[0], MODE_WINDUP);
+        g.enemies.hp[0] = 0.0;
+        run(&mut g, 120);
+        assert!(g.blasts.is_empty());
+        assert_eq!(g.player.hp, PLAYER_MAX_HP);
+        assert_eq!(g.kills, 1);
+    }
+
+    #[test]
+    fn ratcatchers_release_their_rats() {
+        let mut g = quiet();
+        g.player.hp = f32::INFINITY;
+        g.enemies.spawn(RATCATCHER, vec2(100.0, 0.0), 1.0);
+        g.enemies.hp[0] = 0.0;
+        run(&mut g, 1);
+        let (kind, n) = ENEMY_DEFS[RATCATCHER].split.unwrap();
+        assert_eq!(g.enemies.len(), n as usize);
+        assert!((0..g.enemies.len()).all(|i| g.enemies.kind[i] as usize == kind));
+    }
+
+    #[test]
+    fn crows_swoop_past_and_come_round() {
+        let mut g = quiet();
+        g.player.hp = f32::INFINITY;
+        g.enemies.spawn(CROW, vec2(150.0, 0.0), 1.0);
+        let (mut closest, mut overshot) = (f32::MAX, false);
+        for _ in 0..240 {
+            run(&mut g, 1);
+            let d = g.enemies.pos(0).length();
+            closest = closest.min(d);
+            overshot |= g.enemies.x[0] < -20.0;
+        }
+        assert!(closest < 10.0, "it reaches her");
+        assert!(overshot, "and carries on past her");
+    }
+
+    #[test]
+    fn elites_hit_harder_and_pay_more() {
+        let mut g = quiet();
+        g.enemies.spawn(VILLAGER, vec2(3.0, 0.0), 1.0);
+        g.enemies.make_elite(0);
+        g.enemies.frozen_until[0] = 0.0;
+        run(&mut g, 1);
+        let dealt = PLAYER_MAX_HP - g.player.hp;
+        assert_eq!(dealt, ENEMY_DEFS[VILLAGER].contact_damage * ELITE_DAMAGE);
+        g.player.pos = vec2(400.0, 0.0); // out of reach of the soul
+        g.enemies.hp[0] = 0.0;
+        run(&mut g, 1);
+        let xp: u32 = g.souls.iter().map(|s| s.xp).sum::<u32>() + g.xp;
+        assert_eq!(xp, ENEMY_DEFS[VILLAGER].soul_xp * ELITE_SOUL);
+        assert_eq!(g.offerings.len(), 1);
     }
 
     #[test]

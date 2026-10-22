@@ -8,6 +8,7 @@ use crate::assets::{
 use crate::audio::{self, Jingle, Sfx};
 use crate::blood::BloodLayer;
 use crate::config::*;
+use crate::enemies::MODE_WINDUP;
 use crate::game::{Cue, Game, InputState, SimEvent};
 use crate::hud;
 use crate::i18n::{tr, trf, Key};
@@ -200,6 +201,8 @@ impl Run {
                 Cue::Hurt => Sfx::Hurt,
                 Cue::Died => Sfx::Death,
                 Cue::Arrival => Sfx::Horn,
+                Cue::Throw => Sfx::Gust,
+                Cue::Blast => Sfx::BatBlast,
             });
         }
         self.heartbeat();
@@ -344,8 +347,11 @@ impl Run {
         draw_scent(game, player_pos.round());
         draw_souls(game);
         draw_offerings(game);
+        draw_fires(game);
         draw_bursts(game, true);
+        draw_support_auras(game);
         draw_enemies(game);
+        draw_blesses(game);
         draw_thralls(game);
         draw_fades(game);
         draw_bursts(game, false);
@@ -357,6 +363,7 @@ impl Run {
         draw_burn_marks(game);
         draw_eye_marks(game);
         draw_bomb_blasts(game);
+        draw_enemy_blasts(game);
         draw_embers(game, pos, false);
         draw_bats(game, pos, false);
         draw_veyra(game, pos, game.time + alpha * TICK_DT);
@@ -371,6 +378,7 @@ impl Run {
         draw_scythes(game, alpha);
         draw_bolts(game, alpha);
         draw_projectiles(game);
+        draw_shots(game);
         draw_bombs(game);
         draw_mass_flash(game, origin, view);
     }
@@ -493,12 +501,23 @@ fn draw_enemies(game: &Game) {
             game.time * ENEMY_ANIM_FPS
         };
         let mut frame = (walk + e.phase[i]) as usize % 2;
-        if e.flash[i] > 0.0 {
+        // Telegraphs: a charger winding up blinks white, a primed bomber faster.
+        let blink = match (def.behavior, e.mode[i]) {
+            (Behavior::Charger { .. }, MODE_WINDUP) => ((game.time * 12.0) as u32).is_multiple_of(2),
+            (Behavior::Bomber { .. }, MODE_WINDUP) => ((game.time * 20.0) as u32).is_multiple_of(2),
+            _ => false,
+        };
+        if e.flash[i] > 0.0 || blink {
             frame += FLASH_FRAME_OFFSET;
         }
         let (_, src) = sprite(def.sprite, frame);
         draw_shadow(pos, src.w * 0.32, (src.w * 0.09).max(1.5), 1.0);
-        let corner = pos - vec2((src.w * 0.5).floor(), src.h - 1.0);
+        let lift = if matches!(def.behavior, Behavior::Flyer { .. }) {
+            FLYER_HEIGHT + (TAU * 1.5 * game.time + e.phase[i] * 3.0).sin().round()
+        } else {
+            0.0
+        };
+        let corner = pos - vec2((src.w * 0.5).floor(), src.h - 1.0 + lift);
         let flip = px > pos.x;
         if e.elite[i] {
             draw_elite_outline(
@@ -810,6 +829,64 @@ fn draw_souls(game: &Game) {
         let bob = (TAU * SOUL_BOB_HZ * game.time + i as f32).sin();
         draw_shadow(s.pos, 2.5, 1.0, 0.6);
         draw_sprite(SpriteId::Soul, 0, s.pos - vec2(4.0, 9.0 + bob), false);
+    }
+}
+
+/// A faint ring around each Curate: the reach of his blessing.
+fn draw_support_auras(game: &Game) {
+    let e = &game.enemies;
+    let color = Color::from_hex(SUPPORT_AURA).with_alpha(0.35);
+    for i in 0..e.len() {
+        if let Behavior::Support { radius, .. } = ENEMY_DEFS[e.kind[i] as usize].behavior {
+            let p = e.pos(i).round();
+            draw_ellipse_lines(p.x, p.y, radius, radius * 0.5, 0.0, 1.0, color);
+        }
+    }
+}
+
+/// A small pale cross over every enemy a Curate just healed.
+fn draw_blesses(game: &Game) {
+    let e = &game.enemies;
+    for i in (0..e.len()).filter(|&i| e.bless_until[i] > game.time) {
+        let h = ENEMY_DEFS[e.kind[i] as usize].size.1 as f32;
+        let age = BLESS_SHOW - (e.bless_until[i] - game.time);
+        let frame = assets::anim_frame(SpriteId::Bless, age, true);
+        let corner = (e.pos(i) - vec2(2.0, h + 9.0 + age * 8.0)).round();
+        draw_sprite(SpriteId::Bless, frame, corner, false);
+    }
+}
+
+/// Burning patches left by torches.
+fn draw_fires(game: &Game) {
+    for f in &game.fires {
+        let fade = 1.0 - (f.t / FIRE_LIFE).powi(3);
+        let frame = assets::anim_frame(SpriteId::FirePatch, f.t, true);
+        let corner = f.pos.round() - vec2(13.0, 8.0);
+        let tint = Color::new(1.0, 1.0, 1.0, fade);
+        draw_sprite_tinted(SpriteId::FirePatch, frame, corner, false, tint);
+    }
+}
+
+/// Stones and lobbed torches, with their shadow on the ground.
+fn draw_shots(game: &Game) {
+    for s in &game.shots {
+        draw_shadow(s.pos.round(), 2.0, 1.0, 0.8);
+        let p = (s.pos - vec2(0.0, s.height())).round();
+        match s.kind {
+            ShotKind::Stone => draw_sprite(SpriteId::Stone, 0, p - vec2(2.0, 2.0), false),
+            ShotKind::Torch => {
+                let frame = assets::anim_frame(SpriteId::TorchSpin, s.t, true);
+                draw_sprite(SpriteId::TorchSpin, frame, p - vec2(4.0, 4.0), false);
+            }
+        }
+    }
+}
+
+/// Zealots' explosions, centred a little above the ground where they stood.
+fn draw_enemy_blasts(game: &Game) {
+    for b in &game.blasts {
+        let frame = assets::anim_frame(SpriteId::ZealotBlast, b.t, false);
+        draw_sprite(SpriteId::ZealotBlast, frame, b.pos.round() - vec2(22.0, 20.0), false);
     }
 }
 

@@ -123,3 +123,9 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - User picks: keep Hellflare, Allure, Profaned Cross, Bat Swarm, Heretic's Brand; Lust = pink ♀ and blue ♂ interlocked; Night Wings = Veyra's own bat wings; the line pentagram over a filled star.
   - Gotchas: pxl drops all-dot edge rows of a grid string, so place icons that need empty top rows with `c.grid(x, y, ...)`; a 13 px pentagram only reads hand-drawn.
   - Pending: in-game review of Thralls / Infernal Court (V17f). Next: S15 enemy AI (V18).
+- **S15 (2026-10-22)** — V18 enemy behaviours and elites, approved by the user after an in-game test.
+  - Done: Ashford roster of 12 (crow, hound, torchbearer, shepherd, barricader, curate, ratcatcher, zealot new), 7 behaviours, hostile stones/torches/fires, zealot blasts, armour, shields, splits, scheduled elites; art by a pxl subagent (`enemies.px.js`, new `enemy_fx.px.js`, sheet `docs/art/ashford_bestiary.png`). Enemy config moved to `config/enemies.rs`.
+  - Decisions: genre analysis + bestiary + "how to change things" in design.md 7.8; elites can't be charmed; Hellflare fireballs glance off shields from the front; blast radius matches the sprite (26); throw/blast reuse `Sfx::Gust` / `BatBlast`.
+  - Added `src/balance.rs` probe (bot runs, per-minute level/kills/HP). Finding: the linear XP curve and always-dropping souls snowball levels (lv 21–24 at 4:00).
+  - Gotchas: `MODE_WINDUP` in a match pattern without importing it compiles as a catch-all binding (only a warning); Arts tests now use `DUMMY` (villager) since the knight has armour; moving dummies make area tests flaky, freeze them.
+  - Next: V18b progression rebalance (plan in design.md 7.8), then V19 boss. Pending: in-game review of Thralls / Infernal Court (V17f).

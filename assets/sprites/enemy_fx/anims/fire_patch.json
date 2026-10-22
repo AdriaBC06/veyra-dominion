@@ -1,0 +1,85 @@
+{
+ "frames": {
+  "fire_patch_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 26,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 26,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 26,
+    "h": 12
+   },
+   "duration": 125
+  },
+  "fire_patch_1": {
+   "frame": {
+    "x": 26,
+    "y": 0,
+    "w": 26,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 26,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 26,
+    "h": 12
+   },
+   "duration": 125
+  },
+  "fire_patch_2": {
+   "frame": {
+    "x": 52,
+    "y": 0,
+    "w": 26,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 26,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 26,
+    "h": 12
+   },
+   "duration": 125
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "fire_patch.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 78,
+   "h": 12
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "fire_patch",
+    "from": 0,
+    "to": 2,
+    "direction": "forward"
+   }
+  ]
+ }
+}

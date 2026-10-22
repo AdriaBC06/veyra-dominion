@@ -14,7 +14,8 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] Install the pxl pixel-art skill: https://github.com/crsolver/claude-pxl
   - [x] V17c Icons for every Art, evolution (own icon) and Sin, in cards and HUD
 - **S15 — Enemy AI**
-  - [ ] V18 Enemy behaviours and elites
+  - [x] V18 Enemy behaviours and elites (Ashford roster of 12, approved by the user)
+  - [ ] V18b Progression rebalance (10:00 Ashford timeline, stepped XP curve, soul tiers and drop chances, HP per minute; plan in design.md 7.8)
 - **S16 — First boss**
   - [ ] V19 Boss framework + first boss
   - [ ] **CP7 Combat depth**
@@ -44,12 +45,11 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 
 ## V2 tasks (7.12)
 
-## V2 tasks (7.12)
-
 | # | Task | Done when | Commit |
 |---|---|---|---|
 | V17c | Icons (pxl skill) for all Arts, evolutions and Sins, in cards and HUD | User approves | `feat: art and sin icons` |
 | V18 | New behaviours (Ranged, Charger, Support, Swarm, Shielded, Flyer) + hostile shots + elites | Behaviour tests green | `feat: enemy behaviours and elites` |
+| V18b | 10:00 Ashford timeline (retirements, pressure events, elites), stepped XP curve, soul tiers + phase drop chances, HP per minute; tuned with the balance probe | Probe hits the 7.8 level targets | `feat: progression rebalance` |
 | V19 | Boss framework + Captain of the Watch | Boss beatable | `feat: boss framework and first boss` |
 | **CP7** | **Checkpoint 7 — Combat depth** | | |
 | V20 | Tribute currency, end-of-run payout screen, Altar + Pacts (refund) | Meta tests green | `feat: tribute and infernal pacts` |

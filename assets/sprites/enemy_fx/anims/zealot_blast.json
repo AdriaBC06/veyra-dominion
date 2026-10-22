@@ -1,0 +1,127 @@
+{
+ "frames": {
+  "zealot_blast_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 28
+   },
+   "duration": 71
+  },
+  "zealot_blast_1": {
+   "frame": {
+    "x": 44,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 28
+   },
+   "duration": 71
+  },
+  "zealot_blast_2": {
+   "frame": {
+    "x": 88,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 28
+   },
+   "duration": 71
+  },
+  "zealot_blast_3": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 28
+   },
+   "duration": 71
+  },
+  "zealot_blast_4": {
+   "frame": {
+    "x": 176,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 28
+   },
+   "duration": 71
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "zealot_blast.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 220,
+   "h": 28
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "zealot_blast",
+    "from": 0,
+    "to": 4,
+    "direction": "forward"
+   }
+  ]
+ }
+}

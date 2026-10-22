@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "shepherd_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 14,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 14,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 14,
+    "h": 21
+   },
+   "duration": 167
+  },
+  "shepherd_1": {
+   "frame": {
+    "x": 14,
+    "y": 0,
+    "w": 14,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 14,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 14,
+    "h": 21
+   },
+   "duration": 167
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "shepherd.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 28,
+   "h": 21
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "shepherd",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

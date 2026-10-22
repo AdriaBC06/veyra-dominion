@@ -590,7 +590,8 @@ impl Arts {
                 if enemies.charmed(j, time) {
                     return;
                 }
-                if charms > 0 {
+                // Elites can't be seduced; they only burn.
+                if charms > 0 && !enemies.elite[j] {
                     // Seduced, not burned: she wants it alive and fighting for her.
                     if court && !enemies.elite[j] && thralls.len() < MAX_THRALLS {
                         let kind = enemies.kind[j];
@@ -1382,7 +1383,11 @@ impl Arts {
                 }
             });
             if let Some(j) = hit {
-                strike(enemies, j, damage, time, &mut cues.hits);
+                if shielded(enemies, j, pr.vel, w.player.pos) {
+                    cues.hits[1] = true;
+                } else {
+                    strike(enemies, j, damage, time, &mut cues.hits);
+                }
             }
             if hit.is_some() || pr.life <= 0.0 {
                 self.projectiles.swap_remove(k);
@@ -1486,8 +1491,10 @@ impl Arts {
                 }
                 strike(enemies, j, s.damage, time, &mut cues.hits);
                 enemies.halo_until[j] = time + HALO_IMMUNE;
-                let push = (p - center).normalize_or(Vec2::X) * HALO_KNOCKBACK;
-                enemies.set_pos(j, p + push);
+                if !ENEMY_DEFS[enemies.kind[j] as usize].heavy && !enemies.elite[j] {
+                    let push = (p - center).normalize_or(Vec2::X) * HALO_KNOCKBACK;
+                    enemies.set_pos(j, p + push);
+                }
             });
         }
     }
@@ -1562,7 +1569,7 @@ fn touches(enemies: &Enemies, j: usize, pos: Vec2, radius: f32) -> bool {
 }
 
 /// Hurts enemy `j`; weakened enemies (Scent of Sin) take `SCENT_WEAKEN` more, frozen
-/// ones `frozen_vuln` more (Evil Eye).
+/// ones `frozen_vuln` more (Evil Eye); armour then takes its flat share off.
 fn strike(enemies: &mut Enemies, j: usize, damage: f32, time: f32, hits: &mut [bool; 2]) {
     let mut scale = 1.0;
     if enemies.weak(j, time) {
@@ -1571,10 +1578,17 @@ fn strike(enemies: &mut Enemies, j: usize, damage: f32, time: f32, hits: &mut [b
     if enemies.frozen(j, time) {
         scale *= 1.0 + enemies.frozen_vuln;
     }
-    enemies.hp[j] -= damage * scale;
+    let def = &ENEMY_DEFS[enemies.kind[j] as usize];
+    let damage = damage * scale;
+    enemies.hp[j] -= (damage - def.armor).max(damage * ARMOR_FLOOR);
     enemies.flash[j] = HIT_FLASH_TIME;
-    let family = ENEMY_DEFS[enemies.kind[j] as usize].family;
-    hits[(family == Family::Armored) as usize] = true;
+    hits[(def.family == Family::Armored || def.armor > 0.0) as usize] = true;
+}
+
+/// A fireball flying along `vel` meets enemy `j`'s shield: shields face Veyra, so
+/// whatever comes from her side glances off.
+fn shielded(enemies: &Enemies, j: usize, vel: Vec2, from: Vec2) -> bool {
+    ENEMY_DEFS[enemies.kind[j] as usize].shield && vel.x * (from.x - enemies.x[j]) < 0.0
 }
 
 #[cfg(test)]
@@ -1582,6 +1596,9 @@ mod tests {
     use super::*;
     use crate::game::{Cue, Game, InputState};
     use crate::upgrades::Choice;
+
+    /// A plain target: no armour, shield or special moves.
+    const DUMMY: usize = VILLAGER;
 
     /// A quiet game: no spawns, only `art` (at `level`) attacking.
     fn game_with(art: usize, level: u8) -> Game {
@@ -1600,7 +1617,7 @@ mod tests {
     }
 
     fn hurt(g: &Game, i: usize) -> bool {
-        g.enemies.hp[i] < ENEMY_DEFS[KNIGHT].hp * 100.0
+        g.enemies.hp[i] < ENEMY_DEFS[DUMMY].hp * 100.0
     }
 
     #[test]
@@ -1646,15 +1663,15 @@ mod tests {
 
     #[test]
     fn area_lengthens_the_lash() {
-        let x = LASH_NEAR + LASH_REACH + ENEMY_DEFS[KNIGHT].radius() + 3.0;
+        let x = LASH_NEAR + LASH_REACH + ENEMY_DEFS[DUMMY].radius() + 3.0;
         let mut g = game_with(TAIL_LASH, 1);
         g.player.facing = 1.0;
-        g.enemies.spawn(KNIGHT, vec2(x, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(x, 0.0), 100.0);
         tick(&mut g, 1);
         assert!(!hurt(&g, 0), "just out of reach");
         let mut g = game_with(TAIL_LASH, 3);
         g.player.facing = 1.0;
-        g.enemies.spawn(KNIGHT, vec2(x, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(x, 0.0), 100.0);
         tick(&mut g, 1);
         assert!(hurt(&g, 0));
     }
@@ -1664,7 +1681,7 @@ mod tests {
         let mut g = evolved(HELLFLARE);
         for k in 0..4 {
             g.enemies
-                .spawn(KNIGHT, vec2(60.0 + k as f32 * 20.0, 0.0), 100.0);
+                .spawn(DUMMY, vec2(60.0 + k as f32 * 20.0, 0.0), 100.0);
         }
         tick(&mut g, 1);
         let s = g.arts.stats[HELLFLARE];
@@ -1686,7 +1703,7 @@ mod tests {
     fn barbed_scourge_makes_lashed_foes_bleed() {
         let mut g = evolved(TAIL_LASH);
         g.player.facing = 1.0;
-        g.enemies.spawn(KNIGHT, vec2(30.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(30.0, 0.0), 100.0);
         tick(&mut g, 1);
         let after_lash = g.enemies.hp[0];
         assert!(g.enemies.bleed_until[0] > g.time);
@@ -1697,7 +1714,7 @@ mod tests {
         // An unevolved lash leaves no bleed.
         let mut g = game_with(TAIL_LASH, ART_MAX_LEVEL);
         g.player.facing = 1.0;
-        g.enemies.spawn(KNIGHT, vec2(30.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(30.0, 0.0), 100.0);
         tick(&mut g, 1);
         assert_eq!(g.enemies.bleed_until[0], 0.0);
     }
@@ -1709,7 +1726,7 @@ mod tests {
         g.player.iframes = f32::INFINITY; // the knights close in
         for k in 0..20 {
             g.enemies
-                .spawn(KNIGHT, Vec2::from_angle(k as f32) * 20.0, 100.0);
+                .spawn(DUMMY, Vec2::from_angle(k as f32) * 20.0, 100.0);
         }
         tick(&mut g, 1);
         let healed = g.player.hp - 50.0;
@@ -1736,7 +1753,7 @@ mod tests {
     fn sirens_dominion_bursts_the_charmed_when_the_charm_ends() {
         let mut g = evolved(ALLURE);
         g.arts.hold();
-        g.enemies.spawn(KNIGHT, vec2(200.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(200.0, 0.0), 100.0);
         g.enemies.charm_until[0] = 0.5;
         g.enemies.spawn(RAT, vec2(215.0, 0.0), 100.0);
         g.enemies.spawn(RAT, vec2(400.0, 0.0), 100.0);
@@ -1754,7 +1771,7 @@ mod tests {
         // The burst never kills, even a foe on its last legs.
         let mut g = evolved(ALLURE);
         g.arts.hold();
-        g.enemies.spawn(KNIGHT, vec2(200.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(200.0, 0.0), 100.0);
         // The charm ends on the first tick, before it can bite.
         g.enemies.charm_until[0] = 0.01;
         g.enemies.spawn(RAT, vec2(215.0, 0.0), 1.0);
@@ -1766,7 +1783,7 @@ mod tests {
         // Without the evolution a charm just ends.
         let mut g = game_with(ALLURE, ART_MAX_LEVEL);
         g.arts.hold();
-        g.enemies.spawn(KNIGHT, vec2(200.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(200.0, 0.0), 100.0);
         g.enemies.charm_until[0] = 0.5;
         tick(&mut g, (0.5 / TICK_DT) as usize + 4);
         assert_eq!(g.kills, 0);
@@ -1776,13 +1793,13 @@ mod tests {
     #[test]
     fn abyssal_rift_drags_foes_into_the_pool() {
         let mut g = evolved(HELLGATE);
-        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(100.0, 0.0), 100.0);
         tick(&mut g, 1);
         let pool = g.arts.gates[0].pos;
         g.arts.hold();
-        g.enemies.spawn(KNIGHT, pool + vec2(40.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, pool + vec2(40.0, 0.0), 100.0);
         g.enemies
-            .spawn(KNIGHT, pool + vec2(RIFT_RADIUS * 1.5 + 20.0, 0.0), 100.0);
+            .spawn(DUMMY, pool + vec2(RIFT_RADIUS * 1.5 + 20.0, 0.0), 100.0);
         let before = [g.enemies.pos(1), g.enemies.pos(2)];
         tick(&mut g, 10);
         assert!(g.enemies.pos(1).distance(pool) < before[0].distance(pool) - 5.0);
@@ -1796,7 +1813,7 @@ mod tests {
         // A tight group far from her: one chain gets them all.
         for k in 0..14 {
             let p = vec2(120.0, 0.0) + Vec2::from_angle(k as f32) * (10.0 + k as f32 * 4.0);
-            g.enemies.spawn(KNIGHT, p, 100.0);
+            g.enemies.spawn(DUMMY, p, 100.0);
         }
         tick(&mut g, 1);
         assert_eq!((0..14).filter(|&i| hurt(&g, i)).count(), 14);
@@ -1807,16 +1824,16 @@ mod tests {
     fn tail_lash_hits_the_facing_side_then_behind() {
         let mut g = game_with(TAIL_LASH, 1);
         g.player.facing = -1.0;
-        g.enemies.spawn(KNIGHT, vec2(-30.0, 5.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(30.0, 5.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(-30.0, 40.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(-30.0, 5.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(30.0, 5.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(-30.0, 40.0), 100.0);
         tick(&mut g, 1);
         assert!(hurt(&g, 0) && !hurt(&g, 1) && !hurt(&g, 2));
         assert!(g.cues.contains(&Cue::Lash));
 
         let mut g = game_with(TAIL_LASH, 2);
         g.player.facing = 1.0;
-        g.enemies.spawn(KNIGHT, vec2(-30.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(-30.0, 0.0), 100.0);
         tick(&mut g, 1);
         assert!(!hurt(&g, 0), "the back lash comes later");
         tick(&mut g, (LASH_DELAY / TICK_DT) as usize + 1);
@@ -1828,7 +1845,7 @@ mod tests {
     #[test]
     fn brimstone_halo_burns_on_its_orbit_and_rests() {
         let mut g = game_with(BRIMSTONE_HALO, 1);
-        g.enemies.spawn(KNIGHT, vec2(HALO_RADIUS, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(HALO_RADIUS, 0.0), 100.0);
         let full = g.enemies.hp[0];
         tick(&mut g, 2);
         assert!(g.arts.halo.on);
@@ -1849,10 +1866,10 @@ mod tests {
     fn allure_charms_the_first_few_in_reach_and_burns_the_rest() {
         let mut g = game_with(ALLURE, 1);
         for p in [vec2(20.0, 0.0), vec2(0.0, 20.0), vec2(-20.0, 0.0)] {
-            g.enemies.spawn(KNIGHT, p, 100.0);
+            g.enemies.spawn(DUMMY, p, 100.0);
         }
         g.enemies
-            .spawn(KNIGHT, vec2(0.0, ALLURE_RADIUS + 30.0), 100.0);
+            .spawn(DUMMY, vec2(0.0, ALLURE_RADIUS + 30.0), 100.0);
         tick(&mut g, 1);
         let charmed: Vec<usize> = (0..4).filter(|&i| g.enemies.charmed(i, g.time)).collect();
         assert_eq!(charmed.len(), ARTS[ALLURE].base.amount as usize);
@@ -1876,10 +1893,10 @@ mod tests {
         let mut g = game_with(ALLURE, 1);
         g.arts.hold();
         // On top of Veyra, but charmed: no contact damage.
-        g.enemies.spawn(KNIGHT, Vec2::ZERO, 100.0);
+        g.enemies.spawn(DUMMY, Vec2::ZERO, 100.0);
         g.enemies.charm_until[0] = 100.0;
         // Far from her: a charmed knight next to a free rat.
-        g.enemies.spawn(KNIGHT, vec2(200.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(200.0, 0.0), 100.0);
         g.enemies.charm_until[1] = 100.0;
         g.enemies.spawn(RAT, vec2(230.0, 0.0), 100.0);
         tick(&mut g, 5);
@@ -1887,15 +1904,16 @@ mod tests {
         assert!(g.enemies.x[1] > 200.0, "goes for the rat, not for her");
         tick(&mut g, 60);
         assert!(g.enemies.hp[2] < ENEMY_DEFS[RAT].hp * 100.0, "bitten");
-        assert_eq!(g.enemies.hp[1], ENEMY_DEFS[KNIGHT].hp * 100.0);
+        assert_eq!(g.enemies.hp[1], ENEMY_DEFS[DUMMY].hp * 100.0);
     }
 
     #[test]
     fn hellgate_opens_under_an_enemy_and_burns_until_it_closes() {
         let mut g = game_with(HELLGATE, 1);
-        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(100.0, 0.0), 100.0);
         g.enemies
-            .spawn(KNIGHT, vec2(HELLGATE_RANGE + 100.0, 0.0), 100.0);
+            .spawn(DUMMY, vec2(HELLGATE_RANGE + 100.0, 0.0), 100.0);
+        g.enemies.frozen_until.fill(f32::INFINITY); // stays in the pool
         tick(&mut g, 1);
         assert_eq!(g.arts.gates.len(), 1);
         assert!(g.arts.gates[0].pos.distance(vec2(100.0, 0.0)) < 8.0);
@@ -1913,9 +1931,9 @@ mod tests {
     fn chain_of_torment_bites_amount_enemies_jumping_between_them() {
         let mut g = game_with(CHAIN_OF_TORMENT, 1);
         for x in [100.0, 130.0, 160.0, 190.0] {
-            g.enemies.spawn(KNIGHT, vec2(x, 0.0), 100.0);
+            g.enemies.spawn(DUMMY, vec2(x, 0.0), 100.0);
         }
-        g.enemies.spawn(KNIGHT, vec2(400.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(400.0, 0.0), 100.0);
         tick(&mut g, 1);
         let bites = ARTS[CHAIN_OF_TORMENT].base.amount as usize;
         assert_eq!((0..5).filter(|&i| hurt(&g, i)).count(), bites);
@@ -1930,15 +1948,15 @@ mod tests {
 
     #[test]
     fn hellgate_pools_grow_with_area() {
-        let reach = HELLGATE_RADIUS + ENEMY_DEFS[KNIGHT].radius();
+        let reach = HELLGATE_RADIUS + ENEMY_DEFS[DUMMY].radius();
         let mut g = game_with(HELLGATE, 3);
-        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(100.0, 0.0), 100.0);
         tick(&mut g, 1);
         let pool = g.arts.gates[0].pos;
         g.arts.hold();
         // Past a small pool's edge, inside a level 3 one (+25% area).
         g.enemies
-            .spawn(KNIGHT, pool + vec2(reach + 2.0, 0.0), 100.0);
+            .spawn(DUMMY, pool + vec2(reach + 2.0, 0.0), 100.0);
         tick(&mut g, (HELLGATE_TICK / TICK_DT) as usize + 1);
         assert!(hurt(&g, 1));
     }
@@ -1991,7 +2009,8 @@ mod tests {
         g.arts.hold();
         for k in 0..5 {
             g.enemies
-                .spawn(KNIGHT, vec2(200.0, 40.0 + k as f32 * 30.0), 100.0);
+                .spawn(DUMMY, vec2(200.0, 40.0 + k as f32 * 30.0), 100.0);
+            g.enemies.frozen_until[k] = f32::INFINITY; // a still column
         }
         g.arts.scythes.push(Scythe {
             pos: vec2(200.0, 0.0),
@@ -2004,7 +2023,7 @@ mod tests {
         tick(&mut g, 90);
         let cut = (0..5).filter(|&i| hurt(&g, i)).count();
         assert_eq!(cut, ARTS[REAPERS_SCYTHE].base.pierce as usize + 1);
-        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let full = ENEMY_DEFS[DUMMY].hp * 100.0;
         assert_eq!(
             g.enemies.hp[0],
             full - ARTS[REAPERS_SCYTHE].base.damage,
@@ -2029,7 +2048,7 @@ mod tests {
         g.arts.hold();
         for k in 0..12 {
             g.enemies
-                .spawn(KNIGHT, Vec2::from_angle(k as f32 * 0.5) * 40.0, 100.0);
+                .spawn(DUMMY, Vec2::from_angle(k as f32 * 0.5) * 40.0, 100.0);
         }
         tick(&mut g, 30);
         for s in &g.arts.scythes {
@@ -2043,7 +2062,7 @@ mod tests {
         let mut g = game_with(PROFANED_CROSS, 1);
         tick(&mut g, 1);
         assert!(g.arts.crosses.is_empty(), "waits for a target");
-        g.enemies.spawn(KNIGHT, vec2(60.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(60.0, 0.0), 100.0);
         tick(&mut g, 1);
         assert_eq!(g.arts.crosses.len(), 1);
         assert!(g.cues.contains(&Cue::Cross));
@@ -2060,12 +2079,12 @@ mod tests {
         let s = ARTS[PROFANED_CROSS].base;
         let reach = s.speed * s.speed / (2.0 * CROSS_DECEL);
         assert!((far - reach).abs() < 6.0, "{far} vs {reach}");
-        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let full = ENEMY_DEFS[DUMMY].hp * 100.0;
         assert_eq!(g.enemies.hp[0], full - 2.0 * s.damage, "out and back");
 
         // It follows her wherever she went meanwhile.
         let mut g = game_with(PROFANED_CROSS, 1);
-        g.enemies.spawn(KNIGHT, vec2(60.0, 0.0), 1000.0);
+        g.enemies.spawn(DUMMY, vec2(60.0, 0.0), 1000.0);
         tick(&mut g, 1);
         g.arts.hold();
         g.player.pos = vec2(-150.0, 120.0);
@@ -2102,7 +2121,7 @@ mod tests {
     #[test]
     fn heretics_brand_sets_what_the_crosses_hit_ablaze() {
         let mut g = evolved(PROFANED_CROSS);
-        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(40.0, 0.0), 100.0);
         tick(&mut g, 4);
         assert!(g.enemies.burn_until[0] > g.time);
         g.arts.hold();
@@ -2112,7 +2131,7 @@ mod tests {
         assert!(g.enemies.hp[0] < before, "burns away from the cross");
         // An unevolved cross sets nothing alight.
         let mut g = game_with(PROFANED_CROSS, ART_MAX_LEVEL);
-        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(40.0, 0.0), 100.0);
         tick(&mut g, 4);
         assert!(hurt(&g, 0));
         assert_eq!(g.enemies.burn_until[0], 0.0);
@@ -2143,8 +2162,8 @@ mod tests {
         let mut g = evolved(WANDERING_SIGIL);
         g.arts.hold();
         let edge = DEFAULT_VIEW_W * 0.5 - SIGIL_MARGIN;
-        g.enemies.spawn(KNIGHT, vec2(edge - 8.0, 22.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(edge - 8.0, -120.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(edge - 8.0, 22.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(edge - 8.0, -120.0), 100.0);
         g.arts.sigils.push(Sigil {
             pos: vec2(edge + 1.0, 0.0),
             vel: vec2(100.0, 0.0),
@@ -2155,7 +2174,7 @@ mod tests {
         assert!(g.arts.sigils[0].vel.x < 0.0, "bounced back");
         assert_eq!(g.arts.seal_blasts.len(), 1);
         assert!(g.cues.contains(&Cue::SealBlast));
-        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let full = ENEMY_DEFS[DUMMY].hp * 100.0;
         let blast = g.arts.stats[WANDERING_SIGIL].damage * SEAL_BLAST_DAMAGE;
         assert_eq!(g.enemies.hp[0], full - blast);
         assert!(!hurt(&g, 1), "out of the blast");
@@ -2164,11 +2183,11 @@ mod tests {
     #[test]
     fn scent_of_sin_burns_and_weakens_what_is_in_the_haze() {
         let mut g = game_with(SCENT_OF_SIN, 1);
-        g.enemies.spawn(KNIGHT, vec2(20.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(20.0, 0.0), 100.0);
         g.enemies
-            .spawn(KNIGHT, vec2(SCENT_RADIUS + 30.0, 0.0), 100.0);
+            .spawn(DUMMY, vec2(SCENT_RADIUS + 30.0, 0.0), 100.0);
         tick(&mut g, 1);
-        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let full = ENEMY_DEFS[DUMMY].hp * 100.0;
         let dmg = ARTS[SCENT_OF_SIN].base.damage;
         assert_eq!(g.enemies.hp[0], full - dmg);
         assert!(g.enemies.weak(0, g.time) && !g.enemies.weak(1, g.time));
@@ -2202,11 +2221,11 @@ mod tests {
         tick(&mut g, 1);
         assert!(g.arts.bombs.is_empty(), "nobody to bomb");
         assert_eq!(g.arts.bats().count(), ARTS[BAT_SWARM].base.amount as usize);
-        g.enemies.spawn(KNIGHT, vec2(120.0, 0.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(120.0, 12.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(120.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(120.0, 12.0), 100.0);
         // Out of the bats' range: never a target, and far from the blasts.
         g.enemies
-            .spawn(KNIGHT, vec2(-(BAT_RANGE + 40.0), 0.0), 100.0);
+            .spawn(DUMMY, vec2(-(BAT_RANGE + 40.0), 0.0), 100.0);
         tick(&mut g, 1);
         assert!(g.cues.contains(&Cue::Bats));
         assert_eq!(g.arts.bombs.len(), 2);
@@ -2221,7 +2240,7 @@ mod tests {
     #[test]
     fn crimson_host_is_a_bigger_flock_with_wider_blasts() {
         let mut g = evolved(BAT_SWARM);
-        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(100.0, 0.0), 100.0);
         tick(&mut g, 1);
         let n = ARTS[BAT_SWARM].stats(ART_MAX_LEVEL).amount + HOST_EXTRA;
         assert_eq!(g.arts.bats().count(), n as usize);
@@ -2237,14 +2256,14 @@ mod tests {
         tick(&mut g, 1);
         assert!(g.arts.since_mass.is_infinite(), "nothing in view");
         let half = vec2(DEFAULT_VIEW_W, LOGICAL_H) * 0.5;
-        g.enemies.spawn(KNIGHT, vec2(half.x - 4.0, 0.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(0.0, -half.y + 4.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(half.x - 4.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(0.0, -half.y + 4.0), 100.0);
         g.enemies
-            .spawn(KNIGHT, vec2(half.x + MASS_MARGIN + 40.0, 0.0), 100.0);
+            .spawn(DUMMY, vec2(half.x + MASS_MARGIN + 40.0, 0.0), 100.0);
         g.enemies.spawn(RAT, vec2(30.0, 0.0), 1.0);
         tick(&mut g, 1);
         assert!(g.cues.contains(&Cue::BlackMass));
-        let full = ENEMY_DEFS[KNIGHT].hp * 100.0;
+        let full = ENEMY_DEFS[DUMMY].hp * 100.0;
         let dmg = ARTS[BLACK_MASS].base.damage;
         assert_eq!(g.enemies.hp[0], full - dmg);
         assert_eq!(g.enemies.hp[1], full - dmg);
@@ -2262,7 +2281,7 @@ mod tests {
             xp: 3,
             called: false,
         });
-        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(100.0, 0.0), 100.0);
         tick(&mut g, 1);
         assert!(g.souls[0].called);
         let xp = g.xp;
@@ -2276,7 +2295,7 @@ mod tests {
             xp: 3,
             called: false,
         });
-        g.enemies.spawn(KNIGHT, vec2(100.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(100.0, 0.0), 100.0);
         tick(&mut g, 60);
         assert_eq!(g.souls[0].pos, vec2(600.0, 0.0));
     }
@@ -2286,8 +2305,8 @@ mod tests {
         let mut g = game_with(GAZE_OF_DESIRE, 1);
         g.player.iframes = 0.0;
         // One in the beam right next to her, one off it.
-        g.enemies.spawn(KNIGHT, vec2(8.0, 0.0), 100.0);
-        g.enemies.spawn(KNIGHT, vec2(0.0, 60.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(8.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(0.0, 60.0), 100.0);
         tick(&mut g, 1);
         assert!(g.cues.contains(&Cue::Gaze));
         assert_eq!(g.arts.gazes.len(), 1);
@@ -2313,7 +2332,7 @@ mod tests {
             g.arts.stats[GAZE_OF_DESIRE].amount,
             ARTS[GAZE_OF_DESIRE].stats(ART_MAX_LEVEL).amount + EVIL_EYE_EXTRA
         );
-        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(40.0, 0.0), 100.0);
         tick(&mut g, 1);
         assert!(g.enemies.frozen(0, g.time));
         let mut hits = [false; 2];
@@ -2322,7 +2341,7 @@ mod tests {
         assert!((before - g.enemies.hp[0] - 10.0 * (1.0 + EVIL_EYE_VULN)).abs() < 1e-3);
         // Unevolved, frozen foes take the plain damage.
         let mut g = game_with(GAZE_OF_DESIRE, ART_MAX_LEVEL);
-        g.enemies.spawn(KNIGHT, vec2(40.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, vec2(40.0, 0.0), 100.0);
         tick(&mut g, 1);
         let before = g.enemies.hp[0];
         strike(&mut g.enemies, 0, 10.0, g.time, &mut hits);
@@ -2366,6 +2385,47 @@ mod tests {
         );
     }
 
+    /// A fireball already on its way along `vel`, from `pos`.
+    fn fireball(g: &mut Game, pos: Vec2, vel: Vec2) {
+        g.arts.projectiles.push(Projectile { pos, vel, life: 2.0 });
+    }
+
+    #[test]
+    fn barn_doors_stop_fireballs_from_the_front_only() {
+        let mut g = game_with(HELLFLARE, 1);
+        g.arts.hold();
+        g.enemies.spawn(BARRICADER, vec2(60.0, 0.0), 1.0);
+        g.enemies.frozen_until[0] = f32::INFINITY;
+        let full = g.enemies.hp[0];
+        fireball(&mut g, vec2(20.0, 0.0), vec2(300.0, 0.0));
+        tick(&mut g, 30);
+        assert_eq!(g.enemies.hp[0], full, "glanced off the door");
+        assert!(g.arts.projectiles.is_empty());
+        assert!(g.cues.contains(&Cue::Hit { armored: true }));
+        fireball(&mut g, vec2(100.0, 0.0), vec2(-300.0, 0.0));
+        tick(&mut g, 30);
+        assert!(g.enemies.hp[0] < full, "hit from behind");
+    }
+
+    #[test]
+    fn armour_takes_a_flat_share_off_each_hit() {
+        let mut g = game_with(HELLFLARE, 1);
+        g.arts.hold();
+        g.enemies.spawn(KNIGHT, vec2(60.0, 0.0), 1.0);
+        g.enemies.frozen_until[0] = f32::INFINITY;
+        let full = g.enemies.hp[0];
+        fireball(&mut g, vec2(20.0, 0.0), vec2(300.0, 0.0));
+        tick(&mut g, 30);
+        let damage = g.arts.stats[HELLFLARE].damage;
+        let taken = full - g.enemies.hp[0];
+        assert!((taken - (damage - ENEMY_DEFS[KNIGHT].armor)).abs() < 1e-3);
+        // A tiny hit still does its floor share.
+        let mut hits = [false; 2];
+        let before = g.enemies.hp[0];
+        strike(&mut g.enemies, 0, 1.0, 0.0, &mut hits);
+        assert!((before - g.enemies.hp[0] - ARMOR_FLOOR).abs() < 1e-3);
+    }
+
     /// Allure and Thralls at the top, fused into the Infernal Court.
     fn court() -> Game {
         let mut g = game_with(ALLURE, ART_MAX_LEVEL);
@@ -2378,18 +2438,18 @@ mod tests {
     #[test]
     fn infernal_court_turns_the_charmed_into_thralls_that_fall_with_their_soul() {
         let mut g = court();
-        g.enemies.spawn(KNIGHT, vec2(20.0, 0.0), 1.0);
-        g.enemies.spawn(KNIGHT, vec2(-20.0, 0.0), 1.0);
+        g.enemies.spawn(DUMMY, vec2(20.0, 0.0), 1.0);
+        g.enemies.spawn(DUMMY, vec2(-20.0, 0.0), 100.0);
         g.enemies.elite[1] = true;
         tick(&mut g, 1);
         assert_eq!(g.enemies.len(), 1, "the knight left the horde");
         assert!(
-            g.enemies.elite[0] && g.enemies.charmed(0, g.time),
-            "elites are only charmed"
+            g.enemies.elite[0] && !g.enemies.charmed(0, g.time),
+            "elites can't be seduced"
         );
         assert_eq!(g.kills, 0, "not a kill yet");
         let knights = |g: &Game| {
-            let k = Some(KNIGHT as u8);
+            let k = Some(DUMMY as u8);
             g.arts.thralls.iter().filter(|t| t.kind == k).count()
         };
         assert_eq!(knights(&g), 1);
@@ -2400,14 +2460,14 @@ mod tests {
         assert_eq!(knights(&g), 0, "its time ran out");
         assert_eq!(g.kills, 1, "it fell");
         // Its soul dropped where it fell (she may have picked it up already).
-        assert!(g.souls.len() == 1 || g.xp == ENEMY_DEFS[KNIGHT].soul_xp);
+        assert!(g.souls.len() == 1 || g.xp == ENEMY_DEFS[DUMMY].soul_xp);
         assert!(!g.cues.contains(&Cue::SirenBurst));
 
         // With Siren's Dominion it bursts as its time runs out.
         let mut g = court();
         g.upgrades.evolve(ALLURE);
         g.arts.refresh(&g.upgrades);
-        g.enemies.spawn(KNIGHT, vec2(20.0, 0.0), 1.0);
+        g.enemies.spawn(DUMMY, vec2(20.0, 0.0), 1.0);
         tick(&mut g, 1);
         g.arts.hold();
         tick(&mut g, (life / TICK_DT) as usize + 4);

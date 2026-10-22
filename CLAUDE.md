@@ -19,7 +19,7 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 
 ## Hard rules
 
-- Simulation (`game.rs`, `enemies.rs`, `spatial.rs`, `upgrades.rs`, `arts.rs`) never calls drawing, input, time, window or audio. Input comes as `InputState`, time as `dt`; feedback leaves as `SimEvent`s. Keeps `cargo test` headless.
+- Simulation (`game.rs`, `enemies.rs`, `spatial.rs`, `upgrades.rs`, `arts.rs`, `balance.rs`) never calls drawing, input, time, window or audio. Input comes as `InputState`, time as `dt`; feedback leaves as `SimEvent`s. Keeps `cargo test` headless.
 - Fixed 60 Hz timestep (dt clamped 0.25 s, max 8 ticks/frame).
 - Hot path: SoA enemies, `swap_remove`, preallocated pools, zero allocations per tick. The stress test covers all Arts maxed + 2,500 enemies.
 - All balance numbers and tables in `src/config/` (split per domain past ~600 lines).
@@ -28,9 +28,10 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 ## Map
 
 - `src/main.rs` window + loop · `scenes/` (`App`, `Nav`: title, run, settings, credits) · `screen.rs` layout/render target · `ui.rs` widgets/focus
-- Sim: `game.rs`, `enemies.rs`, `spatial.rs`, `upgrades.rs` (Sins), `arts.rs` + `config/arts.rs`, `blood.rs`
+- Sim: `game.rs`, `enemies.rs` + `config/enemies.rs` (kinds, behaviours, timeline), `spatial.rs`, `upgrades.rs` (Sins), `arts.rs` + `config/arts.rs`, `blood.rs`
+- `balance.rs` (test only): kiting bot that plays whole runs, `cargo test --release balance -- --ignored --nocapture`
 - `assets.rs` embedded PNG atlas (`assets/sprites/`), fonts in `assets/fonts/` · `audio/` own chip synth + tracker (`assets/music/*.vtrk`) · `save.rs` settings/save files · `i18n.rs`
-- Art as code: `assets/*.px.js`; title portrait: `assets/depixelize.py` + `assets/animate_portrait.py` (see docs/design.md, V14 phase 2)
+- Art as code: `assets/*.px.js` (enemy effects: `enemy_fx.px.js` → `assets/sprites/enemy_fx`; roster sheet: `python3 assets/bestiary_sheet.py` → `docs/art/ashford_bestiary.png`); title portrait: `assets/depixelize.py` + `assets/animate_portrait.py` (see docs/design.md, V14 phase 2)
 - `examples/render_audio.rs` writes WAVs to `target/audio/`
 
 ## Running and debug keys

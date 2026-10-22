@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "soul_radiant_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 11,
+    "h": 13
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 11,
+    "h": 13
+   },
+   "sourceSize": {
+    "w": 11,
+    "h": 13
+   },
+   "duration": 333
+  },
+  "soul_radiant_1": {
+   "frame": {
+    "x": 11,
+    "y": 0,
+    "w": 11,
+    "h": 13
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 11,
+    "h": 13
+   },
+   "sourceSize": {
+    "w": 11,
+    "h": 13
+   },
+   "duration": 333
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "soul_radiant.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 22,
+   "h": 13
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "soul_radiant",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

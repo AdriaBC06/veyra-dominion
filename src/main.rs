@@ -1,6 +1,8 @@
 mod arts;
 mod assets;
 mod audio;
+#[cfg(test)]
+mod balance;
 mod blood;
 mod config;
 mod enemies;
