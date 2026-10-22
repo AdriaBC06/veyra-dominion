@@ -42,6 +42,48 @@ function lash(c, stage) {
 }
 anim("tail_lash", { w: LW, h: LH, frames: 3, fps: 16 }, (c) => lash(c, c.frame))
 
+// Barbed Scourge: the same swing, darker and wet, with hooked bone barbs raking out of
+// its outer edge (they lean back against the swing, which runs right to left).
+pal({ B: "#2a0510", o: "#ecdcc0", O: "#8e7462" })           // dried blood, bone barbs
+function barbedLash(c, stage) {
+  for (let y = 0; y < LH; y++) {
+    for (let x = 0; x < LW; x++) {
+      const ox = (x - 27.5) / 27.5, oy = (y - 19) / 17
+      const iy = (y - 19) / 11
+      const out = ox * ox + oy * oy, inn = ox * ox + iy * iy
+      if (out > 1 || inn < 1) continue
+      const depth = (1 - out) / (inn - out + 1e-6)
+      if (stage === 0 && x < 30) continue
+      if (stage === 2) {
+        if (depth > 0.5 || (x + y) % 2) continue
+        c.px(x, y, "B")
+        continue
+      }
+      const end = Math.abs(x - 27.5) > 22 ? "B" : null
+      c.px(x, y, end ?? (depth < 0.12 && stage === 1 ? "q" : depth < 0.3 ? "r" : depth < 0.6 ? "R" : "B"))
+    }
+  }
+  // Barbs: thorns 2 px thick at the root on the outer edge, a bone hook 4 px out.
+  for (let th = 0.42; th < 2.8; th += 0.34) {
+    const ex = 27.5 + 27.4 * Math.cos(th), ey = 19 - 16.9 * Math.sin(th)
+    if (stage === 0 && ex < 30) continue
+    let nx = Math.cos(th) / 27.5, ny = -Math.sin(th) / 17
+    const nl = Math.hypot(nx, ny); nx /= nl; ny /= nl
+    const tx = -ny, ty = nx   // along the edge, back against the swing (rightwards)
+    const put = (x, y, k) => {
+      x = Math.round(x); y = Math.round(y)
+      if (x >= 0 && y >= 0 && x < LW && y < LH) c.px(x, y, k)
+    }
+    for (let t = 0; t <= 4; t++) {
+      if (stage === 2 && t % 2) continue
+      const bx = ex + nx * t + tx * t * 0.5, by = ey + ny * t + ty * t * 0.5
+      put(bx, by, t === 0 ? "B" : t === 4 ? "O" : "o")
+      if (t < 2) put(bx - tx, by - ty, t === 0 ? "B" : "O")   // thick root, shaded side
+    }
+  }
+}
+anim("tail_lash_barbed", { w: LW, h: LH, frames: 3, fps: 16 }, (c) => barbedLash(c, c.frame))
+
 
 // Brimstone Halo: a fireball (V17k, was a flame): a ball of molten brimstone, its
 // swirls turning, crusted dark at the rim, flames licking up from its crown. 13x17;
@@ -67,6 +109,32 @@ anim("ember", { w: FW, h: FH, frames: 4, fps: 10, outline: "X" }, (c) => {
         }
       }
       if (heat !== null) c.px(x, y, heat > 0.78 ? "F" : heat > 0.52 ? "f" : heat > 0.28 ? "x" : "X")
+    }
+  }
+})
+
+// Infernal Crown: the Halo's fireball crowned, burning white-hot to its heart in gold
+// and white, a taller crown of five flames. 15x21; the ball's centre is (7, 14.5).
+pal({ y: "#fffbe6", g: "#e8b04a", G: "#8a5a1c" })   // white heat, gold (as the trim)
+anim("ember_crown", { w: 15, h: 21, frames: 4, fps: 10, outline: "X" }, (c) => {
+  const cx = 7, cy = 14.5, R = 5.4, spin = c.frame * Math.PI / 2
+  for (let y = 0; y < 21; y++) {
+    for (let x = 0; x < 15; x++) {
+      const u = x - cx, v = y - cy, r = Math.hypot(u, v)
+      let heat = null
+      if (r <= R + 0.2) {
+        const swirl = Math.sin(3 * Math.atan2(v, u) + r * 1.3 - spin)
+        heat = 1.08 - r / R * 0.7 + swirl * 0.18 * (r / R)
+        if (r > R - 1.1 && fnoise(x * 0.9, y * 0.9 + c.frame * 3) > 0.7) heat = 0.3
+      } else if (v < 0) {
+        // The crown: five points, the middle one tallest, like a king's.
+        for (const [tx, base] of [[-4.2, 2.5], [-2.2, 4], [0, 6], [2.2, 4], [4.2, 2.5]]) {
+          const h = base + [0, 1, 2, 1][(c.frame + Math.round(tx) + 4) & 3]
+          const k = (-v - Math.sqrt(Math.max(0, R * R - u * u))) / h
+          if (k >= -0.2 && k <= 1 && Math.abs(u - tx - Math.sin(k * 3 + spin) * 0.5) <= 1.2 * (1 - k)) heat = Math.max(heat ?? 0, 0.85 - k * 0.5)
+        }
+      }
+      if (heat !== null) c.px(x, y, heat > 0.9 ? "y" : heat > 0.68 ? "F" : heat > 0.48 ? "g" : heat > 0.3 ? "f" : "x")
     }
   }
 })
@@ -185,6 +253,13 @@ function scythe(u, v) {
 }
 tiered("scythe", 9, { fps: 20, outline: "k" }, (c, size, scale) =>
   spun(c, size, c.phase * Math.PI * 2, scale, scythe))
+
+// Midnight Harvest: the same scythe forged of night, a blade of midnight blue whose
+// edge shines like the moon, on a violet shaft tipped in moonlight.
+pal({ N: "#141c48", n: "#2e44a0", l: "#dcecff", p: "#5a3a8a" })
+const NIGHT = { S: "N", s: "n", e: "l", w: "p", G: "l" }
+tiered("scythe_harvest", 9, { fps: 20, outline: "k" }, (c, size, scale) =>
+  spun(c, size, c.phase * Math.PI * 2, scale, (u, v) => NIGHT[scythe(u, v)] ?? null))
 
 // Profaned Cross: the Church's cross turned upside down, tarnished gold with a
 // crimson heart, spinning. 23x23 at tier 0. The burning one (Heretic's Brand) is the

@@ -73,6 +73,13 @@ pub const GATE_EMBER_ODDS: u32 = 9;
 pub const GATE_FLAME_AREA: f32 = 70.0;
 pub const GATE_MIN_FLAMES: usize = 4;
 pub const GATE_MAX_FLAMES: usize = 40;
+/// Abyssal Rift look: void, deep purple, violet edge, and the glow of the arms that
+/// turn into its centre (`RIFT_ARMS`); `RIFT_MOTES` motes per pool are sucked in from
+/// the edge of its pull over `RIFT_MOTE_FALL` seconds.
+pub const RIFT_COLORS: [u32; 4] = [0x08030e, 0x24093a, 0x4a1a6a, 0xa860ff];
+pub const RIFT_ARMS: f32 = 3.0;
+pub const RIFT_MOTES: u32 = 10;
+pub const RIFT_MOTE_FALL: f32 = 0.9;
 /// Whip of Torment: it bites a random enemy within `CHAIN_RANGE`, then jumps to the
 /// nearest enemy it hasn't bitten within `CHAIN_JUMP` (times area), `amount` in all.
 pub const CHAIN_RANGE: f32 = 180.0;
@@ -84,6 +91,10 @@ pub const CHAIN_SHOW_TIME: f32 = 0.2;
 pub const CHAIN_DRAW_HEIGHT: f32 = 9.0;
 /// The drawn chain kinks every this many pixels.
 pub const CHAIN_KINK: f32 = 8.0;
+/// Torment Eternal look: a black and blood bolt with a molten core (glow, body, core),
+/// forking from the first victim to all the others, and a ring of its reach flashing
+/// out from the first bite.
+pub const TORMENT_COLORS: [u32; 3] = [0x16091a, 0x9a1028, 0xffb060];
 /// Chain colours: dark glow, body, white-hot core.
 pub const CHAIN_COLORS: [u32; 3] = [0x5c0c1c, 0xe04454, 0xffd0dc];
 /// Scent of Sin: a haze `SCENT_RADIUS` (times area) around her. Every burn (its
@@ -208,8 +219,15 @@ pub const BLEED_TICK: f32 = 0.5;
 pub const BLEED_SHARE: f32 = 0.25;
 /// Chance per tick that a bleeding enemy with blood drips on the ground.
 pub const BLEED_DRIP: f32 = 0.05;
+/// Barbed Scourge look: `BLEED_DROPS` 2x2 drops run down each bleeding body, every
+/// `BLEED_DROP_FALL` seconds, fresh then darkening.
+pub const BLEED_DROPS: u32 = 2;
+pub const BLEED_DROP_FALL: f32 = 0.7;
+pub const BLEED_DROP_COLORS: [u32; 2] = [0xd42a3c, 0x7a1020];
 /// Infernal Crown: the flames never rest; one more joins them.
 pub const CROWN_EXTRA: u32 = 1;
+/// Infernal Crown look: the faint ring its fireballs circle on.
+pub const CROWN_RING_COLOR: u32 = 0xe8b04a;
 /// Siren's Dominion: when a charm runs out the enemy bursts, hurting the free enemies
 /// within `SIREN_BURST_RADIUS` (times area) for `SIREN_BURST_DAMAGE` times the Art's
 /// damage. It never kills: the enemy that bursts lives on, and the burst leaves
@@ -231,6 +249,12 @@ pub const TORMENT_RADIUS: f32 = 96.0;
 /// `MUSK_HEAL_CAP` per second.
 pub const MUSK_HEAL: f32 = 0.5;
 pub const MUSK_HEAL_CAP: f32 = 3.0;
+/// Devouring Musk look: a wine-red haze; after each burn, `MUSK_STRAND_MOTES` motes
+/// per burned enemy run from it to her over `MUSK_DRAIN_TIME`.
+pub const MUSK_COLOR: u32 = 0xb01848;
+pub const MUSK_STRAND_COLOR: u32 = 0xff5a6e;
+pub const MUSK_STRAND_MOTES: usize = 3;
+pub const MUSK_DRAIN_TIME: f32 = 0.5;
 /// Midnight Harvest: `HARVEST_EXTRA` more scythes fly out evenly all round at
 /// `HARVEST_SPEED`, curling at `HARVEST_CURL` rad/s, hitting everything they cross
 /// (`HARVEST_RADIUS` times area) for `HARVEST_LIFE`.
@@ -239,6 +263,11 @@ pub const HARVEST_SPEED: f32 = 170.0;
 pub const HARVEST_CURL: f32 = 1.2;
 pub const HARVEST_RADIUS: f32 = 11.0;
 pub const HARVEST_LIFE: f32 = 2.4;
+/// Midnight Harvest look: each scythe trails ghosts of itself `HARVEST_TRAIL_LAG`
+/// seconds apart, tinted `HARVEST_TRAIL_COLOR` and fading.
+pub const HARVEST_TRAIL: usize = 3;
+pub const HARVEST_TRAIL_LAG: f32 = 0.035;
+pub const HARVEST_TRAIL_COLOR: u32 = 0x8a6aff;
 /// Heretic's Brand: one more cross, and every enemy a cross hits burns for
 /// `BRAND_BURN` (times Sloth), taking `BRAND_SHARE` of its damage every `BRAND_TICK`.
 pub const BRAND_EXTRA: u32 = 1;

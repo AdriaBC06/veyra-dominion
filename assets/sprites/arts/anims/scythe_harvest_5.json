@@ -1,0 +1,190 @@
+{
+ "frames": {
+  "scythe_harvest_5_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  },
+  "scythe_harvest_5_1": {
+   "frame": {
+    "x": 45,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  },
+  "scythe_harvest_5_2": {
+   "frame": {
+    "x": 90,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  },
+  "scythe_harvest_5_3": {
+   "frame": {
+    "x": 135,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  },
+  "scythe_harvest_5_4": {
+   "frame": {
+    "x": 180,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  },
+  "scythe_harvest_5_5": {
+   "frame": {
+    "x": 225,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  },
+  "scythe_harvest_5_6": {
+   "frame": {
+    "x": 270,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  },
+  "scythe_harvest_5_7": {
+   "frame": {
+    "x": 315,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 45
+   },
+   "duration": 50
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "scythe_harvest_5.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 360,
+   "h": 45
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "scythe_harvest_5",
+    "from": 0,
+    "to": 7,
+    "direction": "forward"
+   }
+  ]
+ }
+}

@@ -1,0 +1,106 @@
+{
+ "frames": {
+  "ember_crown_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 23
+   },
+   "duration": 100
+  },
+  "ember_crown_1": {
+   "frame": {
+    "x": 17,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 23
+   },
+   "duration": 100
+  },
+  "ember_crown_2": {
+   "frame": {
+    "x": 34,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 23
+   },
+   "duration": 100
+  },
+  "ember_crown_3": {
+   "frame": {
+    "x": 51,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 23
+   },
+   "duration": 100
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "ember_crown.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 68,
+   "h": 23
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "ember_crown",
+    "from": 0,
+    "to": 3,
+    "direction": "forward"
+   }
+  ]
+ }
+}

@@ -361,6 +361,7 @@ impl Run {
         draw_siren_bursts(game);
         draw_charm_marks(game);
         draw_burn_marks(game);
+        draw_bleed_marks(game);
         draw_eye_marks(game);
         draw_bomb_blasts(game);
         draw_enemy_blasts(game);
@@ -620,6 +621,34 @@ fn draw_burn_marks(game: &Game) {
     }
 }
 
+/// Barbed Scourge: drops of blood run down every bleeding enemy, from its middle to
+/// its feet, each body on its own beat.
+fn draw_bleed_marks(game: &Game) {
+    if !game.arts.evolved(TAIL_LASH) {
+        return;
+    }
+    let e = &game.enemies;
+    let [fresh, dark] = BLEED_DROP_COLORS.map(Color::from_hex);
+    for i in (0..e.len()).filter(|&i| e.bleed_until[i] > game.time) {
+        let def = &ENEMY_DEFS[e.kind[i] as usize];
+        if !def.blood {
+            continue;
+        }
+        let h = def.size.1 as f32;
+        let pos = e.pos(i).round();
+        for n in 0..BLEED_DROPS {
+            let seed = jitter(e.uid[i].wrapping_mul(0x9e37_79b9) ^ n);
+            let life = (game.time / BLEED_DROP_FALL + (seed & 0xff) as f32 / 256.0).fract();
+            let dx = ((seed >> 8) % 7) as f32 - 3.0;
+            let y = -(h * 0.55).round() + (h * 0.55 - 2.0) * life * life;
+            let mut c = if life < 0.6 { fresh } else { dark };
+            c.a = 1.0 - (life - 0.7).max(0.0) / 0.3;
+            let p = (pos + vec2(dx - 1.0, y)).round();
+            draw_rectangle(p.x, p.y, 2.0, 2.0, c);
+        }
+    }
+}
+
 /// Allure's pulse: a ring of hearts that spreads to its edge, then fades there.
 fn draw_allure_wave(game: &Game, pos: Vec2) {
     let a = &game.arts.allure;
@@ -675,11 +704,16 @@ fn draw_offerings(game: &Game) {
 
 /// Hellgate pools: a patch of scorched ground as big as the Art's area, in 2 px cells
 /// with a ragged, fading edge and embers glowing in the char, plus small flames
-/// flickering on their own beats; all fade in and out.
+/// flickering on their own beats; all fade in and out. Abyssal Rift's are holes into
+/// the abyss instead: void and purple, glowing arms turning into the centre, and
+/// motes sucked in from as far as they pull.
 fn draw_gates(game: &Game) {
-    let rx = HELLGATE_RADIUS * game.arts.stats[HELLGATE].area;
+    let area = game.arts.stats[HELLGATE].area;
+    let rx = HELLGATE_RADIUS * area;
     let ry = rx * 0.5;
-    let [char_, scorch, edge, ember] = GATE_COLORS.map(Color::from_hex);
+    let rift = game.arts.evolved(HELLGATE);
+    let colors = if rift { RIFT_COLORS } else { GATE_COLORS };
+    let [char_, scorch, edge, ember] = colors.map(Color::from_hex);
     let flames =
         ((TAU * 0.5 * rx * ry / GATE_FLAME_AREA) as usize).clamp(GATE_MIN_FLAMES, GATE_MAX_FLAMES);
     let (cx, cy) = (
@@ -712,6 +746,19 @@ fn draw_gates(game: &Game) {
                     (edge, 0.3)
                 };
                 c.a = alpha * a;
+                if rift {
+                    // Spiral arms: their phase falls with the distance, so they wind
+                    // inwards as time goes on.
+                    let turn = off.x.atan2(off.y * 2.0) * RIFT_ARMS + k * 7.0 + game.time * 4.0;
+                    let arm = turn.sin();
+                    if k > 0.12 && k < 0.9 && arm > 0.55 {
+                        c = if arm > 0.9 && k < 0.6 { ember } else { edge };
+                        c.a = (0.5 + 0.4 * (1.0 - k)) * a;
+                    }
+                    let q = p + off;
+                    draw_rectangle(q.x, q.y, GATE_CELL, GATE_CELL, c);
+                    continue;
+                }
                 // A few cells of the char glow like embers, breathing.
                 if k < 0.7 && (h >> 8).is_multiple_of(GATE_EMBER_ODDS) {
                     let beat = 0.5 + 0.5 * (game.time * 5.0 + (h >> 16) as f32).sin();
@@ -721,6 +768,22 @@ fn draw_gates(game: &Game) {
                 let q = p + off;
                 draw_rectangle(q.x, q.y, GATE_CELL, GATE_CELL, c);
             }
+        }
+        if rift {
+            let pull = RIFT_RADIUS * area;
+            for n in 0..RIFT_MOTES {
+                let h = jitter(g.seed ^ n.wrapping_mul(0x85eb_ca6b));
+                let life = (g.t / RIFT_MOTE_FALL + (h & 0xff) as f32 / 256.0).fract();
+                // Each falls from the rim of the pull to the centre, curling round.
+                let dist = (1.0 - life).powf(1.5);
+                let angle = (h >> 8) as f32 / 16_777_216.0 * TAU + life * 2.5;
+                let at = p + vec2(angle.cos() * pull, angle.sin() * pull * 0.5) * dist;
+                let mut c = if life > 0.6 { ember } else { edge };
+                c.a = a * (life * 4.0).min(1.0);
+                let q = at.round();
+                draw_rectangle(q.x, q.y, 2.0, 2.0, c);
+            }
+            continue;
         }
         // Flames on random spots of the patch, the far ones first.
         let mut spots = [Vec2::ZERO; GATE_MAX_FLAMES];
@@ -743,9 +806,18 @@ fn draw_gates(game: &Game) {
 }
 
 /// Chains of Torment: a jagged bolt from her hand through every enemy bitten, that
-/// crackles into a new shape every few frames, with a spark on each victim.
+/// crackles into a new shape every few frames, with a spark on each victim. Torment
+/// Eternal's is black and blood with a molten core: it forks from the first victim to
+/// every other, and a ring as wide as its reach flashes out from the first bite.
 fn draw_chains(game: &Game) {
-    let [glow, body, core] = CHAIN_COLORS.map(Color::from_hex);
+    let eternal = game.arts.evolved(WHIP_OF_TORMENT);
+    let colors = if eternal {
+        TORMENT_COLORS
+    } else {
+        CHAIN_COLORS
+    };
+    let [glow, body, core] = colors.map(Color::from_hex);
+    let reach = TORMENT_RADIUS * game.arts.stats[WHIP_OF_TORMENT].area;
     let spark = assets::anim_frame(SpriteId::ChainSpark, game.time, true);
     for c in &game.arts.chains {
         let fade = ((CHAIN_SHOW_TIME - c.t) / (CHAIN_SHOW_TIME * 0.5)).min(1.0);
@@ -763,8 +835,21 @@ fn draw_chains(game: &Game) {
             };
             links[k].round() - vec2(0.0, h)
         };
+        if eternal && links.len() > 1 {
+            let first = links[1].round();
+            let k = c.t / CHAIN_SHOW_TIME;
+            let r = reach * (0.3 + 0.7 * k);
+            draw_circle_lines(first.x, first.y, r, 2.0, with(body, 0.7 * (1.0 - k)));
+            draw_circle_lines(first.x, first.y, r - 2.0, 1.0, with(core, 0.4 * (1.0 - k)));
+            let head = lift(1);
+            draw_circle(head.x, head.y, 6.0 * (1.0 - 0.5 * k), with(glow, 0.8));
+            draw_circle(head.x, head.y, 4.0 * (1.0 - 0.5 * k), with(body, 1.0));
+            draw_circle(head.x, head.y, 2.0, with(core, 1.0));
+        }
         for k in 1..links.len() {
-            let (a, b) = (lift(k - 1), lift(k));
+            // Torment Eternal forks every bite after the first from the first.
+            let from = if eternal && k > 1 { 1 } else { k - 1 };
+            let (a, b) = (lift(from), lift(k));
             let across = (b - a).perp().normalize_or_zero();
             // A kink every `CHAIN_KINK` pixels, the ends pinned.
             let steps = ((a.distance(b) / CHAIN_KINK).ceil() as usize).clamp(2, 32);
@@ -920,12 +1005,17 @@ fn draw_flying(id: SpriteId, pos: Vec2, vel: Vec2, height: f32, time: f32) {
 }
 
 /// Tail lashes at Veyra's sides, centred on her hitbox. A longer reach (area)
-/// stretches the swing outwards.
+/// stretches the swing outwards. Barbed Scourge swings its own, darker and barbed.
 fn draw_lashes(game: &Game, pos: Vec2) {
     let area = game.arts.stats[TAIL_LASH].area;
+    let id = if game.arts.evolved(TAIL_LASH) {
+        SpriteId::TailLashBarbed
+    } else {
+        SpriteId::TailLash
+    };
     for l in game.arts.lashes.iter().filter(|l| l.delay <= 0.0) {
-        let frame = assets::anim_frame(SpriteId::TailLash, l.t, false);
-        let (tex, src) = sprite(SpriteId::TailLash, frame);
+        let frame = assets::anim_frame(id, l.t, false);
+        let (tex, src) = sprite(id, frame);
         let w = (src.w + LASH_REACH * (area - 1.0)).round();
         let flip = l.side > 0.0;
         let x = if flip { pos.x + 1.0 } else { pos.x - 1.0 - w };
@@ -952,7 +1042,7 @@ fn draw_scent(game: &Game, pos: Vec2) {
     }
     let radius = SCENT_RADIUS * game.arts.stats[SCENT_OF_SIN].area;
     let color = |a: f32| {
-        let mut c = Color::from_hex(SCENT_COLOR);
+        let mut c = scent_color(game);
         c.a = a;
         c
     };
@@ -980,13 +1070,41 @@ fn draw_scent(game: &Game, pos: Vec2) {
     }
 }
 
-/// Motes of the Scent drifting up through the haze and fading as they rise.
+/// The Scent's haze colour: pink, wine red for Devouring Musk.
+fn scent_color(game: &Game) -> Color {
+    Color::from_hex(if game.arts.evolved(SCENT_OF_SIN) {
+        MUSK_COLOR
+    } else {
+        SCENT_COLOR
+    })
+}
+
+/// Motes of the Scent drifting up through the haze and fading as they rise. Devouring
+/// Musk also drains every enemy it just burned: strands of motes run from each to her.
 fn draw_scent_motes(game: &Game, pos: Vec2) {
     if !game.arts.owns(SCENT_OF_SIN) {
         return;
     }
+    let since = game.arts.since_scent;
+    if game.arts.evolved(SCENT_OF_SIN) && since < MUSK_DRAIN_TIME {
+        // The ones burned by the last pulse are weak until exactly then + duration.
+        let until = game.time - since + game.arts.stats[SCENT_OF_SIN].duration;
+        let e = &game.enemies;
+        let mut c = Color::from_hex(MUSK_STRAND_COLOR);
+        let k = since / MUSK_DRAIN_TIME;
+        for i in (0..e.len()).filter(|&i| (e.weak_until[i] - until).abs() < TICK_DT * 0.5) {
+            let h = ENEMY_DEFS[e.kind[i] as usize].size.1 as f32;
+            let from = e.pos(i) - vec2(0.0, (h * 0.5).round());
+            for m in 0..MUSK_STRAND_MOTES {
+                let t = (k * 1.3 - m as f32 * 0.15).clamp(0.0, 1.0);
+                c.a = 0.9 * (1.0 - t * t);
+                let p = (from.lerp(pos, t) - vec2(1.0, 1.0)).round();
+                draw_rectangle(p.x, p.y, 2.0, 2.0, c);
+            }
+        }
+    }
     let radius = SCENT_RADIUS * game.arts.stats[SCENT_OF_SIN].area;
-    let mut color = Color::from_hex(SCENT_COLOR);
+    let mut color = scent_color(game);
     for n in 0..SCENT_MOTES as u32 {
         let h = jitter(n.wrapping_mul(0x9e37_79b9));
         let angle = (h & 0xffff) as f32 / 65536.0 * TAU;
@@ -1020,11 +1138,28 @@ fn draw_spinning(
     draw_sprite_tinted(id, frame, corner, vel.x < 0.0, tint);
 }
 
-/// Reaper's Scythes, spinning as they fly, as big as their area.
+/// Reaper's Scythes, spinning as they fly, as big as their area. Midnight Harvest's
+/// are midnight blue with a moonlit edge, trailing violet ghosts of themselves.
 fn draw_scythes(game: &Game, alpha: f32) {
-    let id = assets::SCYTHE_TIERS[assets::size_tier(game.arts.stats[REAPERS_SCYTHE].area)];
+    let harvest = game.arts.evolved(REAPERS_SCYTHE);
+    let tiers = if harvest {
+        assets::SCYTHE_HARVEST_TIERS
+    } else {
+        assets::SCYTHE_TIERS
+    };
+    let id = tiers[assets::size_tier(game.arts.stats[REAPERS_SCYTHE].area)];
     for (k, sc) in game.arts.scythes.iter().enumerate() {
         let turns = game.time * SCYTHE_SPIN + k as f32 * 0.37;
+        if harvest {
+            let mut ghost = Color::from_hex(HARVEST_TRAIL_COLOR);
+            for n in (1..=HARVEST_TRAIL).rev() {
+                let lag = n as f32 * HARVEST_TRAIL_LAG;
+                ghost.a = 0.45 * (1.0 - n as f32 / (HARVEST_TRAIL + 1) as f32);
+                let at = sc.pos - sc.vel * lag;
+                let spin = turns - lag * SCYTHE_SPIN;
+                draw_spinning(id, at, sc.vel, alpha, SCYTHE_DRAW_HEIGHT, spin, ghost);
+            }
+        }
         draw_spinning(id, sc.pos, sc.vel, alpha, SCYTHE_DRAW_HEIGHT, turns, WHITE);
     }
 }
@@ -1218,21 +1353,34 @@ fn draw_bolts(game: &Game, alpha: f32) {
 }
 
 /// Brimstone Halo fireballs circling Veyra: the ones on the far side (`front` false)
-/// go behind her, the near ones in front.
+/// go behind her, the near ones in front. Infernal Crown's are crowned, white-hot and
+/// gold, over a faint gold ring that marks their orbit.
 fn draw_embers(game: &Game, pos: Vec2, front: bool) {
     let a = game.arts.halo_alpha();
     if a <= 0.0 {
         return;
     }
-    let frame = assets::anim_frame(SpriteId::Ember, game.time, true);
+    let crown = game.arts.evolved(BRIMSTONE_HALO);
+    let (id, centre) = if crown {
+        (SpriteId::EmberCrown, vec2(8.0, 15.0))
+    } else {
+        (SpriteId::Ember, vec2(7.0, 11.0))
+    };
+    if crown && !front {
+        let radius = HALO_RADIUS * game.arts.stats[BRIMSTONE_HALO].area;
+        let mut c = Color::from_hex(CROWN_RING_COLOR);
+        c.a = (0.22 + 0.08 * (TAU * 0.5 * game.time).sin()) * a;
+        draw_circle_lines(pos.x, pos.y, radius, 1.0, c);
+    }
+    let frame = assets::anim_frame(id, game.time, true);
     let tint = Color::new(1.0, 1.0, 1.0, a);
     for off in game.arts.embers().filter(|o| (o.y >= 0.0) == front) {
         let at = (pos + off).round();
         draw_shadow(at + vec2(0.0, VEYRA_DROP), 5.0, 1.5, 0.6 * a);
-        // The ball (centred at 7, 11 in its frame) sits on its point of the orbit,
-        // which circles her middle; the flames of its crown rise above.
-        let corner = at - vec2(7.0, 11.0);
-        draw_sprite_tinted(SpriteId::Ember, frame, corner, false, tint);
+        // The ball sits on its point of the orbit, which circles her middle; the
+        // flames of its crown rise above.
+        let corner = at - centre;
+        draw_sprite_tinted(id, frame, corner, false, tint);
     }
 }
 

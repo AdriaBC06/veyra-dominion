@@ -134,3 +134,7 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Stutter on a 75 Hz monitor: sigils were extrapolated the wrong way when flying left and Hellflare projectiles were not interpolated at all; anything drawn from sim positions must use `pos + vel * (alpha - 1) * TICK_DT`.
   - Gotchas: `W` is a dark wing colour in `arts.px.js` (white-ish is `e`); a new sprite needs `SPRITE_COUNT` bumped; the icons build writes `icons.json` + `sprites/` next to the sheet, delete them.
   - Next: V17l bat icons, V17m thrall icon, V17n visible evolutions (6 still look like their base Art), then V18b.
+- **S15 cont. (2026-10-23)** — V17n visible evolutions, approved by the user in-game.
+  - Done: Barbed Scourge (barbed lash + bleeding drops), Infernal Crown (crowned gold/white fireballs + orbit ring), Abyssal Rift (purple pools, inward spiral, sucked motes), Torment Eternal (black/blood bolt forking from the first bite + reach ring), Devouring Musk (wine haze + drain strands to her), Midnight Harvest (night scythes, 6 tiers, violet ghost trail). Look only: no sim or balance change.
+  - Another session was editing in parallel (icons, V18b rebalance): only my paths committed; its 6 failing `game::tests` (spawn_curve, xp_curve, timeline…) are its work in progress.
+  - Gotchas: in-game captures (`VEYRA_CAPTURE` hack) need enemies kept off her (else hurt flashes and level-ups); keep them few and pinned. Don't relaunch the game repeatedly: the user needs the PC.

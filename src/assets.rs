@@ -41,8 +41,10 @@ pub enum SpriteId {
     SoulRadiant,
     Bless,
     TailLash,
+    TailLashBarbed,
     HeartBolt,
     Ember,
+    EmberCrown,
     CharmHeart,
     GateFlame,
     ChainSpark,
@@ -59,6 +61,12 @@ pub enum SpriteId {
     Scythe3,
     Scythe4,
     Scythe5,
+    ScytheHarvest0,
+    ScytheHarvest1,
+    ScytheHarvest2,
+    ScytheHarvest3,
+    ScytheHarvest4,
+    ScytheHarvest5,
     Cross0,
     Cross1,
     Cross2,
@@ -91,7 +99,7 @@ pub enum SpriteId {
     Icons,
 }
 
-const SPRITE_COUNT: usize = 78;
+const SPRITE_COUNT: usize = 86;
 
 /// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
 /// times the base sprite.
@@ -103,6 +111,14 @@ pub const SCYTHE_TIERS: [SpriteId; SIZE_TIERS] = [
     SpriteId::Scythe3,
     SpriteId::Scythe4,
     SpriteId::Scythe5,
+];
+pub const SCYTHE_HARVEST_TIERS: [SpriteId; SIZE_TIERS] = [
+    SpriteId::ScytheHarvest0,
+    SpriteId::ScytheHarvest1,
+    SpriteId::ScytheHarvest2,
+    SpriteId::ScytheHarvest3,
+    SpriteId::ScytheHarvest4,
+    SpriteId::ScytheHarvest5,
 ];
 pub const CROSS_TIERS: [SpriteId; SIZE_TIERS] = [
     SpriteId::Cross0,
@@ -239,9 +255,9 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         SpriteId::VeyraCast => &[80, 80, 160],
         SpriteId::VeyraHurt => &[60, 120],
         SpriteId::VeyraDeath => &[143; 6],
-        SpriteId::TailLash => &[63; 3],
+        SpriteId::TailLash | SpriteId::TailLashBarbed => &[63; 3],
         SpriteId::Fireball | SpriteId::HeartBolt => &[83; 36],
-        SpriteId::Ember => &[100; 4],
+        SpriteId::Ember | SpriteId::EmberCrown => &[100; 4],
         SpriteId::CharmHeart => &[167; 2],
         SpriteId::GateFlame => &[100; 4],
 
@@ -262,6 +278,12 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         | SpriteId::Scythe3
         | SpriteId::Scythe4
         | SpriteId::Scythe5
+        | SpriteId::ScytheHarvest0
+        | SpriteId::ScytheHarvest1
+        | SpriteId::ScytheHarvest2
+        | SpriteId::ScytheHarvest3
+        | SpriteId::ScytheHarvest4
+        | SpriteId::ScytheHarvest5
         | SpriteId::Sigil0
         | SpriteId::Sigil1
         | SpriteId::Sigil2
@@ -348,8 +370,10 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     fx!(SoulRadiant, "soul_radiant"),
     fx!(Bless, "bless"),
     art!(TailLash, "tail_lash"),
+    art!(TailLashBarbed, "tail_lash_barbed"),
     art!(HeartBolt, "heart_bolt"),
     art!(Ember, "ember"),
+    art!(EmberCrown, "ember_crown"),
     art!(CharmHeart, "charm_heart"),
     art!(GateFlame, "gate_flame"),
     art!(ChainSpark, "chain_spark"),
@@ -366,6 +390,12 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     art!(Scythe3, "scythe_3"),
     art!(Scythe4, "scythe_4"),
     art!(Scythe5, "scythe_5"),
+    art!(ScytheHarvest0, "scythe_harvest_0"),
+    art!(ScytheHarvest1, "scythe_harvest_1"),
+    art!(ScytheHarvest2, "scythe_harvest_2"),
+    art!(ScytheHarvest3, "scythe_harvest_3"),
+    art!(ScytheHarvest4, "scythe_harvest_4"),
+    art!(ScytheHarvest5, "scythe_harvest_5"),
     art!(Cross0, "cross_0"),
     art!(Cross1, "cross_1"),
     art!(Cross2, "cross_2"),
@@ -879,9 +909,11 @@ mod tests {
             include_str!("../assets/sprites/veyra/anims/veyra_hair.json"),
             include_str!("../assets/sprites/veyra/anims/veyra_hair_move.json"),
             include_str!("../assets/sprites/arts/anims/tail_lash.json"),
+            include_str!("../assets/sprites/arts/anims/tail_lash_barbed.json"),
             include_str!("../assets/sprites/arts/anims/heart_bolt.json"),
             include_str!("../assets/sprites/arts/anims/fireball.json"),
             include_str!("../assets/sprites/arts/anims/ember.json"),
+            include_str!("../assets/sprites/arts/anims/ember_crown.json"),
             include_str!("../assets/sprites/arts/anims/charm_heart.json"),
             include_str!("../assets/sprites/arts/anims/gate_flame.json"),
             include_str!("../assets/sprites/arts/anims/chain_spark.json"),
@@ -898,6 +930,12 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/scythe_3.json"),
             include_str!("../assets/sprites/arts/anims/scythe_4.json"),
             include_str!("../assets/sprites/arts/anims/scythe_5.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_harvest_0.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_harvest_1.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_harvest_2.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_harvest_3.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_harvest_4.json"),
+            include_str!("../assets/sprites/arts/anims/scythe_harvest_5.json"),
             include_str!("../assets/sprites/arts/anims/cross_0.json"),
             include_str!("../assets/sprites/arts/anims/cross_1.json"),
             include_str!("../assets/sprites/arts/anims/cross_2.json"),
@@ -931,9 +969,11 @@ mod tests {
         ];
         let arts = [
             SpriteId::TailLash,
+            SpriteId::TailLashBarbed,
             SpriteId::HeartBolt,
             SpriteId::Fireball,
             SpriteId::Ember,
+            SpriteId::EmberCrown,
             SpriteId::CharmHeart,
             SpriteId::GateFlame,
             SpriteId::ChainSpark,
@@ -950,6 +990,12 @@ mod tests {
             SpriteId::Scythe3,
             SpriteId::Scythe4,
             SpriteId::Scythe5,
+            SpriteId::ScytheHarvest0,
+            SpriteId::ScytheHarvest1,
+            SpriteId::ScytheHarvest2,
+            SpriteId::ScytheHarvest3,
+            SpriteId::ScytheHarvest4,
+            SpriteId::ScytheHarvest5,
             SpriteId::Cross0,
             SpriteId::Cross1,
             SpriteId::Cross2,
@@ -1011,6 +1057,7 @@ mod tests {
         let size = |id: SpriteId| (rects[ranges[id as usize].0].w as u16, 0);
         for tiers in [
             SCYTHE_TIERS,
+            SCYTHE_HARVEST_TIERS,
             CROSS_TIERS,
             CROSS_BURNING_TIERS,
             SIGIL_TIERS,
