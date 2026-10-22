@@ -401,7 +401,70 @@ impl TitlePortrait {
     }
 }
 
+/// The rest of the title scene art (`assets/title.px.js`, `assets/title_backdrop.px.js`): big
+/// backdrop layers and a few title-only strips, one texture each. Strips are horizontal, equal frames.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TitleArt {
+    Sky,
+    Hills,
+    /// 12 frames at 12 fps: fires and embers flicker.
+    Village,
+    /// 3 x 24 puff tiers: shade, rim and body passes.
+    Smoke,
+    Crest,
+    Logo,
+    /// 4 glow strengths, flickered by the title scene.
+    LogoGlow,
+    Dominion,
+    /// Idle and highlighted.
+    Button,
+}
+
+impl TitleArt {
+    pub const ALL: [TitleArt; 9] = [
+        TitleArt::Sky,
+        TitleArt::Hills,
+        TitleArt::Village,
+        TitleArt::Smoke,
+        TitleArt::Crest,
+        TitleArt::Logo,
+        TitleArt::LogoGlow,
+        TitleArt::Dominion,
+        TitleArt::Button,
+    ];
+
+    pub const fn frames(self) -> u32 {
+        match self {
+            TitleArt::Village => 12,
+            TitleArt::Smoke => 72,
+            TitleArt::LogoGlow => 4,
+            TitleArt::Button => 2,
+            _ => 1,
+        }
+    }
+
+    const fn png(self) -> &'static [u8] {
+        macro_rules! png {
+            ($p:literal) => {
+                include_bytes!(concat!("../assets/sprites/title/", $p, ".png"))
+            };
+        }
+        match self {
+            TitleArt::Sky => png!("sprites/title_sky"),
+            TitleArt::Hills => png!("sprites/title_hills"),
+            TitleArt::Village => png!("anims/title_village"),
+            TitleArt::Smoke => png!("anims/title_smoke"),
+            TitleArt::Crest => png!("sprites/title_crest"),
+            TitleArt::Logo => png!("sprites/title_logo"),
+            TitleArt::LogoGlow => png!("anims/title_logo_glow"),
+            TitleArt::Dominion => png!("sprites/title_dominion"),
+            TitleArt::Button => png!("anims/title_button"),
+        }
+    }
+}
+
 thread_local! {
+    static TITLE_ART: OnceCell<Vec<Texture2D>> = const { OnceCell::new() };
     static TITLE_PORTRAIT: OnceCell<TitlePortrait> = const { OnceCell::new() };
     static ATLAS: OnceCell<Atlas> = const { OnceCell::new() };
     static FONTS: OnceCell<Fonts> = const { OnceCell::new() };
@@ -511,6 +574,16 @@ pub fn init() {
     TITLE_PORTRAIT.with(|p| {
         let _ = p.set(TitlePortrait { tex });
     });
+    let title_art = TitleArt::ALL
+        .map(|art| {
+            let tex = Texture2D::from_file_with_format(art.png(), Some(ImageFormat::Png));
+            tex.set_filter(FilterMode::Nearest);
+            tex
+        })
+        .to_vec();
+    TITLE_ART.with(|t| {
+        let _ = t.set(title_art);
+    });
 
     let load = |bytes| {
         let mut font = load_ttf_font_from_bytes(bytes).expect("embedded font");
@@ -565,6 +638,32 @@ pub fn title_portrait() -> TitlePortrait {
     TITLE_PORTRAIT.with(|p| p.get().expect("assets::init not called").clone())
 }
 
+/// Size of one frame of a title art strip.
+pub fn title_art_size(art: TitleArt) -> Vec2 {
+    TITLE_ART.with(|t| {
+        let tex = &t.get().expect("assets::init not called")[art as usize];
+        vec2(tex.width() / art.frames() as f32, tex.height())
+    })
+}
+
+/// Draws a frame of a title art strip 1:1 with its top-left corner at `pos` (snapped to pixels).
+pub fn draw_title_art(art: TitleArt, frame: u32, pos: Vec2) {
+    TITLE_ART.with(|t| {
+        let tex = &t.get().expect("assets::init not called")[art as usize];
+        let w = tex.width() / art.frames() as f32;
+        let params = DrawTextureParams {
+            source: Some(Rect::new(
+                (frame % art.frames()) as f32 * w,
+                0.0,
+                w,
+                tex.height(),
+            )),
+            ..Default::default()
+        };
+        draw_texture_ex(tex, pos.x.round(), pos.y.round(), WHITE, params);
+    });
+}
+
 /// Texture and source rect for a sprite frame (frame wraps around).
 pub fn sprite(id: SpriteId, frame: usize) -> (Texture2D, Rect) {
     ATLAS.with(|a| {
@@ -577,6 +676,32 @@ pub fn sprite(id: SpriteId, frame: usize) -> (Texture2D, Rect) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn title_art_strips_split_into_their_frames() {
+        for art in TitleArt::ALL {
+            let img = Image::from_file_with_format(art.png(), Some(ImageFormat::Png)).unwrap();
+            assert_eq!(img.width as u32 % art.frames(), 0, "{art:?}");
+            if art.frames() > 1 {
+                let name = match art {
+                    TitleArt::Village => "title_village",
+                    TitleArt::Smoke => "title_smoke",
+                    TitleArt::LogoGlow => "title_logo_glow",
+                    _ => "title_button",
+                };
+                let path = format!(
+                    "{}/assets/sprites/title/anims/{name}.json",
+                    env!("CARGO_MANIFEST_DIR")
+                );
+                let json = std::fs::read_to_string(path).unwrap();
+                assert_eq!(
+                    json.matches("\"duration\"").count() as u32,
+                    art.frames(),
+                    "{art:?}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn sheet_ids_cover_every_slot_once() {

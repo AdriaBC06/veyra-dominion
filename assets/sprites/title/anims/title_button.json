@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "title_button_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 34
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 34
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 34
+   },
+   "duration": 1000
+  },
+  "title_button_1": {
+   "frame": {
+    "x": 176,
+    "y": 0,
+    "w": 176,
+    "h": 34
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 176,
+    "h": 34
+   },
+   "sourceSize": {
+    "w": 176,
+    "h": 34
+   },
+   "duration": 1000
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "title_button.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 352,
+   "h": 34
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "title_button",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

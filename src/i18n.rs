@@ -67,7 +67,6 @@ macro_rules! keys {
 }
 
 keys! {
-    TitleTagline => "Survive {}", "Sobrevive {}";
     Paused => "Paused", "Pausa";
     VictoryTitle => "The village burns", "La aldea arde";
     VictoryStats => "Kills {}   Level {}", "Bajas {}   Nivel {}";
@@ -274,7 +273,7 @@ mod tests {
         assert_eq!(tr(Key::Paused), "Pausa");
         assert_eq!(trf(Key::LevelUpLevel, &[&2, &5]), "Nv 2 / 5");
         set_lang(Lang::En);
-        assert_eq!(trf(Key::TitleTagline, &[&"5:00"]), "Survive 5:00");
+        assert_eq!(trf(Key::VictoryStats, &[&3, &5]), "Kills 3   Level 5");
         for lang in Lang::ALL {
             assert_eq!(Lang::from_code(lang.code()), Some(lang));
         }

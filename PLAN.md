@@ -63,11 +63,11 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
     - [x] Elite outline: `elite` flag on enemies + debug key (F5); real elites come in V18
     - [x] Checked in game by the user (F4/F5/F6) and with scratch captures; stress test green
 - **S11 — Title screen** *(user approval)*
-  - [ ] V14 Animated title scene
+  - [x] V14 Animated title scene
     - [x] Phase 1 composition approved
     - [x] Phase 2 Veyra portrait: animated 1:1 pixel-art portrait on the title screen (approved)
-    - [ ] Phases 3–5 (backdrop, logo + buttons, integration)
-  - [ ] **CP6 Look & feel**
+    - [x] Phases 3–5 (backdrop, logo + buttons, integration), approved in game
+  - [x] **CP6 Look & feel**
 - **S12 — Arts I**
   - [x] V15 Arts framework + first Arts
 - **S13 — Arts II**

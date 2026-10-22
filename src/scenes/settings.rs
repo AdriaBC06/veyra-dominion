@@ -73,6 +73,11 @@ impl SettingsScene {
         }
     }
 
+    /// Opened from the pause menu (the run stays behind it).
+    pub fn in_run(&self) -> bool {
+        self.from_run
+    }
+
     fn rows(&self) -> &'static [Row] {
         TABS[self.tab].1
     }

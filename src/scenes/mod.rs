@@ -1,12 +1,14 @@
 //! Scene system: the app is in exactly one scene (title, run, settings or credits)
 //! and scenes ask for a change by returning a `Nav`. The run is kept while
-//! Settings is open from the pause menu; outside a run a fresh, idle one is the
-//! title backdrop.
+//! Settings is open from the pause menu. Every change goes through the ember wipe.
+//! The title, credits and settings (outside a run) sit on the painted title backdrop.
 
+mod backdrop;
 mod credits;
 mod run;
 mod settings;
 mod title;
+mod wipe;
 
 use crate::audio::{Audio, Track};
 use crate::hud;
@@ -14,14 +16,13 @@ use crate::i18n;
 use crate::save::{SaveData, Settings};
 use crate::screen::Screen;
 use crate::ui::UiInput;
+use backdrop::Backdrop;
 use credits::Credits;
 use macroquad::prelude::*;
 use run::Run;
 use settings::SettingsScene;
 use title::Title;
-
-/// Length of the fade from black after a scene change.
-const FADE_TIME: f32 = 0.25;
+use wipe::Wipe;
 
 /// A scene change requested by the current scene.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -49,8 +50,8 @@ pub struct App {
     save: SaveData,
     run: Run,
     scene: Scene,
-    /// Seconds left of the fade-in.
-    fade: f32,
+    backdrop: Backdrop,
+    wipe: Wipe,
     debug: bool,
 }
 
@@ -69,7 +70,8 @@ impl App {
             save: SaveData::load(),
             run: Run::new(),
             scene: Scene::Title(Title::default()),
-            fade: FADE_TIME,
+            backdrop: Backdrop::default(),
+            wipe: Wipe::new(),
             debug: false,
         }
     }
@@ -151,7 +153,15 @@ impl App {
             Nav::Credits => Scene::Credits(Credits::new()),
             Nav::Quit => return,
         };
-        self.fade = FADE_TIME;
+    }
+
+    /// The title backdrop shows behind every scene except a run (and its pause settings).
+    fn on_backdrop(&self) -> bool {
+        match &self.scene {
+            Scene::Title(_) | Scene::Credits(_) => true,
+            Scene::Settings(s) => !s.in_run(),
+            Scene::Run => false,
+        }
     }
 
     /// Runs one frame. Returns false when the player chose to quit.
@@ -161,23 +171,22 @@ impl App {
         let view = self.screen.view();
         self.run.game.set_view(view);
         let input = UiInput::read(self.screen.layout);
+        let dt = get_frame_time();
+        self.backdrop.update(input.mouse, view, dt);
 
-        let nav = match &mut self.scene {
-            Scene::Title(t) => t.update(&input, view),
-            Scene::Run => self.run.update(&input, view, self.settings.mouse_move),
-            Scene::Settings(s) => s.update(
-                &input,
-                view,
-                &mut self.settings,
-                &mut self.screen,
-                &mut self.save,
-            ),
-            Scene::Credits(c) => c.update(&input, view),
+        // the old scene takes no input while the wipe covers it
+        let nav = if self.wipe.covering() {
+            None
+        } else {
+            self.scene_update(&input, view)
         };
         if nav == Some(Nav::Quit) {
             return false;
         }
         if let Some(nav) = nav {
+            self.wipe.start(nav);
+        }
+        if let Some(nav) = self.wipe.update(dt) {
             self.navigate(nav);
         }
 
@@ -191,16 +200,37 @@ impl App {
         }
         self.audio.play_queued(get_time());
 
-        self.fade = (self.fade - get_frame_time()).max(0.0);
         self.draw(view);
         true
     }
 
-    fn draw(&self, view: Vec2) {
-        self.run.draw_world(&self.screen);
-        set_camera(&self.screen.camera(Vec2::ZERO));
+    fn scene_update(&mut self, input: &UiInput, view: Vec2) -> Option<Nav> {
+        match &mut self.scene {
+            Scene::Title(t) => t.update(input, view),
+            Scene::Run => self.run.update(input, view, self.settings.mouse_move),
+            Scene::Settings(s) => s.update(
+                input,
+                view,
+                &mut self.settings,
+                &mut self.screen,
+                &mut self.save,
+            ),
+            Scene::Credits(c) => c.update(input, view),
+        }
+    }
+
+    fn draw(&mut self, view: Vec2) {
+        let t = get_time();
+        if self.on_backdrop() {
+            set_camera(&self.screen.camera(Vec2::ZERO));
+            clear_background(BLACK);
+            self.backdrop.draw(view, t);
+        } else {
+            self.run.draw_world(&self.screen);
+            set_camera(&self.screen.camera(Vec2::ZERO));
+        }
         match &self.scene {
-            Scene::Title(t) => t.draw(view),
+            Scene::Title(title) => title.draw(view, t),
             Scene::Run => self.run.draw_ui(view),
             Scene::Settings(s) => s.draw(view, &self.settings, &self.screen, &self.save),
             Scene::Credits(c) => c.draw(view),
@@ -208,10 +238,7 @@ impl App {
         if self.debug {
             hud::draw_debug(&self.run.game, get_fps(), self.run.update_ms);
         }
-        if self.fade > 0.0 {
-            let a = self.fade / FADE_TIME;
-            draw_rectangle(0.0, 0.0, view.x, view.y, Color::new(0.0, 0.0, 0.0, a));
-        }
+        self.wipe.draw(view);
         self.screen.present();
     }
 }

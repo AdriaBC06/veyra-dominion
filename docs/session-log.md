@@ -91,3 +91,9 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Decisions taken alone: brand burn 2 s at 30%, seal blast 1.5×, sigil Sloth-scaled but scythe/cross flights not, `HitList` ring of 48 ids, `STRESS_HP` 100000, atlas 1024.
   - Offered, no answer yet: size tiers for Hellflare fireballs / Kiss hearts too.
   - Next: V17e (Bat Swarm, Black Mass, Gaze of Desire + Crimson Host, Witches' Sabbath, Evil Eye).
+- **S11d (2026-10-22)** — V14 phases 3–5 + CP6 done in one session at the user's request (see 7.5 "Phases 3–5"). Painted backdrop (`assets/title_backdrop.px.js`): blood moon behind Veyra, razed Ashford with smoke and embers, crest with the grave cross; logo glow, DOMINION redone at 13 px, premium title buttons; parallax, ember wipe on every scene change; title/credits/settings share the backdrop. 143 tests.
+  - The village was reworked after the user's first look ("añadir detalle, variedad en las llamas, curarlo más"): building types, props, five fire kinds, firelight on ground and faces.
+  - Smoke: per-puff shading looked like stacked coins; three passes (shade, rim, body) light only the column's outer edge.
+  - CP6: release binary 3.66 MB (3.42 MB stripped), up from 2.31 MB (portrait sheet ~1 MB, Arts sprites).
+  - Gotchas: a stray click on the window at launch can start a run in capture runs; fire positions are duplicated in `scenes/backdrop.rs` (`FIRES`, `VILLAGE`).
+  - Offered, no answer yet: the premium buttons in the other menus (pause, game over, settings).
