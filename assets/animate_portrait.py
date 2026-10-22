@@ -31,13 +31,13 @@ r, g, b = (base[..., i].astype(int) for i in range(3))
 purple = (b > r * 0.75) & (b > g)
 
 # ---------------------------------------------------------------- layers
-WING_L = poly_mask([(0, 20), (80, 20), (90, 60), (84, 85), (74, 110), (68, 135), (62, 160), (54, 185), (46, 216), (0, 216)]) & opaque
-WING_R = poly_mask([(312, 20), (225, 20), (214, 60), (218, 95), (226, 120), (232, 150), (236, 185), (240, 216), (312, 216)]) & opaque
+WING_L = poly_mask([(0, 20), (80, 20), (96, 60), (96, 92), (88, 100), (84, 112), (80, 126), (77, 140), (66, 160), (54, 185), (46, 216), (0, 216)]) & opaque
+WING_R = poly_mask([(312, 20), (225, 20), (216, 60), (218, 95), (222, 114), (216, 122), (220, 150), (230, 185), (240, 216), (312, 216)]) & opaque
 # where each wing continues hidden behind the hair/arm (filled so motion never opens holes)
 WING_L_EXT = poly_mask([(60, 40), (100, 60), (104, 130), (76, 140)])
 WING_R_EXT = poly_mask([(252, 40), (212, 60), (208, 130), (236, 140)])
 # hair strands that stray into the wing outlines stay with the body
-HAIRZONE = poly_mask([(36, 100), (92, 100), (92, 230), (36, 230)]) | poly_mask([(220, 100), (280, 100), (280, 230), (220, 230)])
+HAIRZONE = poly_mask([(36, 140), (92, 140), (92, 230), (36, 230)]) | poly_mask([(220, 114), (280, 114), (280, 230), (220, 230)])
 # purple inside a wing outline is hair only if it connects to the hair outside the wing
 def hair_inside(wing):
     from collections import deque
@@ -57,6 +57,9 @@ def hair_inside(wing):
             if 0 <= ny < H and 0 <= nx < W and cand[ny, nx] and not seen[ny, nx]:
                 seen[ny, nx] = True; q.append((ny, nx))
     return seen
+# the raised glove (with its gem and gold trim) sits in front of the left wing: never wing
+GLOVE_L = poly_mask([(97, 82), (92, 92), (86, 104), (81, 112), (77, 122), (76, 136), (78, 152), (90, 158), (112, 150), (112, 82)])
+WING_L &= ~GLOVE_L
 # gold below the wing claws is jewellery on the gloves, not wing
 gold = (r > 150) & (g > 90) & (b < 110) & (r > b * 1.6)
 low = np.zeros_like(opaque); low[80 + PADT:] = True
@@ -71,6 +74,9 @@ TAIL_POLY = poly_mask([(234, 219), (262, 221), (279, 227), (294, 246), (297, 268
 TAIL = TAIL_POLY & opaque & ~purple
 # where the tail leaves the hair at its root, the hair stays in front
 TAIL_ROOT_FRONT = poly_mask([(236, 286), (251, 286), (251, 311), (236, 311)]) & opaque & purple
+
+def purple_px(c):
+    return int(c[2]) > int(c[0]) * 0.75 and int(c[2]) > int(c[1])
 
 def layer(mask):
     out = np.zeros_like(base)
@@ -122,8 +128,18 @@ for wm in (WING_L, WING_R):
         ys, xs = zip(*comp)
         wm[list(ys), list(xs)] = False
 covered = opaque & ~(WING_L | WING_R)
-wingL = grow(layer(WING_L), WING_L_EXT & (covered | WING_L), 12)
-wingR = grow(layer(WING_R), WING_R_EXT & (covered | WING_R), 12)
+def extend(wing_mask, ext):
+    """Continue a wing under whatever covers its root with flat dark membrane (it only shows
+    briefly at the root while flapping, where the real membrane is in shadow)."""
+    lay = layer(wing_mask)
+    c = base[wing_mask & (r > g * 2) & (r > b * 1.2)]
+    lum = c[:, :3].astype(int).sum(1)
+    dark = np.median(c[lum <= np.percentile(lum, 25)], axis=0).astype(np.uint8)
+    fill = ext & covered & ~wing_mask
+    lay[fill] = dark
+    return lay
+wingL = extend(WING_L, WING_L_EXT | GLOVE_L)
+wingR = extend(WING_R, WING_R_EXT)
 # close the pinholes the hair left inside each wing (only where the wing surrounds them)
 wingL = grow(wingL, FOOT_L & ~WING_L, 3)
 wingR = grow(wingR, FOOT_R & ~WING_R, 3)
@@ -132,38 +148,28 @@ tail = layer(TAIL)
 tail = layer(TAIL)
 body = base.copy()
 body[WING_L | WING_R | TAIL] = 0
-# rebuild the hair under the spade: clone the strands from just left of the hole and carry the
-# hair's right edge (its outline) down across the gap
+# rebuild the hair under the spade by carrying the strands through it along their own slant
+# (down and to the right): the top half continues from above, the bottom half from below, so the
+# patch meets the real hair on both sides; past the hair's silhouette it stays empty
 hole = TAIL & poly_mask([(232, 218), (264, 218), (264, 262), (232, 262)])
-edge_of = {}
-for y in range(H):
-    xs = np.nonzero(body[y, :, 3] & purple[y])[0]
-    xs = xs[(xs >= 230 + PADX) & (xs < 270 + PADX)]
-    if len(xs):
-        edge_of[y] = xs.max()
-ys_known = sorted(edge_of)
-for y in range(H):
-    row = np.nonzero(hole[y])[0]
-    if not len(row):
-        continue
-    # hair edge for this row: interpolate from the nearest rows above and below the spade
-    above = [k for k in ys_known if k < 218 + PADT and k >= 205 + PADT]
-    below = [k for k in ys_known if k > 262 + PADT and k <= 275 + PADT]
-    e0 = np.mean([edge_of[k] for k in above]) if above else 252 + PADX
-    e1 = np.mean([edge_of[k] for k in below]) if below else 258 + PADX
-    t = (y - (218 + PADT)) / 44
-    edge = round(e0 + (e1 - e0) * t)
-    for x in row:
-        if x > edge:
-            continue
-        if x == edge:
-            body[y, x] = (0x1a, 0x04, 0x30, 255)           # the hair's dark rim
-            continue
-        for k in range(8, 40):                           # nearest real hair texture to the left
-            sx = x - k
-            if body[y, sx, 3] and purple[y, sx] and not hole[y, sx]:
-                body[y, x] = body[y, sx]
-                break
+def edge_at(y):                      # hair silhouette: x 252 above the spade, 258 below it
+    t = min(1, max(0, (y - (218 + PADT)) / 44))
+    return round(252 + PADX + 6 * t)
+fwd, bwd = body.copy(), body.copy()
+ys, xs = np.nonzero(hole)
+for y in range(ys.min(), ys.max() + 1):              # from above: take the up-left pixel
+    for x in sorted(xs[ys == y]):
+        k = 1 if y % 2 else 0
+        fwd[y, x] = fwd[y - 1, x - k]
+for y in range(ys.max(), ys.min() - 1, -1):          # from below: take the down-right pixel
+    for x in sorted(xs[ys == y], reverse=True):
+        k = 1 if y % 2 else 0
+        bwd[y, x] = bwd[y + 1, x + k]
+for y, x in zip(ys, xs):
+    col = np.nonzero(hole[:, x])[0]
+    from_top = y - col.min() <= col.max() - y
+    px = fwd[y, x] if from_top else bwd[y, x]
+    body[y, x] = px if x <= edge_at(y) and px[3] and purple_px(px) else 0
 root_front = layer(TAIL_ROOT_FRONT)
 
 # ---------------------------------------------------------------- RotSprite
@@ -276,13 +282,54 @@ SKIN = np.array([0xcd, 0x4d, 0x52])
 EYES = [(128, 63, 145, 69), (155, 57, 178, 64)]
 gems = [(x, y) for y in range(H) for x in range(W) if tuple(base[y, x, :3]) == (0xff, 0x9a, 0xa8) and opaque[y, x]]
 
-def blink(img, lift):
+def blink(img, lift, amount):
+    """Close the eyes: amount 1 = shut, 0.5 = half. The whole eye (lashes, iris, pupil, white) is
+    covered with the skin found just under it, then the lash line is redrawn lower down."""
     for x0, y0, x1, y1 in EYES:
-        for y in range(y0 + PADT - lift, y1 + PADT - lift):
-            for x in range(x0 + PADX, x1 + PADX):
-                c = img[y, x, :3].astype(int)
-                if img[y, x, 3] and not (c[2] > c[0]) and c.sum() >= 40:
-                    img[y, x, :3] = SKIN
+        x0, x1 = x0 + PADX, x1 + PADX
+        y0, y1 = y0 + PADT - lift, y1 + PADT - lift
+        box = img[y0 - 2:y1 + 1, x0:x1].copy()
+        rgb = box[..., :3].astype(int)
+        hair = (rgb[..., 2] > rgb[..., 0] * 0.75) & (rgb[..., 2] > rgb[..., 1]) & (rgb.sum(-1) > 60)
+        lash = rgb.sum(-1) < 60
+        # lowest lash pixel per column = the lid edge
+        edge = {}
+        for x in range(x1 - x0):
+            ys = np.nonzero(lash[:, x])[0]
+            ys = ys[ys < 6]
+            if len(ys):
+                edge[x] = ys.max()
+        if not edge:
+            continue
+        # a continuous, smooth lid: fill the columns between, then median-smooth
+        xs_ = sorted(edge)
+        full = {x: round(np.interp(x, xs_, [edge[k] for k in xs_])) for x in range(xs_[0], xs_[-1] + 1)}
+        edge = {x: int(np.median([full[k] for k in range(x - 2, x + 3) if k in full])) for x in full}
+        drop = 3 if amount >= 1 else 1
+        for x in range(x1 - x0):
+            # skin taken from just below the eye in the same column
+            under = img[y1 + 1, x0 + x]
+            for y in range(box.shape[0]):
+                if hair[y, x]:
+                    continue
+                if amount >= 1 or (x in edge and y <= edge[x] + drop):
+                    img[y0 - 2 + y, x0 + x] = under
+        # stray lash pixels just above the box
+        for x in range(x1 - x0):
+            for y in (y0 - 3,):
+                c = img[y, x0 + x, :3].astype(int)
+                if c.sum() < 60:
+                    img[y, x0 + x] = img[y - 1, x0 + x] if img[y - 1, x0 + x, 3] else img[y1 + 1, x0 + x]
+        lo, hi = min(edge), max(edge)
+        outer_left = x0 < W // 2                                # each eye's outer corner faces away
+        for x, e in edge.items():
+            if hair[min(e + drop, box.shape[0] - 1), x]:
+                continue
+            yy = y0 - 2 + e + drop
+            img[yy, x0 + x] = (0x14, 0x02, 0x0a, 255)
+            f = (x - lo) / max(1, hi - lo)
+            if (f < 0.6) if outer_left else (f > 0.4):          # lash weight on the outer side
+                img[yy - 1, x0 + x] = (0x14, 0x02, 0x0a, 255)
 
 EMBER = [(0xff, 0xf0, 0xd8), (0xff, 0xb0, 0x8a), (0xf0, 0x40, 0x6e), (0xa8, 0x16, 0x4a)]
 rng = np.random.default_rng(7)
@@ -339,8 +386,10 @@ for f in range(N):
     # tail: lags the wings, swings from its root behind the thigh
     over(img, rotsprite(tail, PIV_T, math.radians(7) * math.sin(ph * 2 - 1.2)))
     over(img, root_front)
-    if f in (36, 37):
-        blink(img, lift)
+    if f in (35, 38):
+        blink(img, lift, 0.5)
+    elif f in (36, 37):
+        blink(img, lift, 1)
     glint(img, f, lift)
     # pinholes the motion opened between strands (gaps the original already had are kept)
     for _ in range(2):
