@@ -4,9 +4,9 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 
 ## Session start (keep it cheap)
 
-1. Read `PLAN.md` (progress + task table) and the last entry of `docs/session-log.md` (`tail -n 12`).
+1. Read `PLAN.md` (progress + task table) and only the last entry of `docs/session-log.md` (`tail -n 8`, more only if it is cut).
 2. The current session is the first one in `PLAN.md` → V2 sessions with unchecked tasks, unless the user picks another. Do only that session's tasks.
-3. Read only the `docs/design.md` subsection (7.x) and the source files the task needs. No broad repo exploration. `docs/mvp.md` is history; its section 3 hard rules still apply (summarised below).
+3. Read only the `docs/design.md` subsection (7.x) and the source files the task needs. No broad repo exploration. `docs/archive/` is history (MVP plan, finished tasks, superseded designs): don't read it unless a task needs to know how something was designed before.
 
 ## Task loop
 
