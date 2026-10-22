@@ -1,7 +1,7 @@
 //! Enemy kinds, behaviours, spawning and the run timeline (docs/design.md 7.8).
 
-use crate::assets::SpriteId;
 use super::{POOL_RADIUS_SCALE, THRALL_HP};
+use crate::assets::SpriteId;
 
 // --- Enemies & spawning ---------------------------------------------------
 pub const MAX_ENEMIES: usize = 2500;

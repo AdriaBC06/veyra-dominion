@@ -147,7 +147,7 @@ pub struct Player {
     pub max_hp: f32,
     /// Remaining invulnerability after a hit.
     pub iframes: f32,
-    /// Seconds since a hand-thrown Art (Hellflare, Chain of Torment) last fired, for
+    /// Seconds since a hand-thrown Art (Hellflare, Whip of Torment) last fired, for
     /// the cast animation.
     pub since_cast: f32,
 }
@@ -989,7 +989,13 @@ impl Game {
     /// An elite on the spawn ring, of an unlocked kind picked by its health (the
     /// toughest kinds lead the charge).
     fn spawn_elite(&mut self) {
-        let weight = |k: usize| if self.unlocked[k] { ENEMY_DEFS[k].hp } else { 0.0 };
+        let weight = |k: usize| {
+            if self.unlocked[k] {
+                ENEMY_DEFS[k].hp
+            } else {
+                0.0
+            }
+        };
         let total: f32 = (0..ENEMY_DEFS.len()).map(weight).sum();
         if total <= 0.0 || self.enemies.len() >= MAX_ENEMIES {
             return;
@@ -1675,13 +1681,19 @@ mod tests {
         assert!(wound, "it stops to wind up once close");
         let x = g.enemies.x[0];
         run(&mut g, (windup / TICK_DT) as usize - 2);
-        assert!((g.enemies.x[0] - x).abs() < 2.0, "it holds still while winding up");
+        assert!(
+            (g.enemies.x[0] - x).abs() < 2.0,
+            "it holds still while winding up"
+        );
         run(&mut g, 6);
         assert_eq!(g.enemies.mode[0], MODE_DASH);
         let before = g.enemies.x[0];
         run(&mut g, 1);
         let step = (before - g.enemies.x[0]).abs();
-        assert!(step > dash_speed * TICK_DT * 0.8, "then lunges at dash speed");
+        assert!(
+            step > dash_speed * TICK_DT * 0.8,
+            "then lunges at dash speed"
+        );
     }
 
     #[test]
@@ -1697,7 +1709,10 @@ mod tests {
             hit |= g.player.hp < PLAYER_MAX_HP;
         }
         let d = g.enemies.pos(0).length();
-        assert!((d - keep).abs() <= KEEP_SLACK + 5.0, "holds {keep} px, at {d}");
+        assert!(
+            (d - keep).abs() <= KEEP_SLACK + 5.0,
+            "holds {keep} px, at {d}"
+        );
         assert!(hit, "a stone found her");
         assert!(g.player.hp <= PLAYER_MAX_HP - damage + 0.01);
     }
@@ -1732,7 +1747,10 @@ mod tests {
         run(&mut g, (2.0 * SUPPORT_PULSE / TICK_DT) as usize + 2);
         assert!(g.enemies.hp[1] > 10.0, "healed");
         assert!(g.enemies.hp[1] <= g.enemies.max_hp[1]);
-        assert_eq!(g.enemies.hp[0], g.enemies.max_hp[0], "not himself, he was whole");
+        assert_eq!(
+            g.enemies.hp[0], g.enemies.max_hp[0],
+            "not himself, he was whole"
+        );
     }
 
     #[test]

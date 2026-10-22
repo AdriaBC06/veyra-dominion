@@ -451,7 +451,7 @@ fn patch(sfx: Sfx) -> Patch {
             ],
             echo: dry,
         },
-        // Chain of Torment: links snapping taut, a bright zap that jumps a tritone
+        // Whip of Torment: links snapping taut, a bright zap that jumps a tritone
         // and falls, rattling twice more as it leaps between victims.
         Sfx::Chain => Patch {
             instruments: vec![

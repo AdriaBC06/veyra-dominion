@@ -205,20 +205,26 @@ icon("hellgate", (c) => {
   flame(c, 9, 10, 10, 2, ["x", "f", "F"])
 })
 
-// Chain of Torment: a chain segment, two links joined by bars.
-function chain(c) {
-  // Two face-on links (2 px rings) joined by one seen edge-on.
-  c.line(5, 8, 8, 5, "S", 2)
-  c.line(5, 7, 7, 5, "w")
-  for (const [x, y] of [[3, 10], [10, 3]]) {
-    c.circ(x, y, 3, "w")
-    c.circ(x, y, 1, "_")
-    c.recolor({ w: "S" }, (px, py) => px - x + (py - y) > 0)
-    c.recolor({ S: "s" }, (px, py) => px - x + (py - y) > 3)
-    c.px(x - 2, y - 2, "W")
+// Whip of Torment: a whip whose lash is crimson current, cracking at the tip.
+icon("whip_of_torment", (c) => {
+  // Leather grip with a gold pommel.
+  c.line(1, 12, 4, 9, "b", 2)
+  c.line(1, 12, 3, 10, "B")
+  c.px(0, 13, "y"); c.px(1, 13, "o"); c.px(0, 12, "Y")
+  const lash = [[5, 8], [5, 6], [7, 5], [7, 3], [10, 2], [11, 1], [13, 3], [12, 5], [13, 7], [12, 9]]
+  for (let i = 1; i < lash.length; i++) {
+    const [[x0, y0], [x1, y1]] = [lash[i - 1], lash[i]]
+    c.line(x0, y0, x1, y1, i < 4 ? "q" : "Q")
   }
-}
-icon("chain_of_torment", chain)
+  for (const [x, y] of lash.slice(2, -1)) c.px(x, y, "I")
+  // Crackle leaping off the lash.
+  for (const [x, y] of [[3, 6], [5, 1], [9, 0], [10, 5]]) c.px(x, y, "q")
+  // The crack at the tip.
+  const [tx, ty] = lash[lash.length - 1]
+  c.hline(tx - 2, ty + 2, 5, "q"); c.vline(tx, ty, 5, "q")
+  c.px(tx - 1, ty + 2, "Q"); c.px(tx + 1, ty + 2, "Q"); c.px(tx, ty + 1, "Q"); c.px(tx, ty + 3, "Q")
+  c.px(tx, ty + 2, "I")
+})
 
 icon("scent_of_sin", (c) => bottle(c, "I", "i", "W", "i"))
 
@@ -585,7 +591,7 @@ sym("pride", [`
 
 sheet("icons", [
   "ic_hellflare", "ic_tail_lash", "ic_brimstone_halo", "ic_allure", "ic_hellgate",
-  "ic_chain_of_torment", "ic_scent_of_sin", "ic_reapers_scythe", "ic_profaned_cross",
+  "ic_whip_of_torment", "ic_scent_of_sin", "ic_reapers_scythe", "ic_profaned_cross",
   "ic_wandering_sigil", "ic_bat_swarm", "ic_black_mass", "ic_gaze_of_desire", "ic_thralls",
   "ic_kiss_of_ruin", "ic_barbed_scourge", "ic_infernal_crown", "ic_sirens_dominion",
   "ic_abyssal_rift", "ic_torment_eternal", "ic_devouring_musk", "ic_midnight_harvest",

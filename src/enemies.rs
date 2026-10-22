@@ -424,8 +424,7 @@ impl Enemies {
     /// Support enemies heal the free allies around them every `SUPPORT_PULSE`.
     fn support(&mut self, hash: &SpatialHash, time: f32) {
         for i in 0..self.len() {
-            let Behavior::Support { radius, heal, .. } =
-                ENEMY_DEFS[self.kind[i] as usize].behavior
+            let Behavior::Support { radius, heal, .. } = ENEMY_DEFS[self.kind[i] as usize].behavior
             else {
                 continue;
             };

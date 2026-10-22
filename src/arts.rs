@@ -226,7 +226,7 @@ impl Gate {
     }
 }
 
-/// A Chain of Torment strike: Veyra, then every enemy it bit, in order. `seed` keeps
+/// A Whip of Torment strike: Veyra, then every enemy it bit, in order. `seed` keeps
 /// its jagged shape the same while it shows.
 pub struct Chain {
     links: [Vec2; MAX_CHAIN_LINKS + 1],
@@ -458,7 +458,7 @@ impl Arts {
                     ArtKind::BrimstoneHalo => false,
                     ArtKind::Allure => self.pulse(w, &mut cues),
                     ArtKind::Hellgate => self.open_gates(w, &mut cues),
-                    ArtKind::ChainOfTorment => self.chain(w, &mut cues),
+                    ArtKind::WhipOfTorment => self.chain(w, &mut cues),
                     ArtKind::ScentOfSin => self.scent(w, &mut cues),
                     ArtKind::ReapersScythe => self.reap(w, &mut cues),
                     ArtKind::ProfanedCross => self.throw_crosses(w, &mut cues),
@@ -645,7 +645,7 @@ impl Arts {
         opened
     }
 
-    /// Chain of Torment: bites a random enemy in range, then jumps to the nearest one
+    /// Whip of Torment: bites a random enemy in range, then jumps to the nearest one
     /// it hasn't bitten, `amount` enemies in all.
     fn chain(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
         if self.chains.len() >= MAX_CHAINS {
@@ -654,8 +654,8 @@ impl Arts {
         let Some(first) = random_enemy(w, CHAIN_RANGE) else {
             return false;
         };
-        let s = self.stats[CHAIN_OF_TORMENT];
-        let eternal = self.evolved[CHAIN_OF_TORMENT];
+        let s = self.stats[WHIP_OF_TORMENT];
+        let eternal = self.evolved[WHIP_OF_TORMENT];
         let (bites, jump) = if eternal {
             (MAX_CHAIN_LINKS, TORMENT_RADIUS * s.area)
         } else {
@@ -1809,7 +1809,7 @@ mod tests {
 
     #[test]
     fn torment_eternal_bites_every_foe_around_the_first() {
-        let mut g = evolved(CHAIN_OF_TORMENT);
+        let mut g = evolved(WHIP_OF_TORMENT);
         // A tight group far from her: one chain gets them all.
         for k in 0..14 {
             let p = vec2(120.0, 0.0) + Vec2::from_angle(k as f32) * (10.0 + k as f32 * 4.0);
@@ -1928,14 +1928,14 @@ mod tests {
     }
 
     #[test]
-    fn chain_of_torment_bites_amount_enemies_jumping_between_them() {
-        let mut g = game_with(CHAIN_OF_TORMENT, 1);
+    fn whip_of_torment_bites_amount_enemies_jumping_between_them() {
+        let mut g = game_with(WHIP_OF_TORMENT, 1);
         for x in [100.0, 130.0, 160.0, 190.0] {
             g.enemies.spawn(DUMMY, vec2(x, 0.0), 100.0);
         }
         g.enemies.spawn(DUMMY, vec2(400.0, 0.0), 100.0);
         tick(&mut g, 1);
-        let bites = ARTS[CHAIN_OF_TORMENT].base.amount as usize;
+        let bites = ARTS[WHIP_OF_TORMENT].base.amount as usize;
         assert_eq!((0..5).filter(|&i| hurt(&g, i)).count(), bites);
         assert!(!hurt(&g, 4));
         assert_eq!(g.arts.chains.len(), 1);
@@ -1955,8 +1955,7 @@ mod tests {
         let pool = g.arts.gates[0].pos;
         g.arts.hold();
         // Past a small pool's edge, inside a level 3 one (+25% area).
-        g.enemies
-            .spawn(DUMMY, pool + vec2(reach + 2.0, 0.0), 100.0);
+        g.enemies.spawn(DUMMY, pool + vec2(reach + 2.0, 0.0), 100.0);
         tick(&mut g, (HELLGATE_TICK / TICK_DT) as usize + 1);
         assert!(hurt(&g, 1));
     }
@@ -2387,7 +2386,11 @@ mod tests {
 
     /// A fireball already on its way along `vel`, from `pos`.
     fn fireball(g: &mut Game, pos: Vec2, vel: Vec2) {
-        g.arts.projectiles.push(Projectile { pos, vel, life: 2.0 });
+        g.arts.projectiles.push(Projectile {
+            pos,
+            vel,
+            life: 2.0,
+        });
     }
 
     #[test]

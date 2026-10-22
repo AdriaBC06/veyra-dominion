@@ -161,8 +161,8 @@ keys! {
     ArtAllureDesc => "Charms nearby foes to fight for her", "Hechiza a los cercanos para que luchen por ella";
     ArtHellgate => "Hellgate", "Puerta del infierno";
     ArtHellgateDesc => "Pools of hellfire under her foes", "Charcos de fuego infernal bajo sus enemigos";
-    ArtChainOfTorment => "Chain of Torment", "Cadena de tormento";
-    ArtChainOfTormentDesc => "A chain that leaps from foe to foe", "Una cadena que salta de enemigo en enemigo";
+    ArtWhipOfTorment => "Whip of Torment", "Látigo del tormento";
+    ArtWhipOfTormentDesc => "A whip that lashes from foe to foe", "Un látigo que restalla de enemigo en enemigo";
     ArtScentOfSin => "Scent of Sin", "Aroma del pecado";
     ArtScentOfSinDesc => "A haze that burns and weakens foes", "Una bruma que quema y debilita al enemigo";
     ArtReapersScythe => "Reaper's Scythe", "Guadaña del segador";
@@ -208,7 +208,7 @@ keys! {
     EvoAbyssalRift => "Abyssal Rift", "Grieta abisal";
     EvoAbyssalRiftDesc => "The pools drag foes into the fire", "Los charcos arrastran a los enemigos al fuego";
     EvoTormentEternal => "Torment Eternal", "Tormento eterno";
-    EvoTormentEternalDesc => "The chain bites every foe near its first", "La cadena muerde a todos los que rodean al primero";
+    EvoTormentEternalDesc => "The whip bites every foe near its first", "El látigo muerde a todos los que rodean al primero";
     EvoDevouringMusk => "Devouring Musk", "Almizcle voraz";
     EvoDevouringMuskDesc => "The haze feeds her on every foe it burns", "La bruma la alimenta con cada enemigo que quema";
     EvoMidnightHarvest => "Midnight Harvest", "Cosecha de medianoche";

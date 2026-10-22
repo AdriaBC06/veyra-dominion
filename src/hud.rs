@@ -285,7 +285,13 @@ fn draw_card(
     draw_ui_text(tag, x + w - tag_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
     let (first, second) = wrap_two(desc, w - CARD_TEXT_X - 10.0);
     draw_ui_text(first, x + CARD_TEXT_X, y + 44.0, TextStyle::Body, LIGHTGRAY);
-    draw_ui_text(second, x + CARD_TEXT_X, y + 62.0, TextStyle::Body, LIGHTGRAY);
+    draw_ui_text(
+        second,
+        x + CARD_TEXT_X,
+        y + 62.0,
+        TextStyle::Body,
+        LIGHTGRAY,
+    );
 }
 
 /// Splits `text` at a space into two lines when it is wider than `width`: the first

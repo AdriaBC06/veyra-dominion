@@ -74,7 +74,7 @@ pub const GATE_EMBER_ODDS: u32 = 9;
 pub const GATE_FLAME_AREA: f32 = 70.0;
 pub const GATE_MIN_FLAMES: usize = 4;
 pub const GATE_MAX_FLAMES: usize = 40;
-/// Chain of Torment: it bites a random enemy within `CHAIN_RANGE`, then jumps to the
+/// Whip of Torment: it bites a random enemy within `CHAIN_RANGE`, then jumps to the
 /// nearest enemy it hasn't bitten within `CHAIN_JUMP` (times area), `amount` in all.
 pub const CHAIN_RANGE: f32 = 180.0;
 pub const CHAIN_JUMP: f32 = 64.0;

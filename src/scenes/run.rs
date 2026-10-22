@@ -503,7 +503,9 @@ fn draw_enemies(game: &Game) {
         let mut frame = (walk + e.phase[i]) as usize % 2;
         // Telegraphs: a charger winding up blinks white, a primed bomber faster.
         let blink = match (def.behavior, e.mode[i]) {
-            (Behavior::Charger { .. }, MODE_WINDUP) => ((game.time * 12.0) as u32).is_multiple_of(2),
+            (Behavior::Charger { .. }, MODE_WINDUP) => {
+                ((game.time * 12.0) as u32).is_multiple_of(2)
+            }
             (Behavior::Bomber { .. }, MODE_WINDUP) => ((game.time * 20.0) as u32).is_multiple_of(2),
             _ => false,
         };
@@ -886,7 +888,12 @@ fn draw_shots(game: &Game) {
 fn draw_enemy_blasts(game: &Game) {
     for b in &game.blasts {
         let frame = assets::anim_frame(SpriteId::ZealotBlast, b.t, false);
-        draw_sprite(SpriteId::ZealotBlast, frame, b.pos.round() - vec2(22.0, 20.0), false);
+        draw_sprite(
+            SpriteId::ZealotBlast,
+            frame,
+            b.pos.round() - vec2(22.0, 20.0),
+            false,
+        );
     }
 }
 

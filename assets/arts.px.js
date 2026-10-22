@@ -98,7 +98,7 @@ anim("gate_flame", { w: 7, h: 10, frames: 4, fps: 10 }, (c) => {
   }
 })
 
-// Chain of Torment: the spark where the chain bites into an enemy.
+// Whip of Torment: the spark where the lash bites into an enemy.
 anim("chain_spark", { w: 9, h: 9, frames: 2, fps: 16 }, (c) => {
   if (c.frame === 0) {
     c.hline(0, 4, 9, "q"); c.vline(4, 0, 9, "q")

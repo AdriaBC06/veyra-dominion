@@ -16,7 +16,7 @@ pub enum ArtKind {
     BrimstoneHalo,
     Allure,
     Hellgate,
-    ChainOfTorment,
+    WhipOfTorment,
     ScentOfSin,
     ReapersScythe,
     ProfanedCross,
@@ -116,7 +116,7 @@ pub const TAIL_LASH: usize = 1;
 pub const BRIMSTONE_HALO: usize = 2;
 pub const ALLURE: usize = 3;
 pub const HELLGATE: usize = 4;
-pub const CHAIN_OF_TORMENT: usize = 5;
+pub const WHIP_OF_TORMENT: usize = 5;
 pub const SCENT_OF_SIN: usize = 6;
 pub const REAPERS_SCYTHE: usize = 7;
 pub const PROFANED_CROSS: usize = 8;
@@ -398,9 +398,9 @@ pub const ARTS: [ArtDef; 14] = [
     },
     // A chain that bites one enemy and jumps from foe to foe (Lightning Ring).
     ArtDef {
-        kind: ArtKind::ChainOfTorment,
-        name: Key::ArtChainOfTorment,
-        desc: Key::ArtChainOfTormentDesc,
+        kind: ArtKind::WhipOfTorment,
+        name: Key::ArtWhipOfTorment,
+        desc: Key::ArtWhipOfTormentDesc,
         amount_key: Key::ArtMoreJumps,
         base: ArtStats {
             damage: 12.0,
