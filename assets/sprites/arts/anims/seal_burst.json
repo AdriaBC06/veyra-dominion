@@ -1,0 +1,148 @@
+{
+ "frames": {
+  "seal_burst_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 33,
+    "h": 33
+   },
+   "duration": 67
+  },
+  "seal_burst_1": {
+   "frame": {
+    "x": 33,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 33,
+    "h": 33
+   },
+   "duration": 67
+  },
+  "seal_burst_2": {
+   "frame": {
+    "x": 66,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 33,
+    "h": 33
+   },
+   "duration": 67
+  },
+  "seal_burst_3": {
+   "frame": {
+    "x": 99,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 33,
+    "h": 33
+   },
+   "duration": 67
+  },
+  "seal_burst_4": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 33,
+    "h": 33
+   },
+   "duration": 67
+  },
+  "seal_burst_5": {
+   "frame": {
+    "x": 165,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 33,
+    "h": 33
+   },
+   "sourceSize": {
+    "w": 33,
+    "h": 33
+   },
+   "duration": 67
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "seal_burst.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 198,
+   "h": 33
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "seal_burst",
+    "from": 0,
+    "to": 5,
+    "direction": "forward"
+   }
+  ]
+ }
+}

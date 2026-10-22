@@ -377,7 +377,7 @@ impl Run {
         draw_crosses(game, alpha);
         draw_scythes(game, alpha);
         draw_bolts(game, alpha);
-        draw_projectiles(game);
+        draw_projectiles(game, alpha);
         draw_shots(game);
         draw_bombs(game);
         draw_mass_flash(game, origin, view);
@@ -897,15 +897,26 @@ fn draw_enemy_blasts(game: &Game) {
     }
 }
 
-fn draw_projectiles(game: &Game) {
+/// Hellflare flames, flying head first and interpolated along their flight.
+fn draw_projectiles(game: &Game, alpha: f32) {
     for p in &game.arts.projectiles {
-        draw_sprite(
-            SpriteId::Fireball,
-            0,
-            p.pos - vec2(4.0, 4.0 + PROJ_DRAW_HEIGHT),
-            false,
-        );
+        let pos = p.pos + p.vel * (alpha - 1.0) * TICK_DT;
+        draw_flying(SpriteId::Fireball, pos, p.vel, PROJ_DRAW_HEIGHT, game.time);
     }
+}
+
+/// A strip baked at 9 headings (straight up to straight down on the right, mirrored
+/// for the left) times 4 flickers, centred `height` above `pos` and turned along `vel`.
+fn draw_flying(id: SpriteId, pos: Vec2, vel: Vec2, height: f32, time: f32) {
+    const HEADINGS: usize = 9;
+    const FLICKERS: usize = 4;
+    let angle = vel.y.atan2(vel.x.abs());
+    let heading = ((angle / std::f32::consts::PI + 0.5) * (HEADINGS - 1) as f32).round() as usize;
+    let flicker = assets::anim_frame(id, time, true) % FLICKERS;
+    let frame = heading.min(HEADINGS - 1) * FLICKERS + flicker;
+    let (_, src) = sprite(id, frame);
+    let corner = pos - vec2((src.w * 0.5).floor(), (src.h * 0.5).floor() + height);
+    draw_sprite(id, frame, corner, vel.x < 0.0);
 }
 
 /// Tail lashes at Veyra's sides, centred on her hitbox. A longer reach (area)
@@ -1033,8 +1044,14 @@ fn draw_crosses(game: &Game, alpha: f32) {
 }
 
 /// Wandering Sigils, their runes turning; they fade at the end of their wander.
+/// Broken Seal's are cracked and burning, throbbing before they burst.
 fn draw_sigils(game: &Game, alpha: f32) {
-    let id = assets::SIGIL_TIERS[assets::size_tier(game.arts.stats[WANDERING_SIGIL].area)];
+    let tiers = if game.arts.evolved(WANDERING_SIGIL) {
+        assets::SIGIL_BROKEN_TIERS
+    } else {
+        assets::SIGIL_TIERS
+    };
+    let id = tiers[assets::size_tier(game.arts.stats[WANDERING_SIGIL].area)];
     for (k, g) in game.arts.sigils.iter().enumerate() {
         let tint = Color::new(1.0, 1.0, 1.0, (g.life / SIGIL_FADE).min(1.0));
         let turns = game.time * SIGIL_SPIN + k as f32 * 0.37;
@@ -1046,26 +1063,40 @@ fn draw_sigils(game: &Game, alpha: f32) {
     }
 }
 
-/// Broken Seal blasts: a flash and a ring of sparks spreading on the ground.
+/// Broken Seal blasts: the burst where the sigil was, and a shockwave spreading over
+/// the ground to the blast's true radius, gold cooling to crimson, sparks riding it.
 fn draw_seal_blasts(game: &Game) {
-    let colors = [Color::from_hex(0xffd0dc), Color::from_hex(0xff6f9a)];
+    let hot = Color::from_hex(0xffe08a);
+    let cool = Color::from_hex(0xa8182e);
+    let pink = Color::from_hex(0xff6f9a);
     for b in &game.arts.seal_blasts {
-        let k = b.t / SEAL_BLAST_TIME;
-        let spread = 1.0 - (1.0 - k).powi(2);
+        let k = (b.t / SEAL_BLAST_TIME).min(1.0);
         let fade = 1.0 - k;
-        let center = b.pos - vec2(0.0, SIGIL_DRAW_HEIGHT * (1.0 - spread));
-        let mut flash = colors[1];
-        flash.a = 0.35 * fade * fade;
-        let r = b.radius * spread;
-        draw_ellipse(center.x, center.y, r, r * 0.5, 0.0, flash);
+        let r = b.radius * (1.0 - (1.0 - k).powi(3));
+        let at = b.pos.round();
+        let mut glow = hot;
+        glow.a = 0.18 * fade * fade;
+        draw_circle(at.x, at.y, r, glow);
+        let mut inner = pink;
+        inner.a = 0.6 * fade;
+        draw_circle_lines(at.x, at.y, r * 0.7, 1.0, inner);
+        let mut wave = Color::new(
+            hot.r + (cool.r - hot.r) * k,
+            hot.g + (cool.g - hot.g) * k,
+            hot.b + (cool.b - hot.b) * k,
+            fade.sqrt(),
+        );
+        draw_circle_lines(at.x, at.y, r, if k < 0.5 { 2.0 } else { 1.0 }, wave);
         for n in 0..SEAL_BLAST_SPARKS {
-            let angle = n as f32 * TAU / SEAL_BLAST_SPARKS as f32;
-            let off = Vec2::from_angle(angle) * r;
-            let p = (center + vec2(off.x, off.y * 0.5)).round();
-            let mut c = colors[n % 2];
-            c.a = fade.min(1.0);
-            draw_rectangle(p.x - 1.0, p.y - 1.0, 2.0, 2.0, c);
+            let angle = n as f32 * TAU / SEAL_BLAST_SPARKS as f32 + 0.2;
+            let p = (at + Vec2::from_angle(angle) * (r + 2.0)).round();
+            wave = if n % 2 == 0 { hot } else { pink };
+            wave.a = fade;
+            draw_rectangle(p.x - 1.0, p.y - 1.0, 2.0, 2.0, wave);
         }
+        let frame = assets::anim_frame(SpriteId::SealBurst, b.t, false);
+        let burst = at - vec2(16.0, 16.0 + SIGIL_DRAW_HEIGHT);
+        draw_sprite(SpriteId::SealBurst, frame, burst, false);
     }
 }
 
@@ -1178,21 +1209,15 @@ fn draw_gazes(game: &Game) {
     }
 }
 
-/// Kiss of Ruin hearts, pulsing as they fly.
+/// Kiss of Ruin hearts of pink fire, flying head first.
 fn draw_bolts(game: &Game, alpha: f32) {
-    let frame = assets::anim_frame(SpriteId::HeartBolt, game.time, true);
     for b in &game.arts.bolts {
         let pos = b.pos + b.vel * (alpha - 1.0) * TICK_DT;
-        draw_sprite(
-            SpriteId::HeartBolt,
-            frame,
-            pos - vec2(4.0, 4.0 + BOLT_DRAW_HEIGHT),
-            false,
-        );
+        draw_flying(SpriteId::HeartBolt, pos, b.vel, BOLT_DRAW_HEIGHT, game.time);
     }
 }
 
-/// Brimstone Halo flames circling Veyra: the ones on the far side (`front` false)
+/// Brimstone Halo fireballs circling Veyra: the ones on the far side (`front` false)
 /// go behind her, the near ones in front.
 fn draw_embers(game: &Game, pos: Vec2, front: bool) {
     let a = game.arts.halo_alpha();
@@ -1202,10 +1227,11 @@ fn draw_embers(game: &Game, pos: Vec2, front: bool) {
     let frame = assets::anim_frame(SpriteId::Ember, game.time, true);
     let tint = Color::new(1.0, 1.0, 1.0, a);
     for off in game.arts.embers().filter(|o| (o.y >= 0.0) == front) {
-        let ground = (pos + off).round();
-        draw_shadow(ground, 5.0, 1.5, 0.6 * a);
-        // The flame stands on its ground point, lifted to the orbit's height.
-        let corner = ground - vec2(6.0, 14.0 + EMBER_DRAW_HEIGHT);
+        let at = (pos + off).round();
+        draw_shadow(at + vec2(0.0, VEYRA_DROP), 5.0, 1.5, 0.6 * a);
+        // The ball (centred at 7, 11 in its frame) sits on its point of the orbit,
+        // which circles her middle; the flames of its crown rise above.
+        let corner = at - vec2(7.0, 11.0);
         draw_sprite_tinted(SpriteId::Ember, frame, corner, false, tint);
     }
 }

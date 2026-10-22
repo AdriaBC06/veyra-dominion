@@ -9,6 +9,15 @@ pal({
   x: "#c8301c", f: "#ff9a3c", F: "#ffe08a", X: "#6a1410",  // brimstone
 })
 
+// Smooth value noise in 0..1, for the grain of fire (its tongues and crust).
+function fnoise(x, y) {
+  const h = (i, j) => { const n = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return n - Math.floor(n) }
+  const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy)
+  const a = h(i, j) + (h(i + 1, j) - h(i, j)) * sx, b = h(i, j + 1) + (h(i + 1, j + 1) - h(i, j + 1)) * sx
+  return a + (b - a) * sy
+}
+
 // Tail Lash: a crescent swept in front of her. 56x20; the near end (right) is at her side.
 const LW = 56, LH = 20
 function lash(c, stage) {
@@ -33,38 +42,33 @@ function lash(c, stage) {
 }
 anim("tail_lash", { w: LW, h: LH, frames: 3, fps: 16 }, (c) => lash(c, c.frame))
 
-// Kiss of Ruin: a heart bolt that pulses.
-const HEART = `
-  .hh.hh.
-  hiIhhhh
-  hiihhhh
-  hhhhhhH
-  .hhhhH.
-  ..hhH..
-  ...H...`
-anim("heart_bolt", { outline: "k", fps: 8 }, HEART, frame(), frame(grid(1, 1, "iI\nii"), grid(5, 1, "i")))
 
-// Brimstone Halo: one big flame (V17b), a teardrop of brimstone that licks and
-// sways. 13x17; its ground point is the bottom centre.
+// Brimstone Halo: a fireball (V17k, was a flame): a ball of molten brimstone, its
+// swirls turning, crusted dark at the rim, flames licking up from its crown. 13x17;
+// its ground point is the bottom centre.
 const FW = 13, FH = 17
-anim("ember", { w: FW, h: FH, frames: 4, fps: 10 }, (c) => {
-  const sway = [0, 1, 0, -1][c.frame]
-  const lick = [0, 1, 2, 1][c.frame]
+anim("ember", { w: FW, h: FH, frames: 4, fps: 10, outline: "X" }, (c) => {
+  const cx = 6, cy = 10.5, R = 5.4, spin = c.frame * Math.PI / 2
   for (let y = 0; y < FH; y++) {
-    const t = y / (FH - 1)                      // 0 at the tip, 1 at the base
-    // Narrow tip, widest two thirds down, rounded base.
-    const half = t < 0.7 ? 6 * Math.pow(t / 0.7, 0.8) : 6 * Math.sqrt(1 - Math.pow((t - 0.7) / 0.3, 2) * 0.55)
-    const shift = Math.round(sway * (1 - t) * 1.5)
     for (let x = 0; x < FW; x++) {
-      const d = Math.abs(x - 6 - shift)
-      if (d > half + 0.25 || y < lick) continue
-      const core = (d / Math.max(half, 0.5)) * 0.8 + (1 - t) * 0.6
-      c.px(x, y, core > 1.05 ? "X" : core > 0.75 ? "x" : core > 0.45 ? "f" : "F")
+      const u = x - cx, v = y - cy, r = Math.hypot(u, v)
+      let heat = null
+      if (r <= R + 0.2) {
+        // Hot heart, cooler rim; swirls spiral round it as it rolls.
+        const swirl = Math.sin(3 * Math.atan2(v, u) + r * 1.3 - spin)
+        heat = 1.0 - r / R * 0.8 + swirl * 0.22 * (r / R)
+        if (r > R - 1.1 && fnoise(x * 0.9, y * 0.9 + c.frame * 3) > 0.62) heat = 0.1   // crust
+      } else if (v < 0) {
+        // The crown: three tongues rising off the top, flickering.
+        for (const [tx, base] of [[-2.5, 1.5], [0, 3], [2.5, 1.5]]) {
+          const h = base + [0, 1, 2, 1][(c.frame + Math.round(tx) + 4) & 3]
+          const k = (-v - Math.sqrt(Math.max(0, R * R - u * u))) / h   // 0 at the ball, 1 at the tip
+          if (k >= 0 && k <= 1 && Math.abs(u - tx - Math.sin(k * 3 + spin) * 0.6) <= 1.3 * (1 - k)) heat = Math.max(heat ?? 0, 0.65 - k * 0.5)
+        }
+      }
+      if (heat !== null) c.px(x, y, heat > 0.78 ? "F" : heat > 0.52 ? "f" : heat > 0.28 ? "x" : "X")
     }
   }
-  // Sparks breaking off the tip.
-  if (c.frame === 1) c.px(8, 1, "f")
-  if (c.frame === 3) { c.px(4, 0, "x"); c.px(3, 2, "f") }
 })
 
 // ---- V16 ------------------------------------------------------------------
@@ -242,6 +246,87 @@ tiered("sigil", 7.2, { fps: 20, outline: "k" }, (c, size, scale) => {
   }
 })
 
+// Broken Seal (the Sigil evolved): the same seal cracked open and running hot, gold
+// and brimstone instead of pink; its cracks throb brighter and dimmer as if about to
+// burst (it does, on every bounce), and a chip is missing from its ring.
+function segDist(u, v, [x0, y0], [x1, y1]) {
+  const dx = x1 - x0, dy = y1 - y0
+  const t = Math.max(0, Math.min(1, ((u - x0) * dx + (v - y0) * dy) / (dx * dx + dy * dy)))
+  return Math.hypot(u - x0 - t * dx, v - y0 - t * dy)
+}
+const CRACKS = [
+  [[5.6, -5.6], [3, -3], [3.6, -0.6], [1, 1.6]],
+  [[-7.4, 1.5], [-4.6, 0.4], [-3.4, 2.8]],
+  [[-1.6, 7.2], [-0.6, 4.6]],
+]
+function cracked(u, v, width) {
+  return CRACKS.some((line) => line.slice(1).some((b, i) => segDist(u, v, line[i], b) <= width))
+}
+tiered("sigil_broken", 7.2, { fps: 20, outline: "k" }, (c, size, scale) => {
+  const m = (size - 1) / 2, turn = c.phase * Math.PI / 2, band = Math.round(scale)
+  const glow = ["x", "f", "F", "e", "e", "F", "f", "x"][c.frame]   // the throb of the cracks
+  const crackW = 0.45 + 0.1 * (scale - 1)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x - m, y - m), u = (x - m) / scale, v = (y - m) / scale
+      const ang = Math.atan2(y - m, x - m)
+      // The chip knocked out of the ring, up and to the right.
+      if (d > m + 0.5 - 2 * band && Math.abs(ang + Math.PI / 4) < 0.22) continue
+      if (cracked(u, v, crackW)) { c.px(x, y, glow); continue }
+      const a = ang - turn
+      const off = m * Math.abs((((a + Math.PI / 4) % (Math.PI / 2)) + Math.PI / 2) % (Math.PI / 2) - Math.PI / 4)
+      if (d <= m + 0.5 && d > m + 0.5 - band) {
+        c.px(x, y, off < 0.6 * scale ? "e" : off < 1.6 * scale ? "F" : "g")
+        continue
+      }
+      if (d <= m + 0.5 - band && d > m + 0.5 - 2 * band) {
+        c.px(x, y, off < 0.6 * scale ? "F" : "G")
+        continue
+      }
+      const key = lilith(u, v)
+      if (key) c.px(x, y, key === "e" ? "e" : key === "i" ? "f" : "F")
+    }
+  }
+})
+
+// Broken Seal's burst where a sigil bounces: a white-hot flash, rays of gold and
+// pink, shards of the seal flung out, then embers. 33x33, 6 frames over 0.4 s. The
+// game adds the shockwave ring at the blast's true radius.
+anim("seal_burst", { w: 33, h: 33, frames: 6, fps: 15 }, (c) => {
+  const m = 16, f = c.frame
+  const ray = (len, width, key, rot) => {
+    for (let k = 0; k < 8; k++) {
+      const a = rot + k * Math.PI / 4
+      for (let r = 0; r <= len; r += 0.5) {
+        const w = width * (1 - r / (len + 1))
+        for (let s = -w; s <= w; s += 0.5) {
+          c.px(Math.round(m + Math.cos(a) * r - Math.sin(a) * s), Math.round(m + Math.sin(a) * r + Math.cos(a) * s), key)
+        }
+      }
+    }
+  }
+  const disc = (r, key) => c.circ(m, m, r, key)
+  if (f === 0) { disc(5, "f"); disc(4, "F"); disc(2, "e") }
+  if (f === 1) { ray(12, 1.6, "f", 0); ray(9, 1.0, "F", 0); ray(7, 1.2, "i", Math.PI / 8); disc(5, "F"); disc(3, "e") }
+  if (f === 2) { ray(15, 1.2, "x", 0); ray(12, 0.8, "f", 0); ray(10, 0.8, "h", Math.PI / 8); c.ring(m, m, 6, "F"); disc(3, "f") }
+  // Shards: little pieces of the seal's ring flying out and spinning.
+  if (f >= 2) {
+    for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3 + 0.4, r = 5 + f * 2.6
+      const x = Math.round(m + Math.cos(a) * r), y = Math.round(m + Math.sin(a) * r - (f - 2) * 0.6)
+      c.rect(x, y, 2, 2, f < 5 ? (k % 2 ? "i" : "g") : "G")
+    }
+  }
+  if (f === 3) { c.ring(m, m, 9, "x"); c.ring(m, m, 8, "f"); disc(2, "x") }
+  // Embers drifting up as it dies down.
+  if (f >= 3) {
+    for (let k = 0; k < 7; k++) {
+      const a = k * 2.4, r = 4 + (k % 3) * 3
+      c.rect(Math.round(m + Math.cos(a) * r), Math.round(m + Math.sin(a) * r * 0.6 - (f - 2) * 2), 2, 2, f < 5 ? "f" : "x")
+    }
+  }
+})
+
 // ---- V17e -----------------------------------------------------------------
 
 pal({ m: "#b04a8a" })                                      // wing rim catching the light
@@ -345,3 +430,58 @@ anim("evil_eye", { outline: "k", fps: 4 }, `
   GIqkqIG
   .GIqIG.
   ..GGG..`, frame(), frame(grid(2, 2, "Q.Q")))
+
+// ---- V17k: flames in flight -----------------------------------------------
+
+// Hellflare flames and Kiss of Ruin hearts fly head first, a tail of fire streaming
+// behind. 9 headings for the right half (straight up to straight down, 22.5° apart;
+// the game mirrors them for the left), 4 flickers each: frame = heading * 4 + flicker.
+const HEADINGS = 9, FLICKERS = 4
+function flying(c, size, len, width, head, keys) {
+  const m = (size - 1) / 2
+  const d = Math.floor(c.frame / FLICKERS), flick = c.frame % FLICKERS
+  const a = -Math.PI / 2 + d * Math.PI / (HEADINGS - 1)
+  const dx = Math.cos(a), dy = Math.sin(a)
+  const key = (heat) => heat > 0.74 ? keys[3] : heat > 0.5 ? keys[2] : heat > 0.27 ? keys[1] : keys[0]
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = x - m, v = y - m
+      const along = u * dx + v * dy, across = -u * dy + v * dx
+      let heat = head(u, v, along, across, flick)
+      // The tail: a long middle tongue and two shorter ones splaying out, each
+      // narrowing to a point and licking from side to side as it flickers.
+      for (const [spread, reach, phase] of [[0, 1, 0], [1, 0.6, 1.7], [-1, 0.6, 3.4]]) {
+        const l = len * reach
+        if (along >= 0.5 || along <= -l) continue
+        const t = Math.max(0, -along) / l
+        const wob = spread * t * width * 0.8 + Math.sin(t * 5 - flick * Math.PI / 2 + phase) * 1.1 * t
+        const w = (spread ? 0.5 : 1) * width * (1 - t) ** 0.8 + 0.3
+        const off = Math.abs(across - wob)
+        if (off > w) continue
+        const grain = fnoise(-along * 0.7 + flick * 1.6, across * 1.1 + 5)
+        const fire = (1 - t) * (1 - 0.6 * off / w) * (spread ? 0.8 : 0.9) + (grain - 0.5) * 0.4
+        heat = Math.max(heat ?? 0, fire)
+      }
+      if (heat !== null && heat > 0) c.px(x, y, key(heat))
+    }
+  }
+  // Sparks shed behind it, a different pair each flicker.
+  for (const [k, side] of [[len + 1.5 + flick % 2, flick < 2 ? 1 : -1], [len - 1 + (flick + 1) % 3, flick % 2 ? 2 : -2]]) {
+    const x = Math.round(m - dx * k - dy * side), y = Math.round(m - dy * k + dx * side)
+    if (x >= 0 && y >= 0 && x < size && y < size) c.px(x, y, keys[2])
+  }
+}
+// Hellflare: a tongue of brimstone, its round head leading.
+anim("fireball", { w: 25, h: 25, frames: HEADINGS * FLICKERS, fps: 12, outline: "X" }, (c) =>
+  flying(c, 25, 12, 3.0, (u, v, along, across) => {
+    const r = Math.hypot(along - 0.8, across)
+    return r <= 3.3 ? 1.05 - r / 4.2 : null
+  }, "XxfF"))
+// Kiss of Ruin: an upright heart of pink fire, white-hot inside, trailing flame.
+anim("heart_bolt", { w: 23, h: 23, frames: HEADINGS * FLICKERS, fps: 12, outline: "k" }, (c) =>
+  flying(c, 23, 10, 2.8, (u, v, along, across, flick) => {
+    const x = u / 4.2, y = -(v - 0.5) / 4.2
+    const f = (x * x + y * y - 1) ** 3 - x * x * y ** 3
+    if (f > 0) return null
+    return 0.3 + Math.min(0.6, -f * 2.2) + (fnoise(u * 0.8 + flick * 2, v * 0.8) - 0.5) * 0.3
+  }, "HhiI"))

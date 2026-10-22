@@ -4,43 +4,757 @@
    "frame": {
     "x": 0,
     "y": 0,
-    "w": 9,
-    "h": 9
+    "w": 25,
+    "h": 25
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 9,
-    "h": 9
+    "w": 25,
+    "h": 25
    },
    "sourceSize": {
-    "w": 9,
-    "h": 9
+    "w": 25,
+    "h": 25
    },
-   "duration": 125
+   "duration": 83
   },
   "heart_bolt_1": {
    "frame": {
-    "x": 9,
+    "x": 25,
     "y": 0,
-    "w": 9,
-    "h": 9
+    "w": 25,
+    "h": 25
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 9,
-    "h": 9
+    "w": 25,
+    "h": 25
    },
    "sourceSize": {
-    "w": 9,
-    "h": 9
+    "w": 25,
+    "h": 25
    },
-   "duration": 125
+   "duration": 83
+  },
+  "heart_bolt_2": {
+   "frame": {
+    "x": 50,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_3": {
+   "frame": {
+    "x": 75,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_4": {
+   "frame": {
+    "x": 100,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_5": {
+   "frame": {
+    "x": 125,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_6": {
+   "frame": {
+    "x": 150,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_7": {
+   "frame": {
+    "x": 175,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_8": {
+   "frame": {
+    "x": 200,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_9": {
+   "frame": {
+    "x": 225,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_10": {
+   "frame": {
+    "x": 250,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_11": {
+   "frame": {
+    "x": 275,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_12": {
+   "frame": {
+    "x": 300,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_13": {
+   "frame": {
+    "x": 325,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_14": {
+   "frame": {
+    "x": 350,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_15": {
+   "frame": {
+    "x": 375,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_16": {
+   "frame": {
+    "x": 400,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_17": {
+   "frame": {
+    "x": 425,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_18": {
+   "frame": {
+    "x": 450,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_19": {
+   "frame": {
+    "x": 475,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_20": {
+   "frame": {
+    "x": 500,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_21": {
+   "frame": {
+    "x": 525,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_22": {
+   "frame": {
+    "x": 550,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_23": {
+   "frame": {
+    "x": 575,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_24": {
+   "frame": {
+    "x": 600,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_25": {
+   "frame": {
+    "x": 625,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_26": {
+   "frame": {
+    "x": 650,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_27": {
+   "frame": {
+    "x": 675,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_28": {
+   "frame": {
+    "x": 700,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_29": {
+   "frame": {
+    "x": 725,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_30": {
+   "frame": {
+    "x": 750,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_31": {
+   "frame": {
+    "x": 775,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_32": {
+   "frame": {
+    "x": 800,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_33": {
+   "frame": {
+    "x": 825,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_34": {
+   "frame": {
+    "x": 850,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
+  },
+  "heart_bolt_35": {
+   "frame": {
+    "x": 875,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 25
+   },
+   "duration": 83
   }
  },
  "meta": {
@@ -48,15 +762,15 @@
   "image": "heart_bolt.png",
   "format": "RGBA8888",
   "size": {
-   "w": 18,
-   "h": 9
+   "w": 900,
+   "h": 25
   },
   "scale": "1",
   "frameTags": [
    {
     "name": "heart_bolt",
     "from": 0,
-    "to": 1,
+    "to": 35,
     "direction": "forward"
    }
   ]

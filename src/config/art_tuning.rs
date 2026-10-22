@@ -29,12 +29,11 @@ pub const MAX_BOLTS: usize = 128;
 /// A heart remembers this many enemies it went through (more pierce than this
 /// just stops counting).
 pub const BOLT_MAX_HITS: usize = 8;
-/// Brimstone Halo: flames circle at this radius (times the Art's area), at height
-/// `EMBER_DRAW_HEIGHT`, and burn an enemy at most once per `HALO_IMMUNE` seconds,
+/// Brimstone Halo: fireballs circle her middle at this radius (times the Art's area),
+/// drawn where they burn, and burn an enemy at most once per `HALO_IMMUNE` seconds,
 /// pushing it `HALO_KNOCKBACK` pixels outwards.
 pub const HALO_RADIUS: f32 = 38.0;
 pub const EMBER_RADIUS: f32 = 8.0;
-pub const EMBER_DRAW_HEIGHT: f32 = 12.0;
 pub const HALO_IMMUNE: f32 = 0.6;
 pub const HALO_KNOCKBACK: f32 = 6.0;
 /// Embers fade in and out over this long at the ends of each burning spell.
@@ -251,7 +250,7 @@ pub const BRAND_SHARE: f32 = 0.3;
 /// `SEAL_BLAST_TIME`.
 pub const SEAL_BLAST_RADIUS: f32 = 30.0;
 pub const SEAL_BLAST_DAMAGE: f32 = 1.5;
-pub const SEAL_BLAST_TIME: f32 = 0.3;
+pub const SEAL_BLAST_TIME: f32 = 0.4;
 pub const MAX_SEAL_BLASTS: usize = 32;
 /// Sparks on a blast's ring.
 pub const SEAL_BLAST_SPARKS: usize = 16;

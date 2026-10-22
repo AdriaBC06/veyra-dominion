@@ -1,0 +1,190 @@
+{
+ "frames": {
+  "sigil_broken_0_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  },
+  "sigil_broken_0_1": {
+   "frame": {
+    "x": 19,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  },
+  "sigil_broken_0_2": {
+   "frame": {
+    "x": 38,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  },
+  "sigil_broken_0_3": {
+   "frame": {
+    "x": 57,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  },
+  "sigil_broken_0_4": {
+   "frame": {
+    "x": 76,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  },
+  "sigil_broken_0_5": {
+   "frame": {
+    "x": 95,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  },
+  "sigil_broken_0_6": {
+   "frame": {
+    "x": 114,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  },
+  "sigil_broken_0_7": {
+   "frame": {
+    "x": 133,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 19
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 19
+   },
+   "duration": 50
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "sigil_broken_0.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 152,
+   "h": 19
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "sigil_broken_0",
+    "from": 0,
+    "to": 7,
+    "direction": "forward"
+   }
+  ]
+ }
+}

@@ -4,83 +4,83 @@
    "frame": {
     "x": 0,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "sourceSize": {
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "duration": 100
   },
   "ember_1": {
    "frame": {
-    "x": 13,
+    "x": 15,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "sourceSize": {
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "duration": 100
   },
   "ember_2": {
    "frame": {
-    "x": 26,
+    "x": 30,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "sourceSize": {
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "duration": 100
   },
   "ember_3": {
    "frame": {
-    "x": 39,
+    "x": 45,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "rotated": false,
    "trimmed": false,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "sourceSize": {
-    "w": 13,
-    "h": 17
+    "w": 15,
+    "h": 19
    },
    "duration": 100
   }
@@ -90,8 +90,8 @@
   "image": "ember.png",
   "format": "RGBA8888",
   "size": {
-   "w": 52,
-   "h": 17
+   "w": 60,
+   "h": 19
   },
   "scale": "1",
   "frameTags": [

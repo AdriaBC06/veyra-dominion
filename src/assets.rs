@@ -77,6 +77,13 @@ pub enum SpriteId {
     Sigil3,
     Sigil4,
     Sigil5,
+    SigilBroken0,
+    SigilBroken1,
+    SigilBroken2,
+    SigilBroken3,
+    SigilBroken4,
+    SigilBroken5,
+    SealBurst,
     Fireball,
     Smoke,
     Soul,
@@ -84,7 +91,7 @@ pub enum SpriteId {
     Icons,
 }
 
-const SPRITE_COUNT: usize = 71;
+const SPRITE_COUNT: usize = 78;
 
 /// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
 /// times the base sprite.
@@ -120,6 +127,14 @@ pub const SIGIL_TIERS: [SpriteId; SIZE_TIERS] = [
     SpriteId::Sigil3,
     SpriteId::Sigil4,
     SpriteId::Sigil5,
+];
+pub const SIGIL_BROKEN_TIERS: [SpriteId; SIZE_TIERS] = [
+    SpriteId::SigilBroken0,
+    SpriteId::SigilBroken1,
+    SpriteId::SigilBroken2,
+    SpriteId::SigilBroken3,
+    SpriteId::SigilBroken4,
+    SpriteId::SigilBroken5,
 ];
 
 /// The tier closest to `area` (clamped to the baked ones).
@@ -225,7 +240,7 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         SpriteId::VeyraHurt => &[60, 120],
         SpriteId::VeyraDeath => &[143; 6],
         SpriteId::TailLash => &[63; 3],
-        SpriteId::HeartBolt => &[125; 2],
+        SpriteId::Fireball | SpriteId::HeartBolt => &[83; 36],
         SpriteId::Ember => &[100; 4],
         SpriteId::CharmHeart => &[167; 2],
         SpriteId::GateFlame => &[100; 4],
@@ -252,7 +267,14 @@ pub const fn frame_ms(id: SpriteId) -> &'static [u16] {
         | SpriteId::Sigil2
         | SpriteId::Sigil3
         | SpriteId::Sigil4
-        | SpriteId::Sigil5 => &[50; 8],
+        | SpriteId::Sigil5
+        | SpriteId::SigilBroken0
+        | SpriteId::SigilBroken1
+        | SpriteId::SigilBroken2
+        | SpriteId::SigilBroken3
+        | SpriteId::SigilBroken4
+        | SpriteId::SigilBroken5 => &[50; 8],
+        SpriteId::SealBurst => &[67; 6],
         SpriteId::Cross0
         | SpriteId::Cross1
         | SpriteId::Cross2
@@ -362,7 +384,14 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     art!(Sigil3, "sigil_3"),
     art!(Sigil4, "sigil_4"),
     art!(Sigil5, "sigil_5"),
-    sheet!(Fireball, "fireball", 1, false),
+    art!(SigilBroken0, "sigil_broken_0"),
+    art!(SigilBroken1, "sigil_broken_1"),
+    art!(SigilBroken2, "sigil_broken_2"),
+    art!(SigilBroken3, "sigil_broken_3"),
+    art!(SigilBroken4, "sigil_broken_4"),
+    art!(SigilBroken5, "sigil_broken_5"),
+    art!(SealBurst, "seal_burst"),
+    art!(Fireball, "fireball"),
     sheet!(Smoke, "smoke", 1, false),
     sheet!(Soul, "soul", 1, false),
     sheet!(Ground, "ground", GROUND_VARIANTS, false),
@@ -851,6 +880,7 @@ mod tests {
             include_str!("../assets/sprites/veyra/anims/veyra_hair_move.json"),
             include_str!("../assets/sprites/arts/anims/tail_lash.json"),
             include_str!("../assets/sprites/arts/anims/heart_bolt.json"),
+            include_str!("../assets/sprites/arts/anims/fireball.json"),
             include_str!("../assets/sprites/arts/anims/ember.json"),
             include_str!("../assets/sprites/arts/anims/charm_heart.json"),
             include_str!("../assets/sprites/arts/anims/gate_flame.json"),
@@ -886,6 +916,13 @@ mod tests {
             include_str!("../assets/sprites/arts/anims/sigil_3.json"),
             include_str!("../assets/sprites/arts/anims/sigil_4.json"),
             include_str!("../assets/sprites/arts/anims/sigil_5.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_broken_0.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_broken_1.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_broken_2.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_broken_3.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_broken_4.json"),
+            include_str!("../assets/sprites/arts/anims/sigil_broken_5.json"),
+            include_str!("../assets/sprites/arts/anims/seal_burst.json"),
             include_str!("../assets/sprites/enemy_fx/anims/torch_spin.json"),
             include_str!("../assets/sprites/enemy_fx/anims/fire_patch.json"),
             include_str!("../assets/sprites/enemy_fx/anims/zealot_blast.json"),
@@ -895,6 +932,7 @@ mod tests {
         let arts = [
             SpriteId::TailLash,
             SpriteId::HeartBolt,
+            SpriteId::Fireball,
             SpriteId::Ember,
             SpriteId::CharmHeart,
             SpriteId::GateFlame,
@@ -930,6 +968,13 @@ mod tests {
             SpriteId::Sigil3,
             SpriteId::Sigil4,
             SpriteId::Sigil5,
+            SpriteId::SigilBroken0,
+            SpriteId::SigilBroken1,
+            SpriteId::SigilBroken2,
+            SpriteId::SigilBroken3,
+            SpriteId::SigilBroken4,
+            SpriteId::SigilBroken5,
+            SpriteId::SealBurst,
             SpriteId::TorchSpin,
             SpriteId::FirePatch,
             SpriteId::ZealotBlast,
@@ -964,7 +1009,13 @@ mod tests {
         // Each tier is bigger than the one before.
         let (_, rects, ranges) = build();
         let size = |id: SpriteId| (rects[ranges[id as usize].0].w as u16, 0);
-        for tiers in [SCYTHE_TIERS, CROSS_TIERS, CROSS_BURNING_TIERS, SIGIL_TIERS] {
+        for tiers in [
+            SCYTHE_TIERS,
+            CROSS_TIERS,
+            CROSS_BURNING_TIERS,
+            SIGIL_TIERS,
+            SIGIL_BROKEN_TIERS,
+        ] {
             for w in tiers.windows(2) {
                 assert!(size(w[1]).0 > size(w[0]).0, "{:?}", w[1]);
             }

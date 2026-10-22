@@ -112,11 +112,14 @@ function cross(c, body, light, dark) {
 // Wandering Sigil: the same seal as the Art (`arts.px.js`), Lilith's glyph in a ring
 // with four runes; Broken Seal cracks it, sparks flying.
 function sigil(c, broken) {
+  // Broken Seal runs hot: gold ring, white-hot glyph, burning cracks.
+  const [ring, rune, glyph, core] = broken ? ["y", "Y", "F", "W"] : ["i", "I", "I", "W"]
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const d = Math.hypot(x - 6.5, y - 6.5)
-    if (d <= 7 && d > 6) c.px(x, y, "i")
+    if (d <= 7 && d > 6) c.px(x, y, ring)
+    else if (broken && d <= 6 && d > 5) c.px(x, y, "o")
   }
-  for (const [x, y] of [[6, 0], [7, 0], [13, 6], [13, 7], [6, 13], [7, 13], [0, 6], [0, 7]]) c.px(x, y, "I")
+  for (const [x, y] of [[6, 0], [7, 0], [13, 6], [13, 7], [6, 13], [7, 13], [0, 6], [0, 7]]) c.px(x, y, rune)
   c.grid(0, 2, `
     ...I......I...
     ...II....II...
@@ -125,10 +128,14 @@ function sigil(c, broken) {
     ......WW......
     ....IIIIII....
     ......II......
-    ......II......`)
+    ......II......`.replaceAll("I", glyph).replaceAll("W", core))
   if (broken) {
-    c.line(10, 0, 8, 4, "_"); c.line(8, 4, 9, 6, "_")
-    for (const [x, y] of [[12, 1], [11, 3], [5, 0]]) c.px(x, y, "F")
+    // A chip knocked out of the ring, and cracks glowing across it.
+    for (const [x, y] of [[10, 1], [11, 1], [11, 2], [12, 2], [12, 3]]) c.px(x, y, "_")
+    c.line(10, 3, 8, 5, "x"); c.line(8, 5, 9, 7, "x"); c.px(9, 4, "f")
+    c.line(0, 8, 3, 7, "x"); c.line(3, 7, 4, 9, "x"); c.px(2, 8, "f")
+    c.line(5, 13, 6, 11, "x")
+    for (const [x, y] of [[13, 0], [12, 0]]) c.px(x, y, "F")
   }
 }
 
@@ -173,23 +180,33 @@ function soul(c, cx, cy, r) {
 
 // --- Arts -------------------------------------------------------------------
 
-// Hellflare: a fireball streaking up and right.
+// Hellflare: a flame flying up and right, its tail splitting into tongues.
 icon("hellflare", (c) => {
-  c.poly([0, 14, 6, 2, 13, 9], "x")
-  c.poly([2, 13, 7, 4, 11, 8], "f")
-  c.line(0, 13, 3, 10, "X")
-  c.circ(9, 5, 4, "x")
-  c.circ(9, 5, 3, "f")
-  c.circ(10, 4, 1, "F")
+  c.poly([7, 3, 0, 13, 11, 8], "x")
+  c.poly([6, 4, 0, 7, 8, 6], "x")
+  c.poly([9, 7, 5, 13, 11, 8], "x")
+  c.poly([7, 4, 2, 11, 10, 8], "f")
+  c.circ(9, 5, 3, "x")
+  c.circ(9, 5, 2, "f")
+  c.px(10, 4, "F"); c.px(9, 4, "F"); c.px(10, 5, "F"); c.px(8, 6, "F")
+  c.px(1, 5, "f"); c.px(4, 13, "f")
 })
 
 icon("tail_lash", (c) => tail(c, "R", "r", "Q"))
 
-// Brimstone Halo: a ring of fire with one big flame.
+// Brimstone Halo: fireballs circling on their orbit, the nearest one biggest.
+function fireball(c, cx, cy, r) {
+  c.circ(cx, cy, r, "x")
+  c.circ(cx - 0.5, cy - 0.5, r - 1, "f")
+  c.px(cx - 1, cy - 1, "F")
+  if (r > 2) { c.px(cx, cy - 1, "F"); c.px(cx - 1, cy, "F") }
+  c.px(cx - 1, cy - r - 1, "x"); c.px(cx + 1, cy - r - 1, "f")
+}
 icon("brimstone_halo", (c) => {
-  c.ellipse(7, 10, 6, 3, "x", true)
-  c.ellipse(7, 10, 5, 2, "f", true)
-  flame(c, 7, 11, 11, 3.2, ["x", "f", "F"])
+  c.ellipse(7, 7, 6, 3, "X", true)
+  fireball(c, 2, 5, 1.5)
+  fireball(c, 12, 5, 1.5)
+  fireball(c, 7, 10, 3)
 })
 
 // Allure: a pair of lips.
@@ -283,11 +300,12 @@ sym("thralls", [`
 
 // --- Evolutions (Arts with one, in ARTS order) --------------------------------
 
-// Kiss of Ruin (Hellflare): a heart streaking up and right.
+// Kiss of Ruin (Hellflare): a heart of pink fire flying up and right, trailing flame.
 icon("kiss_of_ruin", (c) => {
-  c.line(0, 9, 2, 7, "h")
-  c.line(1, 13, 4, 10, "i")
-  c.line(5, 13, 6, 12, "h")
+  c.poly([6, 6, 0, 13, 8, 9], "h")
+  c.line(5, 6, 1, 8, "h"); c.line(7, 9, 4, 13, "h")
+  c.line(6, 7, 1, 12, "i")
+  c.px(0, 7, "I"); c.px(3, 13, "I")
   c.grid(4, 1, HEART9)
 })
 
