@@ -17,6 +17,7 @@ pal({
   b: "#4a2a18", B: "#8a5a30",                              // wood, leather
   u: "#1f4aa8", c: "#6cc8ff", C: "#dff6ff",                // soul blue (the XP souls)
   m: "#5a1a4e", M: "#8c3478", j: "#c860a8",                // Veyra's wings
+  a: "#2e0c2a", g: "#5c1c4a", G: "#7e2c64", l: "#b04a8a",  // the in-game bats (arts.px.js)
 })
 ramps("XxfF", "RrqQ", "HhiI", "oyY", "sSwW", "pPvV", "ebB", "ucC", "mMj")
 
@@ -139,15 +140,25 @@ function sigil(c, broken) {
   }
 }
 
+// The in-game bat (arts.px.js `bat`, wings up) grown to icon size: left half of a
+// 14 px mirrored icon. Body `a`, membrane `g`, finger bones `G`, rim `l`, eyes `q`.
 const BAT_HALF = `
   .......
-  .....P.
-  P....PP
-  PP..PPP
-  PPPpPPP
-  .PPpPPP
-  .P..PPP
-  ......P`
+  .......
+  .......
+  l......
+  lG.....
+  gGl..a.
+  gGGl.aa
+  .gGGlqa
+  .ggGgaa
+  ..g.gaa
+  ......a
+  .......
+  .......
+  .......`
+// Swap to the Crimson Host's blood red with golden eyes, as `bat_host` does in game.
+const HOST = { a: "R", g: "r", G: "q", l: "Q", q: "F" }
 
 // Inverted pentagram in a ritual circle, left half of a 13 px symmetric icon.
 function pentagram(ring, star) {
@@ -257,10 +268,8 @@ icon("profaned_cross", (c) => cross(c, "y", "Y", "o"))
 
 icon("wandering_sigil", (c) => sigil(c, false))
 
-half("bat_swarm", (c) => {
-  c.grid(0, 3, BAT_HALF)
-  c.px(5, 6, "Q")
-})
+// Bat Swarm: the plum bat of the swarm, red eyes.
+half("bat_swarm", grid(0, 0, BAT_HALF))
 
 // Black Mass: an inverted pentagram in a ritual circle.
 sym("black_mass", [pentagram("r", "Q")])
@@ -402,10 +411,7 @@ icon("heretics_brand", (c) => {
 icon("broken_seal", (c) => sigil(c, true))
 
 // Crimson Host (Bat Swarm): red bats with golden eyes.
-half("crimson_host", (c) => {
-  c.grid(0, 3, BAT_HALF.replaceAll("P", "r").replaceAll("p", "R"))
-  c.px(5, 6, "Y")
-})
+half("crimson_host", grid(0, 0, BAT_HALF.replace(/[a-zA-Z]/g, (k) => HOST[k] ?? k)))
 
 // Witches' Sabbath (Black Mass): a golden circle, every soul flying to it.
 sym("witches_sabbath", [pentagram("y", "Y")],
