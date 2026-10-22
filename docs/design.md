@@ -296,7 +296,7 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 
 | Track | Key / mode | Tempo / feel | Colour |
 |---|---|---|---|
-| Title "Dominion" | D Phrygian dominant | 84 BPM, slow 6/8 sway | Seductive pulse lead, triangle drone, sparse echo |
+| Title "Requiem" | D minor, Phrygian Eb | 100 BPM 4/4, full from bar 1 | Funeral bell, organ-choir Dies Irae, 16th harp ostinato |
 | Ashford | E harmonic minor | 150, driving 4/4 | Galloping bass ostinato, Castlevania-style energy |
 | Abbey | C Dorian vs C Phrygian | 120 | Corrupted plainchant on the wave channel against a pulse counter-melody |
 | Bastion | G minor march | 132 | Snare-heavy noise channel, brass-like 25% pulses |
@@ -334,7 +334,8 @@ On level-up the choice offers 3 (4 with a Pact) mixed Arts/Sins. Banish and Rero
 - The whole order loops (no intro section). `Song::render_loop` renders the song twice and keeps the second pass, so the loop's start already holds the echo and ringing notes of its end: seamless with macroquad's `looped`.
 - `audio/music.rs`: `Track` (Title, Ashford) embeds `assets/music/*.vtrk`; `render` levels every track to a long-term RMS of -26 dBFS (peak ≤ 0.95), a bed under the combat effects. Both tracks render in well under a second at load.
 - Playback: title, credits → Title; run → Ashford; Settings keeps what was playing. A new run restarts its theme. Music volume = master × music, applied live with `set_sound_volume`.
-- Title "Dominion": 84 is the dotted-quarter (6/8, 12 rows a bar). Leitmotif = D–Eb–D then the tritone fall to G# leaning into A. Form A (pulse lead over a D drone) | A' (her "voice" on the wave, the pulse whispering answers) | B (Gm Eb Cm D, swaying bass, wave pad) | A; 32 bars, 45.7 s.
+- Title "Requiem" (replaced "Dominion" on 2026-10-22; the user wanted it darker and gripping from the first second, so no slow intros on the title): crash + funeral bell (pulse, octave/twelfth arp clang) on bar 1, the Dies Irae with E made Eb on a hollow organ-choir wave over a 16th harp ostinato, octave bass and drums | B the leitmotif | C chromatic lament bass (D C# C B Bb A) under the Dies Irae up high, tremolo, drums doubling the second time | A' ending on Eb over A; 24 bars, 57.6 s. The old theme and three other candidates (Lilith's Lullaby, Heartbeat, Dominion March) are kept in `assets/music/drafts/`, not embedded.
+- Old title "Dominion" (now `drafts/title_dominion.vtrk`): 84 is the dotted-quarter (6/8, 12 rows a bar). Leitmotif = D–Eb–D then the tritone fall to G# leaning into A. Form A (pulse lead over a D drone) | A' (her "voice" on the wave, the pulse whispering answers) | B (Gm Eb Cm D, swaying bass, wave pad) | A; 32 bars, 45.7 s.
 - Ashford: gallop bass, off-beat chord stabs (arp macro), the leitmotif as B–C–B–F–F# over B major; the breakdown passes it between the pulses and quotes the title's own pitches. Form A | A' (octave double) | B (long notes over 16th arps) | breakdown + build ending on D#; 32 bars, 51.2 s.
 - `render_audio` writes `target/audio/music/<name>.wav`, two loops in a row so the seam can be checked. To check a mix, render each channel alone (filter `Song.events` by channel): in both tracks the lead sits about 3 dB under the full mix and the accompaniment 7–12 dB under.
 

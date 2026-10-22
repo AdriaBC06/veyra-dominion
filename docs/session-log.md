@@ -101,3 +101,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Decisions taken alone: the Gaze deals no damage and frozen enemies are harmless; Black Mass covers the view + 16 px; Art tuning constants moved to `config/art_tuning.rs`.
   - Gotcha: a dead enemy is removed (and counted as a kill) in the same tick it dies.
   - Next: V17f (Thralls + Allure/Thralls union, Infernal Court).
+- **Title music (2026-10-22)** — new title theme "Requiem" (`assets/music/title.vtrk`), approved by the user; see the V10 notes in design.md.
+  - The user wanted the title darker; four candidates were written (Requiem, Lilith's Lullaby, Heartbeat, Dominion March), auditioned as WAVs from a scratch renderer outside the repo.
+  - First drafts were rejected for slow intros: a title track must hook from bar 1 (full texture, crash, ostinato). Rewritten at 84–116 BPM.
+  - The old "Dominion" and the three unused candidates are kept in `assets/music/drafts/` (not embedded).
+  - Gotchas: the synth clamps at 1.0, so check the raw peak of a new track; drum tokens must be lowercase; a pattern can't be named `drum`.

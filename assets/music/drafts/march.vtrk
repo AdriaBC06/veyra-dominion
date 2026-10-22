@@ -1,0 +1,127 @@
+# Dominion March — unused title candidate.
+# D Phrygian, 4/4 at 84 BPM: one bar = 16 rows. Her host on the march, at full
+# force from the crash: her leitmotif stretched on two brass pulses in parallel
+# fourths, like a black mass, over a choir, a chugging low riff that leans on
+# Eb and falls to the tritone Ab, and war drums. B the choir and the riff with a
+# ringing bell. C a chromatic descent on the brass; the riff stops for one bar
+# and the fanfare comes back in.
+# Form (16 bars, loops): A fanfare | B choir | C descent | A' fanfare.
+
+song Dominion March
+tempo 84 4
+echo 0.25 0.3 0.22
+
+inst brass
+  vol 10 13 14 | 13 / 11 8 5 3 1 0
+  duty 1 2
+  pitch -8 -3 0
+  vib 0.15 5 0.35
+inst brass2
+  vol 7 9 10 | 10 / 8 6 4 2 1 0
+  duty 1
+  pitch -8 -3 0
+  vib 0.15 5 0.35
+
+inst choir
+  vol 3 5 7 9 11 12 | 12 / 11 9 7 5 3 2 1 0
+  pitch -4 -2 0
+  vib 0.2 4.5 0.4
+  wave 7BEFFDCBBBBBA9887776544444320014
+
+inst riff
+  vol 12 11 10 9 8 7 | 7 / 3 0
+inst ring
+  vol 10 9 8 7 6 5 5 4 4 3 3 2 2 1 1 0
+  arp 12 19 0
+  duty 0
+
+inst boom
+  vol 12 11 9 7 5 3 2 1 0
+inst crack
+  vol 13 10 7 5 3 2 1 0
+inst chain
+  vol 5 3 2 1 0
+  duty 1
+inst crash
+  vol 12 11 10 9 8 7 7 6 6 5 5 4 4 4 3 3 3 2 2 2 2 1 1 1 1 1 0
+
+drum b boom C3
+drum s crack D5
+drum c chain F7
+drum x crash C7
+
+# --- The riff ------------------------------------------------------------------
+pattern r1 16
+  tri riff | D2 D2 . D2 D2 . D2 . Eb2 . D2 D2 . D2 C2 . |
+pattern r2 16
+  tri riff | D2 D2 . D2 D2 . D2 . G#2 . G2 . F2 . Eb2 . |
+pattern rstop 16
+  tri riff | D2 . . . . . . . G#1 . . . A1 . . = |
+
+# --- Drums ---------------------------------------------------------------------
+pattern warx 16
+  noi | x . c b . c b . s . c b . c b b:b |
+pattern war 16
+  noi | b . c b . c b . s . c b . c b b:b |
+pattern war2 16
+  noi | b . c b . c b . s . c b s:9 s:b s:d s |
+pattern hold 16
+  noi | b . . . . . . . s . . . s . s s |
+
+# --- Choir ---------------------------------------------------------------------
+pattern ch1 16
+  wav choir | D4 . . . . . . . . . . . Eb4 . . . |
+pattern ch2 16
+  wav choir | D4 . . . . . . . G#3 . . . A3 . . = |
+pattern ch3 16
+  wav choir | F4 . . . . . . . . . . . E4 . . . |
+pattern ch4 16
+  wav choir | Eb4 . . . . . . . D4 . . . . . . = |
+
+# --- Fanfare: the leitmotif stretched ------------------------------------------
+pattern f1 16
+  p1 brass | D5 . . . . . . . Eb5 . . . D5 . . . |
+pattern f2 16
+  p1 brass | G#4 . . . . . . . . . . . A4 . . = |
+pattern f3 16
+  p1 brass | Bb4 . . . C5 . . . Eb5 . . . D5 . . . |
+pattern f4 16
+  p1 brass | C#5 . . . . . . . D5 . . . . . . = |
+
+# --- Descent -------------------------------------------------------------------
+pattern e1 16
+  p1 brass | F5 . . . E5 . . . Eb5 . . . D5 . . . |
+pattern e2 16
+  p1 brass | C5 . . . Bb4 . . . A4 . . . . . . = |
+pattern e3 16
+  p1 brass | Bb4 . . . A4 . . . G#4 . . . G4 . . . |
+pattern e4 16
+  p1 brass | F#4 . . . . . . . G4 . . . G#4 . A4 = |
+
+# --- Bell over the riff ---------------------------------------------------------
+pattern hi 16
+  p1 ring | D5 . . . . . . . . . . . Eb5:a . . . |
+pattern hi2 16
+  p1 ring | D5 . . . . . . . G#4:a . . . A4:a . . . |
+
+order
+  # A: crash, her fanfare in fourths
+  f1 f1@p2%brass2-5 r1 ch1 warx
+  f2 f2@p2%brass2-5 r2 ch2 war
+  f3 f3@p2%brass2-5 r1 ch3 war
+  f4 f4@p2%brass2-5 r2 ch4 war2
+  # B: the choir chants, a bell rings
+  hi r1 ch1 war
+  hi2 r2 ch2 war
+  hi r1 ch3 war
+  hi2 r2 ch4 war2
+  # C: descent
+  e1 e1@p2%brass2-5 r1 ch3 war
+  e2 e2@p2%brass2-5 r2 ch4 war
+  e3 e3@p2%brass2-5 r1 ch1 war
+  e4 e4@p2%brass2-5 rstop ch2 hold
+  # A': the fanfare again
+  f1 f1@p2%brass2-5 r1 ch1 warx
+  f2 f2@p2%brass2-5 r2 ch2 war
+  f3 f3@p2%brass2-5 r1 ch3 war
+  f4 f4@p2%brass2-5 r2 ch4 war2

@@ -1,0 +1,120 @@
+# Heartbeat — unused title candidate.
+# D minor, 4/4 at 96 BPM: one bar = 16 rows. Seduction before the kill, from
+# the first beat: her leitmotif on a sultry pulse with a wide vibrato, a
+# syncopated octave bass sliding down D C# C B (Dm, Dm(maj7), Dm7, Dm6) under a
+# held F, offbeat chord stabs and a heartbeat kick. B: her voice takes the
+# line, the pulse holds the pad and the heart races.
+# Form (16 bars, loops): A pulse | B voice, heart racing.
+
+song Heartbeat
+tempo 96 4
+echo 0.31 0.35 0.28
+
+inst lead
+  vol 8 11 12 13 14 | 13 / 11 9 7 5 4 3 2 1 0
+  duty 2 2 1
+  pitch -20 -12 -6 -3 -1 | 0 / -2 -5 -9 -14 -20
+  vib 0.35 5 0.25
+
+inst voice
+  vol 4 7 9 11 12 13 | 13 / 11 9 7 5 4 3 2 1 0
+  pitch -20 -10 -5 -2 | 0 / -2 -6 -12 -20
+  vib 0.3 5 0.25
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+
+inst pad
+  vol 2 3 4 5 6 7 | 7 / 6 5 4 3 2 1 0
+  vib 0.1 3 0.6
+  wave 8ABDEFFFEDCBA9988766543210001245
+inst padp
+  vol 2 3 4 5 | 5 / 4 3 2 1 0
+  duty 0
+
+inst stab
+  vol 7 5 4 3 2 1 0
+  arp | 0 3 7
+  duty 1
+inst stabM
+  vol 7 5 4 3 2 1 0
+  arp | 0 4 7
+  duty 1
+
+inst bass
+  vol 13 12 11 10 9 8 | 8 / 4 0
+
+inst lub
+  vol 15 12 8 5 3 1 0
+inst dub
+  vol 11 8 5 3 1 0
+inst hiss
+  vol 5 3 1 0
+inst snare
+  vol 11 9 7 5 3 2 1 0
+inst crash
+  vol 12 11 10 9 8 7 7 6 6 5 5 4 4 4 3 3 3 2 2 2 2 1 1 1 1 1 0
+
+drum l lub A2
+drum d dub D3
+drum h hiss C8
+drum s snare D5
+drum x crash C7
+
+# --- Her line ------------------------------------------------------------------
+pattern s1 16
+  p1 lead | D5 . . . . . . Eb5 . . D5 . . . . . |
+pattern s2 16
+  p1 lead | G#4 . . . . . . . . . A4 . . . . = |
+pattern s3 16
+  p1 lead | C5 . . . Bb4 . . . A4 . . . F4 . . . |
+pattern s4 16
+  p1 lead | G#4 . . . . . . . A4 . . . . . . = |
+pattern s5 16
+  p1 lead | D5 . . . . . . F5 . . E5 . . . Eb5 . |
+pattern s6 16
+  p1 lead | D5 . . . . . . . C#5 . . . . . . = |
+pattern s7 16
+  p1 lead | F5 . . . E5 . Eb5 . D5 . . . Bb4 . . . |
+pattern s8 16
+  p1 lead | A4 . . . . . . . . . . . . . . = |
+
+# --- Pad, stabs, bass ----------------------------------------------------------
+pattern pad 16
+  wav pad | F4 . . . . . . . . . . . . . . . |
+pattern pad2 16
+  wav pad | F4 . . . . . . . . . . . . . . = |
+pattern stab 16
+  p2 stab | . . . . . . D4 . . . . . . . D4:a . |
+pattern stabM 16
+  p2 stabM | . . . . . . A3 . . . . . . . A3:a . |
+pattern bass 16
+  tri bass | D2 . . D3 . . D2 . . D2 D3 . D2 . D3 . |
+
+# --- Noise ---------------------------------------------------------------------
+pattern heartx 16
+  noi | x . . d . . h . l . . d . . h . |
+pattern heart 16
+  noi | l . . d . . h . l . . d . . h . |
+pattern race 16
+  noi | l . h d s . h d l . h d s . h d |
+pattern racefill 16
+  noi | l . h d s . h d l . s d s s:a s:c s:e |
+
+order
+  # A: her line over the falling bass
+  s1 pad bass stab heartx
+  s2 pad bass-1 stab heart
+  s3 pad bass-2 stab heart
+  s4 pad bass-3 stab heart
+  s5 pad+5 bass-4 stab heart
+  s6 pad-1 bass-5 stabM heart
+  s7 pad+5 bass-7 stab+5 heart
+  s8 pad2-4 bass-5 stabM heart
+  # B: her voice, the heart racing
+  s1@wav%voice pad@p1%padp bass stab race
+  s2@wav%voice pad@p1%padp bass-1 stab race
+  s3@wav%voice pad@p1%padp bass-2 stab race
+  s4@wav%voice pad@p1%padp bass-3 stab race
+  s5@wav%voice pad@p1%padp+5 bass-4 stab race
+  s6@wav%voice pad@p1%padp-1 bass-5 stabM race
+  s7@wav%voice pad@p1%padp+5 bass-7 stab+5 race
+  s8@wav%voice pad2@p1%padp-4 bass-5 stabM racefill

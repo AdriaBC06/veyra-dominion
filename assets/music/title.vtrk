@@ -1,169 +1,143 @@
-# Dominion — title theme.
-# D Phrygian dominant (D Eb F# G A Bb C), 6/8 at 84 dotted-quarter BPM: one
-# bar = 12 rows. Veyra's leitmotif opens it: D-Eb-D, a minor 2nd sigh, then a
-# tritone fall to G# that leans up into A.
-# Form (32 bars, loops): A sung by the pulse lead over a D drone | A' on her
-# "voice" (wave) with the pulse whispering answers | B climbs over a swaying
-# bass | A again. The echo is a dotted eighth (3 rows).
+# Requiem for Ashford — title theme.
+# D minor bent Phrygian (Eb), 4/4 at 100 BPM: one bar = 16 rows. It opens on a
+# crash and the funeral bell with everything already running: a hollow
+# organ-choir sings the Dies Irae with its E made Eb over a 16th-note harp
+# ostinato, a pulsing octave bass and drums. B: Veyra's leitmotif (D-Eb-D, the
+# tritone fall to G# into A). C: a chromatic lament bass (D C# C B Bb A) under
+# the Dies Irae up high, tremolo, drums doubling. A' the Dies Irae again, ending
+# on Eb over A (the tritone) to fall back to the start.
+# Form (24 bars, loops): A Dies Irae x2 | B leitmotif | C lament x2 | A'.
 
-song Dominion
-tempo 84 6
-echo 0.357 0.3 0.25
+song Requiem
+tempo 100 4
+echo 0.3 0.32 0.25
 
-# Pulse lead: opens from a thin to a hollow duty while it swells, scoops up into
-# the note, and sighs down a semitone when released.
+inst choir
+  vol 4 7 9 11 12 | 12 / 11 9 7 5 4 3 2 1 0
+  pitch -4 -2 0
+  vib 0.15 4.5 0.4
+  wave 8CFFEDCDDDCDEFFC8300123222321003
+
 inst lead
-  vol 7 10 12 13 | 12 / 10 8 6 5 4 3 2 1 0
+  vol 9 12 13 14 | 13 / 10 8 6 5 4 3 2 1 0
   duty 0 1 1 2
   pitch -10 -6 -3 -1 | 0 / -1 -3 -6 -10 -16
-  vib 0.18 5 0.35
+  vib 0.22 5 0.3
 
-# Her voice: a soft sine-like wave with a little body, a slow swell, a wider
-# scoop and the same sigh.
-inst voice
-  vol 4 7 10 12 13 14 | 14 / 12 9 7 5 4 3 2 1 0
-  pitch -16 -8 -4 -2 | 0 / -2 -6 -12 -20
-  vib 0.2 4.5 0.3
-  wave 9BDFFFEDCCCCCCBA9764332210000246
+# Funeral bell: a metallic clang (octave + twelfth flicker) and a long ring.
+inst bell
+  vol 15 14 13 12 11 11 10 10 9 9 9 8 8 8 7 7 7 7 6 6 6 6 5 5 5 5 5 4 4 4 4 4 4 3 3 3 3 3 3 3 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1 0
+  arp 12 19 0 12 0 0 0 0 0 0 0 0
+  duty 0
 
-# The same wave as a quiet held pad under the B section.
-inst pad
-  vol 1 2 3 4 5 6 | 6 / 5 4 3 2 1 0
-  wave 9BDFFFEDCCCCCCBA9764332210000246
-
-# Plucked 12.5% pulse for the 6/8 broken chords.
 inst harp
-  vol 9 8 7 6 6 5 5 4 4 3 3 2 2 1 1 0
+  vol 8 7 6 5 4 3 2 1 0
   duty 1 0
-# Softer, to leave room for her voice in A'.
-inst harp2
-  vol 6 5 5 4 4 3 3 3 2 2 2 1 1 1 0
-  duty 1 0
+inst trem
+  vol 8 6 4 3 2 1 0
+  duty 2
 
-inst drone
-  vol 13 12 11 10 | 9 / 7 4 2 0
+inst bass
+  vol 13 12 11 10 9 | 9 / 4 0
 
+inst thud
+  vol 15 12 8 5 3 1 0
+inst snare
+  vol 12 10 7 5 3 2 1 0
 inst hiss
-  vol 13 8 4 2 1 0
+  vol 6 3 1 0
+inst crash
+  vol 13 12 11 10 9 8 8 7 7 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 0
 
-# A long breath of noise that marks the start of a section.
-inst breath
-  vol 1 1 2 2 3 3 4 4 5 5 5 5 5 4 4 4 4 3 3 3 3 3 2 2 2 2 2 2 1 1 1 1 1 1 1 1 0
-
+drum k thud C3
+drum s snare D5
 drum h hiss C8
-drum w breath G6
+drum x crash C7
 
-# --- Melody A (one bar each) ---------------------------------------------------
-pattern t1 12
-  p1 lead | D5 . . . Eb5 . D5 . . . . . |
-pattern t2 12
-  p1 lead | G#4 . . . A4 . . . . . . = |
-pattern t3 12
-  p1 lead | Bb4 . C5 . Eb5 . D5 . . . . . |
-pattern t4 12
-  p1 lead | F#4 . . . G4 . A4 . . . . = |
-pattern t5 12
-  p1 lead | D5 . . . Eb5 . D5 . Bb4 . G4 . |
-pattern t6 12
-  p1 lead | Eb5 . . . D5 . C5 . . . . = |
-pattern t7 12
-  p1 lead | Bb4 . . . A4 . G4 . . . F#4 . |
-pattern t8 12
-  p1 lead | Eb4 . . . D4 . . . . . . = |
+# --- Dies Irae, E made Eb ------------------------------------------------------
+pattern d1 16
+  wav choir | F4 . . . E4 . . . F4 . . . D4 . . . |
+pattern d2 16
+  wav choir | Eb4 . . . C4 . . . D4 . . . . . . = |
+pattern d3 16
+  wav choir | F4 . . . F4 . . . G4 . . . F4 . . . |
+pattern d4 16
+  wav choir | Eb4 . . . D4 . . . . . . . . . . = |
 
-# --- Whispered answers in A', while her voice holds a note ---------------------
-pattern a2 12
-  p1 lead | . . . . . . Eb5:9 . . D5:9 . = |
-pattern a4 12
-  p1 lead | . . . . . . D5:8 . . F#5:8 . = |
-pattern a6 12
-  p1 lead | . . . . . . G5:8 . . Eb5:8 . = |
-# Rises into B.
-pattern a8 12
-  p1 lead | . . . . . . F#4:9 . A4:a . C5:b . |
+# --- Leitmotif over held choir notes -------------------------------------------
+pattern l1 16
+  p1 lead | D5 . . . . . Eb5 . D5 . . . . . . . |
+pattern l2 16
+  p1 lead | G#4 . . . . . . . A4 . . . . . . = |
+pattern l3 16
+  p1 lead | Bb4 . . . C5 . . . Eb5 . . . D5 . . . |
+pattern l4 16
+  p1 lead | C#5 . . . . . . . D5 . . . . . . = |
+pattern hold 16
+  wav choir | D4 . . . . . . . . . . . . . . = |
+pattern hold2 16
+  wav choir | D4 . . . . . . . C#4 . . . . . . . |
 
-# --- Melody B ------------------------------------------------------------------
-pattern b1 12
-  p1 lead | D5 . . . . . G5 . . . A5 . |
-pattern b2 12
-  p1 lead | Bb5 . . . . . A5 . G5 . . . |
-# C up to F#: the leitmotif's tritone, rising this time.
-pattern b3 12
-  p1 lead | C5 . . . Eb5 . F#5 . . . . . |
-pattern b4 12
-  p1 lead | G5 . . . F#5 . A5 . . . . = |
-pattern b5 12
-  p1 lead | D5 . . . Eb5 . D5 . . . G5 . |
-pattern b6 12
-  p1 lead | Bb5 . . . A5 . G5 . . . Eb5 . |
-pattern b7 12
-  p1 lead | Eb5 . . . D5 . C5 . Bb4 . A4 . |
+# --- Lament: Dies Irae up high --------------------------------------------------
+pattern b1 16
+  p1 lead | F5 . . . E5 . . . F5 . . . D5 . . . |
+pattern b2 16
+  p1 lead | Eb5 . . . C5 . . . D5 . . . . . . . |
+pattern b3 16
+  p1 lead | F5 . . . F5 . . . G5 . . . F5 . . . |
+pattern b4 16
+  p1 lead | Eb5 . . . . . . . D5 . . . . . . = |
 
-# --- Pad under B ---------------------------------------------------------------
-pattern pw 12
-  wav pad | Bb4 . . . . . . . . . . . |
-pattern pc 12
-  wav pad | Eb4 . . . . . G4 . . . . . |
-pattern pd 12
-  wav pad | F#4 . . . . . A4 . . . . . |
-pattern pe 12
-  wav pad | F#4 . . . . . . . . . . = |
+# --- Bell, ostinato, bass ------------------------------------------------------
+pattern toll 16
+  p1 bell | D4 . . . . . . . . . . . . . . . |
+pattern om 16
+  p2 harp | D3 A3 D4 F4 A4 F4 D4 A3 D3 A3 D4 F4 A4 F4 D4 A3 |
+pattern oM 16
+  p2 harp | D3 A3 D4 F#4 A4 F#4 D4 A3 D3 A3 D4 F#4 A4 F#4 D4 A3 |
+pattern trem 16
+  p2 trem | D4 D4:9 D4:b D4:8 D4:d D4:8 D4:b D4:8 D4 D4:9 D4:b D4:8 D4:d D4:8 D4:b D4:8 |
+pattern oct 16
+  tri bass | D2 . D3 . D2 . D3 . D2 . D3 . D2 . D3 . |
+pattern lam 16
+  tri bass | D2 . D3 . D2 . D3 . C#2 . C#3 . C#2 . C#3 . |
 
-# --- Bass ----------------------------------------------------------------------
-# A drone re-struck on each dotted quarter, and the swaying root-fifth of B.
-pattern drone 12
-  tri drone | D2 . . . . . D2:b . . . . . |
-pattern sway 12
-  tri drone | D2 . . . . . A1:c . . . . . |
-
-# --- Broken chords -------------------------------------------------------------
-pattern arpD 12
-  p2 harp | D3 . A3 . D4 . F#4 . D4 . A3 . |
-pattern arpGm 12
-  p2 harp | G3 . D4 . G4 . Bb4 . G4 . D4 . |
-
-# --- Noise ---------------------------------------------------------------------
-pattern breath 12
-  noi | w . . . . . . . . . . . |
-pattern tick 12
-  noi | . . . . . . h:5 . . . . . |
-pattern shake 12
-  noi | h:9 . h:4 . h:5 . h:8 . h:4 . h:5 . |
+# --- Drums ---------------------------------------------------------------------
+pattern hit 16
+  noi | x . h . s . h k k . h . s . h . |
+pattern beat 16
+  noi | k . h . s . h k k . h . s . h . |
+pattern beat2 16
+  noi | k . h k s . h k k . h k s . s:9 s:b |
+pattern fast 16
+  noi | k h k h s h k h k h k h s h s s:b |
 
 order
-  # A
-  t1 drone arpD
-  t2 drone arpD
-  t3 drone arpD+1
-  t4 drone arpD
-  t5 drone arpGm
-  t6 drone arpGm-7
-  t7 drone arpD+1
-  t8 drone arpD
-  # A': her voice
-  t1@wav%voice drone arpD%harp2 breath
-  t2@wav%voice a2 drone arpD%harp2 tick
-  t3@wav%voice drone arpD+1%harp2 tick
-  t4@wav%voice a4 drone arpD%harp2 tick
-  t5@wav%voice drone arpGm%harp2 tick
-  t6@wav%voice a6 drone arpGm%harp2-7 tick
-  t7@wav%voice drone arpD+1%harp2 tick
-  t8@wav%voice a8 drone arpD%harp2 tick
-  # B: Gm Eb Cm D, twice
-  b1 pw sway+5 arpGm shake
-  b2 pw-3 sway+1 arpD+1 shake
-  b3 pc sway-2 arpGm-7 shake
-  b4 pd sway arpD shake
-  b5 pw sway+5 arpGm shake
-  b6 pw-3 sway+1 arpD+1 shake
-  b7 pw-7 sway-2 arpGm-7 shake
-  t2 pe sway arpD shake
-  # A
-  t1 drone arpD breath
-  t2 drone arpD
-  t3 drone arpD+1
-  t4 drone arpD
-  t5 drone arpGm
-  t6 drone arpGm-7
-  t7 drone arpD+1
-  t8 drone arpD
+  # A: crash, bell, Dies Irae
+  d1 toll om oct hit
+  d2 om oct beat
+  d3 toll oM-4 oct-4 beat
+  d4 om-7 oct-7 beat2
+  d1 toll om oct beat
+  d2 om oct beat
+  d3 toll oM-4 oct-4 beat
+  d4 oM-5 oct-5 beat2
+  # B: her leitmotif
+  l1 hold+3 om oct beat
+  l2 hold oM-4 oct-4 beat
+  l3 hold+5 om-7 oct-7 beat
+  l4 hold+2 oM-5 oct-5 beat2
+  # C: lament, twice
+  b1 hold2+3 trem lam beat
+  b2 hold2+1 trem-2 lam-2 beat
+  b3 hold2 trem-4 lam-4 beat
+  b4 hold-1 trem-5 oct-5 beat2
+  b1 hold2+3 trem lam fast
+  b2 hold2+1 trem-2 lam-2 fast
+  b3 hold2 trem-4 lam-4 fast
+  b4 hold-1 trem-5 oct-5 beat2
+  # A': back to the bell
+  d1 toll om oct hit
+  d2 om oct beat
+  d3 toll oM-4 oct-4 beat
+  d4 oM-5 oct-5 beat2

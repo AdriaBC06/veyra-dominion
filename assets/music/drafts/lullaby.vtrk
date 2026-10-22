@@ -1,0 +1,168 @@
+# Lilith's Lullaby — unused title candidate.
+# D harmonic minor, a dark waltz in 3/4 at 116 BPM: one bar = 12 rows. A child's
+# music box in a burnt house, played straight away: the box (pulse) and a copy
+# on the wave a few cents apart, so it beats and warps, over an oom-pah-pah of
+# bass and chord stabs and a ticking clock. A' her ghostly voice sings it while
+# the box runs broken chords. B her leitmotif with screams far off. A'' the box
+# alone, quiet before the crash. Ends on A, back into D.
+# Form (32 bars, loops): A box + drums | A' voice | B leitmotif | A'' box alone.
+
+song Lilith's Lullaby
+tempo 116 4
+echo 0.26 0.35 0.28
+
+inst box
+  vol 14 12 10 9 8 7 6 6 5 5 4 4 3 3 3 2 2 2 1 1 1 0
+  duty 0
+  pitch 3
+inst wbox
+  vol 9 8 7 6 5 5 4 4 3 3 3 2 2 2 1 1 1 0
+  pitch -4
+  wave FFFF0000000000000000000000000000
+inst plink
+  vol 9 8 7 6 5 4 3 3 2 2 1 1 0
+  duty 0 1
+
+inst voice
+  vol 4 7 9 11 12 13 | 13 / 11 9 7 5 4 3 2 1 0
+  pitch -16 -8 -4 -2 | 0 / -2 -6 -12 -20
+  vib 0.28 4.5 0.3
+  wave 9BDFFFEDCCCCCCBA9764332210000246
+
+inst lead
+  vol 8 11 12 13 | 12 / 10 8 6 4 3 2 1 0
+  duty 0 1 1 2
+  pitch -12 -6 -3 -1 | 0 / -1 -3 -6 -10 -16
+  vib 0.3 4.5 0.3
+
+inst pah
+  vol 7 5 4 3 2 1 0
+  arp | 0 3 7
+  duty 1
+inst pahM
+  vol 7 5 4 3 2 1 0
+  arp | 0 4 7
+  duty 1
+
+inst bass
+  vol 13 12 11 10 9 8 7 6 5 4 3 2 1 0
+
+inst tick
+  vol 6 3 1 0
+  duty 1
+inst thud
+  vol 14 11 7 4 2 1 0
+inst snare
+  vol 10 8 6 4 3 2 1 0
+inst scream
+  vol 0 1 2 3 4 5 5 6 6 6 5 5 5 4 4 4 3 3 3 3 2 2 2 2 2 1 1 1 1 1 1 0
+  sweep -30
+inst crash
+  vol 12 11 10 9 8 7 7 6 6 5 5 4 4 4 3 3 3 2 2 2 2 1 1 1 1 1 0
+
+drum t tick C8
+drum c tick A7
+drum k thud C3
+drum s snare D5
+drum y scream C7
+drum x crash C7
+
+# --- The lullaby ---------------------------------------------------------------
+pattern m1 12
+  p1 box | A4 . . . F5 . . . E5 . D5 . |
+pattern m2 12
+  p1 box | C#5 . . . . . D5 . . . E5 . |
+pattern m3 12
+  p1 box | F5 . . . E5 . . . D5 . Bb4 . |
+pattern m4 12
+  p1 box | A4 . . . . . . . . . . = |
+pattern m6 12
+  p1 box | C#5 . . . . . E5 . . . G5 . |
+pattern m7 12
+  p1 box | F5 . . . Eb5 . . . D5 . C#5 . |
+pattern m8 12
+  p1 box | D5 . . . . . . . . . . = |
+
+# --- Broken chords (box) -------------------------------------------------------
+pattern am 12
+  p1 plink | D4 A4 D5 F5 A5 F5 D5 A4 D5 F5 D5 A4 |
+pattern aM 12
+  p1 plink | D4 A4 D5 F#5 A5 F#5 D5 A4 D5 F#5 D5 A4 |
+
+# --- Leitmotif -----------------------------------------------------------------
+pattern k1 12
+  p1 lead | D5 . . . . . Eb5 . . . D5 . |
+pattern k2 12
+  p1 lead | . . . . . . . . . . . = |
+pattern k3 12
+  p1 lead | G#4 . . . . . . . . . A4 . |
+pattern k5 12
+  p1 lead | Bb4 . . . . . C5 . . . Eb5 . |
+pattern k6 12
+  p1 lead | D5 . . . . . . . . . . = |
+pattern k7 12
+  p1 lead | C#5 . . . . . Bb4 . . . G#4 . |
+pattern k8 12
+  p1 lead | A4 . . . . . . . . . . = |
+pattern kb 12
+  wav wbox | D5 A4 F4 A4 D5 A4 F4 A4 D5 A4 F4 A4 |
+pattern kbM 12
+  wav wbox | D5 A4 F#4 A4 D5 A4 F#4 A4 D5 A4 F#4 A4 |
+
+# --- Oom-pah-pah ---------------------------------------------------------------
+pattern oom 12
+  tri bass | D2 . . . A2 . . . A2 . . . |
+pattern pm 12
+  p2 pah | . . . . D4 . . . D4:b . . . |
+pattern pM 12
+  p2 pahM | . . . . D4 . . . D4:b . . . |
+
+# --- Noise ---------------------------------------------------------------------
+pattern clockx 12
+  noi | x . . . c . . . c . . . |
+pattern clock 12
+  noi | t . . . c . . . c . . . |
+pattern far 12
+  noi | y . . . c . . . c . . . |
+pattern drums 12
+  noi | k . t . s . c . s . c . |
+pattern drumsx 12
+  noi | x . t . s . c . s . c . |
+
+order
+  # A: the box with drums, from the crash
+  m1 m1@wav%wbox oom pm drumsx
+  m2 m2@wav%wbox oom-1 pM-5 drums
+  m3 m3@wav%wbox oom-4 pM-4 drums
+  m4 m4@wav%wbox oom-5 pM-5 drums
+  m1 m1@wav%wbox oom pm drums
+  m6 m6@wav%wbox oom-5 pM-5 drums
+  m7 m7@wav%wbox oom-7 pm-7 drums
+  m8 m8@wav%wbox oom-5 pM-5 drums
+  # A': her voice sings it
+  m1@wav%voice am oom pm clock
+  m2@wav%voice aM-5 oom-1 pM-5 clock
+  m3@wav%voice aM-4 oom-4 pM-4 clock
+  m4@wav%voice aM-5 oom-5 pM-5 clock
+  m1@wav%voice am oom pm clock
+  m6@wav%voice aM-5 oom-5 pM-5 clock
+  m7@wav%voice am-7 oom-7 pm-7 clock
+  m8@wav%voice am oom pm clock
+  # B: the leitmotif, the village burning
+  k1 kb oom pm far
+  k2 kbM-2 oom-2 pM-2 clock
+  k3 kbM-4 oom-4 pM-4 clock
+  k2 kbM-5 oom-5 pM-5 far
+  k5 kb-7 oom-7 pm-7 clock
+  k6 kbM-4 oom-4 pM-4 clock
+  k7 kbM-5 oom-5 pM-5 far
+  k8 kbM-5 oom-5 pM-5 clock
+  # A'': the box alone
+  m1 m1@wav%wbox oom pm clock
+  m2 m2@wav%wbox oom-1 pM-5 clock
+  m3 m3@wav%wbox oom-4 pM-4 clock
+  m4 m4@wav%wbox oom-5 pM-5 clock
+  m1 m1@wav%wbox oom pm clock
+  m6 m6@wav%wbox oom-5 pM-5 clock
+  m7 m7@wav%wbox oom-7 pm-7 clock
+  m8 m8@wav%wbox oom-5 pM-5 clock
