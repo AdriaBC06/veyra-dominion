@@ -298,6 +298,25 @@ pub const ENEMY_DEFS: [EnemyDef; 4] = [
     },
 ];
 
+/// A summoned thrall (Thralls Art): a seduced villager. Only its sprite, size (body
+/// radius), burst and blood are used; it serves Veyra, so it gives no souls.
+pub const THRALL_DEF: EnemyDef = EnemyDef {
+    name: "Thrall",
+    sprite: SpriteId::Thrall,
+    size: (14, 20),
+    burst: [0xb0567e, 0xff6f9a, 0xb8927c, 0xc8d2da],
+    blood: true,
+    hp: THRALL_HP,
+    speed: 0.0,
+    contact_damage: 0.0,
+    soul_xp: 0,
+    weight_start: 0.0,
+    weight_growth_per_min: 0.0,
+    group: (1, 1),
+    behavior: Behavior::Chase,
+    family: Family::Human,
+};
+
 /// Run length for victory, in seconds.
 pub const VICTORY_TIME: f32 = 300.0;
 /// In endless mode, enemy HP grows by this fraction per minute past VICTORY_TIME.

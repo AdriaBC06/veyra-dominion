@@ -29,6 +29,9 @@ pub struct Enemies {
     pub burn_until: Vec<f32>,
     /// Game time until which it stands frozen (Gaze of Desire): no moving, no hurting.
     pub frozen_until: Vec<f32>,
+    /// Left the horde without dying (the Infernal Court turned it into a thrall), with
+    /// `hp` at 0: removed with no kill, soul or burst.
+    pub gone: Vec<bool>,
     /// Extra damage frozen enemies take (Evil Eye; 0 otherwise), set by the Arts.
     pub frozen_vuln: f32,
     next_uid: u32,
@@ -53,6 +56,7 @@ impl Enemies {
             bleed_until: Vec::with_capacity(n),
             burn_until: Vec::with_capacity(n),
             frozen_until: Vec::with_capacity(n),
+            gone: Vec::with_capacity(n),
             frozen_vuln: 0.0,
             next_uid: 0,
             counts: [0; ENEMY_DEFS.len()],
@@ -88,6 +92,7 @@ impl Enemies {
         self.bleed_until.push(0.0);
         self.burn_until.push(0.0);
         self.frozen_until.push(0.0);
+        self.gone.push(false);
         self.counts[kind] += 1;
     }
 
@@ -107,6 +112,7 @@ impl Enemies {
         self.bleed_until.swap_remove(i);
         self.burn_until.swap_remove(i);
         self.frozen_until.swap_remove(i);
+        self.gone.swap_remove(i);
     }
 
     /// Largest collision radius among the kinds currently alive (0 when empty); spatial

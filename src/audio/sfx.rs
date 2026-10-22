@@ -36,6 +36,7 @@ pub enum Sfx {
     BatBlast,
     BlackMass,
     Gaze,
+    Thralls,
     SirenBurst,
     Offering,
     Hit,
@@ -57,7 +58,7 @@ pub enum Sfx {
 }
 
 impl Sfx {
-    pub const COUNT: usize = 33;
+    pub const COUNT: usize = 34;
     pub const ALL: [Sfx; Sfx::COUNT] = [
         Sfx::Fire,
         Sfx::Lash,
@@ -74,6 +75,7 @@ impl Sfx {
         Sfx::BatBlast,
         Sfx::BlackMass,
         Sfx::Gaze,
+        Sfx::Thralls,
         Sfx::SirenBurst,
         Sfx::Offering,
         Sfx::Hit,
@@ -111,6 +113,7 @@ impl Sfx {
             Sfx::BatBlast => "bat_blast",
             Sfx::BlackMass => "black_mass",
             Sfx::Gaze => "gaze",
+            Sfx::Thralls => "thralls",
             Sfx::SirenBurst => "siren_burst",
             Sfx::Offering => "offering",
             Sfx::Hit => "hit",
@@ -156,7 +159,8 @@ impl Sfx {
             | Sfx::SirenBurst
             | Sfx::Cross
             | Sfx::Sigil
-            | Sfx::Gaze => &JITTER[1..4],
+            | Sfx::Gaze
+            | Sfx::Thralls => &JITTER[1..4],
             Sfx::Soul => &COMBO_STEPS,
             _ => &[0.0],
         }
@@ -180,6 +184,7 @@ impl Sfx {
             Sfx::BatBlast => 0.3,
             Sfx::BlackMass => 2.2,
             Sfx::Gaze => 0.45,
+            Sfx::Thralls => 0.6,
             Sfx::SirenBurst => 0.4,
             Sfx::Offering => 2.0,
             Sfx::Hit => 0.1,
@@ -217,6 +222,7 @@ impl Sfx {
             | Sfx::SealBlast
             | Sfx::Bats
             | Sfx::Gaze
+            | Sfx::Thralls
             | Sfx::SirenBurst => 2,
             Sfx::UiMove | Sfx::UiConfirm | Sfx::UiBack => 2,
             _ => 1,
@@ -262,6 +268,7 @@ impl Sfx {
             Sfx::BatBlast => 0.15,
             Sfx::BlackMass => 0.35,
             Sfx::Gaze => 0.08,
+            Sfx::Thralls => 0.08,
             Sfx::SirenBurst => 0.12,
             Sfx::Offering => 0.42,
             Sfx::Hit => 0.22,
@@ -931,6 +938,37 @@ fn patch(sfx: Sfx) -> Patch {
                 delay: 0.06,
                 feedback: 0.25,
                 mix: 0.2,
+            },
+        },
+        // Thralls: the earth stirs, a low thump climbing out of the ground, and the
+        // seduced sigh in two voices, D and her minor third F, leaning down a step.
+        Sfx::Thralls => Patch {
+            instruments: vec![
+                Instrument {
+                    sweep: 20.0,
+                    ..env(&[10, 12, 9, 6, 4, 2, 1, 0])
+                },
+                env(&fade(4, 14)),
+                Instrument {
+                    pitch: Macro::new(&[0, 0, 0, 0, 0, 0, 0, -1, -1, -2]),
+                    vibrato: Vibrato {
+                        depth: 0.25,
+                        rate_hz: 5.5,
+                        delay: 0.1,
+                    },
+                    ..env(&[2, 5, 8, 9, 8, 7, 6, 5, 4, 3, 2, 2, 1, 1, 0])
+                },
+            ],
+            notes: vec![
+                note(0.0, Triangle, 38.0, 0, 1.0),
+                note(0.0, Noise, 60.0, 1, 0.6),
+                note(0.08, Wave, 62.0, 2, 0.9),
+                note(0.1, Pulse1, 65.0, 2, 0.35),
+            ],
+            echo: Echo {
+                delay: 0.1,
+                feedback: 0.25,
+                mix: 0.25,
             },
         },
         Sfx::SirenBurst => Patch {

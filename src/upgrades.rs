@@ -23,6 +23,8 @@ pub struct Upgrades {
     pub slots: [Option<usize>; MAX_ARTS],
     /// Arts turned into their evolution by an Abyssal Offering.
     pub evolved: [bool; ARTS.len()],
+    /// Unions (`UNIONS`) fused by an Abyssal Offering.
+    pub united: [bool; UNIONS.len()],
 }
 
 impl Default for Upgrades {
@@ -33,6 +35,7 @@ impl Default for Upgrades {
             arts: [0; ARTS.len()],
             slots: [None; MAX_ARTS],
             evolved: [false; ARTS.len()],
+            united: [false; UNIONS.len()],
         };
         u.take_art(HELLFLARE);
         u
@@ -153,13 +156,61 @@ impl Upgrades {
 
     /// Art `i` is at the top level, its paired Sin is owned and it hasn't evolved yet.
     pub fn can_evolve(&self, i: usize) -> bool {
-        self.arts[i] == ART_MAX_LEVEL && self.sins[ARTS[i].evolution.sin] > 0 && !self.evolved[i]
+        let Some(evo) = &ARTS[i].evolution else {
+            return false;
+        };
+        self.arts[i] == ART_MAX_LEVEL && self.sins[evo.sin] > 0 && !self.evolved[i]
+    }
+
+    /// The first union an Offering can fuse.
+    pub fn unitable(&self) -> Option<usize> {
+        (0..UNIONS.len()).find(|&u| self.can_unite(u))
+    }
+
+    /// Both Arts of union `u` are owned at the top level and not fused yet.
+    pub fn can_unite(&self, u: usize) -> bool {
+        !self.united[u]
+            && UNIONS[u]
+                .arts
+                .iter()
+                .all(|&a| self.arts[a] == ART_MAX_LEVEL)
+    }
+
+    /// Fuses union `u`: the second Art leaves its slot (and keeps working in the union).
+    pub fn unite(&mut self, u: usize) {
+        self.united[u] = true;
+        let second = UNIONS[u].arts[1];
+        if let Some(slot) = self.slots.iter_mut().find(|s| **s == Some(second)) {
+            *slot = None;
+        }
+    }
+
+    /// The fused union Art `i` belongs to, if any.
+    pub fn union_of(&self, i: usize) -> Option<usize> {
+        (0..UNIONS.len()).find(|&u| self.united[u] && UNIONS[u].arts.contains(&i))
+    }
+
+    /// Debug: undoes union `u`; its second Art takes a free slot again, or is lost.
+    fn split(&mut self, u: usize) {
+        self.united[u] = false;
+        let second = UNIONS[u].arts[1];
+        match self.slots.iter_mut().find(|s| s.is_none()) {
+            Some(slot) => *slot = Some(second),
+            None => self.arts[second] = 0,
+        }
     }
 
     /// Debug: one level less of Art `i`; at 0 it leaves its slot and its evolution.
+    /// Below the top level it leaves its union too.
     pub fn drop_art_level(&mut self, i: usize) {
         if self.arts[i] == 0 {
             return;
+        }
+        if let Some(u) = self.union_of(i) {
+            self.split(u);
+            if self.arts[i] == 0 {
+                return;
+            }
         }
         self.arts[i] -= 1;
         self.evolved[i] &= self.arts[i] == ART_MAX_LEVEL;
@@ -347,15 +398,60 @@ mod tests {
         assert_eq!(u.evolvable(), None, "Legion missing");
         u.apply(Choice::Sin(WRATH), &mut p);
         assert_eq!(u.evolvable(), None, "the wrong Sin");
-        u.apply(Choice::Sin(ARTS[HELLFLARE].evolution.sin), &mut p);
+        u.apply(Choice::Sin(evolution_sin(HELLFLARE)), &mut p);
         assert_eq!(u.evolvable(), Some(HELLFLARE));
         u.evolve(HELLFLARE);
         assert_eq!(u.evolvable(), None, "only once");
     }
 
+    fn evolution_sin(art: usize) -> usize {
+        ARTS[art].evolution.as_ref().unwrap().sin
+    }
+
+    #[test]
+    fn allure_and_thralls_unite_at_the_top_level_and_free_a_slot() {
+        let mut p = Game::new().player;
+        let mut u = Upgrades::default();
+        for _ in 0..ART_MAX_LEVEL {
+            u.apply(Choice::Art(ALLURE), &mut p);
+            u.apply(Choice::Art(THRALLS), &mut p);
+        }
+        assert_eq!(u.owned_arts(), 3);
+        u.arts[THRALLS] -= 1;
+        assert_eq!(u.unitable(), None, "Thralls below the top level");
+        u.arts[THRALLS] += 1;
+        assert_eq!(u.unitable(), Some(INFERNAL_COURT), "no Sin needed");
+        assert!(!u.can_evolve(THRALLS), "Thralls only grows by the union");
+        u.unite(INFERNAL_COURT);
+        assert_eq!(u.unitable(), None, "only once");
+        assert_eq!(u.owned_arts(), 2, "Thralls left its slot");
+        assert_eq!(u.arts[THRALLS], ART_MAX_LEVEL, "but still works");
+        assert_eq!(u.union_of(THRALLS), Some(INFERNAL_COURT));
+        // A capped Art out of its slot is never offered again.
+        let mut out = [None; 3];
+        for _ in 0..50 {
+            u.roll_choices(&mut out);
+            assert!(!out.contains(&Some(Choice::Art(THRALLS))));
+        }
+        // Allure can still evolve alone (Siren's Dominion), in any order.
+        u.apply(Choice::Sin(evolution_sin(ALLURE)), &mut p);
+        assert!(u.can_evolve(ALLURE));
+
+        // Debug: a level down splits the union, Thralls back in a slot.
+        u.drop_art_level(ALLURE);
+        assert!(!u.united[INFERNAL_COURT]);
+        assert_eq!(u.arts[ALLURE], ART_MAX_LEVEL - 1);
+        assert_eq!(u.owned_arts(), 3);
+        assert!(u.slots.contains(&Some(THRALLS)));
+    }
+
     #[test]
     fn evolutions_pair_with_sins_at_most_twice() {
-        let sins: Vec<usize> = ARTS.iter().map(|a| a.evolution.sin).collect();
+        let sins: Vec<usize> = ARTS
+            .iter()
+            .flat_map(|a| &a.evolution)
+            .map(|e| e.sin)
+            .collect();
         for sin in &sins {
             assert!(*sin < SINS.len());
             assert!(sins.iter().filter(|s| *s == sin).count() <= 2, "{sin}");

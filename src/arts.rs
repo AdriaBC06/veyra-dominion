@@ -127,6 +127,70 @@ pub struct Gaze {
     pub t: f32,
 }
 
+/// A thrall fighting for Veyra: a summoned villager (`kind` is `None`), or a foe the
+/// Infernal Court converted (`kind` is its `ENEMY_DEFS` index).
+pub struct Thrall {
+    pub pos: Vec2,
+    pub kind: Option<u8>,
+    pub hp: f32,
+    /// Per blow.
+    damage: f32,
+    /// Age, and how long it serves.
+    pub t: f32,
+    pub life: f32,
+    /// Faces left (-1) or right (1).
+    pub facing: f32,
+    pub moving: bool,
+    pub flash: f32,
+    /// Walk-cycle offset.
+    pub phase: f32,
+    /// Time left to its next blow / until it can be hurt again.
+    blow: f32,
+    hurt: f32,
+}
+
+impl Thrall {
+    /// A thrall at `pos` serving `life` seconds, with full summoned-villager health and
+    /// already risen (a summon resets `t`).
+    fn new(pos: Vec2, kind: Option<u8>, life: f32) -> Self {
+        Self {
+            pos,
+            kind,
+            hp: THRALL_HP,
+            damage: 0.0,
+            t: THRALL_RISE,
+            life: life + THRALL_RISE,
+            facing: -1.0,
+            moving: false,
+            flash: 0.0,
+            phase: 0.0,
+            blow: 0.0,
+            hurt: 0.0,
+        }
+    }
+
+    /// What it looks like and how big its body is.
+    pub fn def(&self) -> &'static EnemyDef {
+        self.kind.map_or(&THRALL_DEF, |k| &ENEMY_DEFS[k as usize])
+    }
+
+    /// Opacity: summoned thralls rise over `THRALL_RISE` and every thrall fades over
+    /// its last `THRALL_FADE` (a converted foe that falls first just bursts).
+    pub fn alpha(&self) -> f32 {
+        (self.t / THRALL_RISE)
+            .min((self.life - self.t) / THRALL_FADE)
+            .clamp(0.0, 1.0)
+    }
+}
+
+/// A thrall that fell this tick, for the game to burst (and, for a converted foe, to
+/// count as a kill and drop its soul).
+#[derive(Clone, Copy)]
+pub struct Fallen {
+    pub pos: Vec2,
+    pub kind: Option<u8>,
+}
+
 /// Brimstone Halo: its flames burn for `duration`, rest for `cooldown`, and again. `t` is the
 /// time spent in the current phase.
 #[derive(Default)]
@@ -208,6 +272,8 @@ pub struct ArtCues {
     pub mass: bool,
     pub sabbath: bool,
     pub gazed: bool,
+    /// Thralls rose at her side.
+    pub summoned: bool,
     /// A hit landed on flesh / on armour.
     pub hits: [bool; 2],
 }
@@ -237,6 +303,9 @@ pub struct Arts {
     pub seal_blasts: Vec<SealBlast>,
     pub bombs: Vec<Bomb>,
     pub gazes: Vec<Gaze>,
+    pub thralls: Vec<Thrall>,
+    /// Thralls that fell this tick; the game drains it.
+    pub fallen: Vec<Fallen>,
     /// Where the bats are on their orbit (radians).
     pub bat_angle: f32,
     /// Seconds since the last Black Mass (its circle and flash fade over it).
@@ -247,6 +316,10 @@ pub struct Arts {
     levels: [u8; ARTS.len()],
     /// Arts in their evolved form, copied from `Upgrades` on `refresh`.
     evolved: [bool; ARTS.len()],
+    /// Allure and Thralls fused (Infernal Court), copied from `Upgrades` on `refresh`.
+    court: bool,
+    /// Wrath's damage multiplier (converted foes hit with their own contact damage).
+    might: f32,
     /// Effective numbers: level stats with the Sins applied.
     pub stats: [ArtStats; ARTS.len()],
     cooldown: [f32; ARTS.len()],
@@ -279,11 +352,15 @@ impl Arts {
             seal_blasts: Vec::with_capacity(MAX_SEAL_BLASTS),
             bombs: Vec::with_capacity(MAX_BOMBS),
             gazes: Vec::with_capacity(MAX_GAZES),
+            thralls: Vec::with_capacity(MAX_THRALLS),
+            fallen: Vec::with_capacity(MAX_THRALLS),
             bat_angle: 0.0,
             since_mass: f32::INFINITY,
             since_scent: f32::INFINITY,
             levels: [0; ARTS.len()],
             evolved: [false; ARTS.len()],
+            court: false,
+            might: 1.0,
             stats: ARTS.map(|d| d.base),
             cooldown: [0.0; ARTS.len()],
             heal_budget: MUSK_HEAL_CAP,
@@ -304,6 +381,8 @@ impl Arts {
             area,
             ..
         } = upgrades.stats();
+        self.court = upgrades.united[INFERNAL_COURT];
+        self.might = might;
         for (i, def) in ARTS.iter().enumerate() {
             let fresh = self.levels[i] == 0 && upgrades.arts[i] > 0;
             self.levels[i] = upgrades.arts[i];
@@ -387,6 +466,7 @@ impl Arts {
                     ArtKind::BatSwarm => self.drop_bombs(w, &mut cues),
                     ArtKind::BlackMass => self.black_mass(w, &mut cues),
                     ArtKind::GazeOfDesire => self.gaze(w, &mut cues),
+                    ArtKind::Thralls => self.summon(w, &mut cues),
                 };
                 if attacked {
                     self.cooldown[art] = self.stats[art].cooldown;
@@ -398,6 +478,7 @@ impl Arts {
         self.update_bolts(w, &mut cues);
         self.update_halo(w, alive, &mut cues);
         self.update_charmed(w, &mut cues);
+        self.update_thralls(w, &mut cues);
         self.update_gates(w, &mut cues);
         self.update_bleed(w, &mut cues);
         self.update_scythes(w, &mut cues);
@@ -490,13 +571,15 @@ impl Arts {
     }
 
     /// Allure: charms the first `amount` free enemies within reach and burns the rest
-    /// (the charmed are spared).
+    /// (the charmed are spared). The Infernal Court turns them into thralls instead
+    /// (elites are only charmed, and so is anyone once the pool is full).
     /// Waits while nobody is in reach.
     fn pulse(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
         let s = self.stats[ALLURE];
         let (center, time) = (w.player.pos, w.time);
         let radius = ALLURE_RADIUS * s.area;
         let enemies = &mut *w.enemies;
+        let (court, might, thralls) = (self.court, self.might, &mut self.thralls);
         let (mut any, mut charms) = (false, s.amount);
         w.hash
             .query_radius(center, radius + enemies.max_radius(), |j, _| {
@@ -509,7 +592,20 @@ impl Arts {
                 }
                 if charms > 0 {
                     // Seduced, not burned: she wants it alive and fighting for her.
-                    enemies.charm_until[j] = time + s.duration;
+                    if court && !enemies.elite[j] && thralls.len() < MAX_THRALLS {
+                        let kind = enemies.kind[j];
+                        let def = &ENEMY_DEFS[kind as usize];
+                        let mut t =
+                            Thrall::new(enemies.pos(j), Some(kind), s.duration * COURT_LIFE);
+                        t.hp = enemies.hp[j];
+                        t.damage = def.contact_damage * might;
+                        t.phase = enemies.phase[j];
+                        thralls.push(t);
+                        enemies.hp[j] = 0.0;
+                        enemies.gone[j] = true;
+                    } else {
+                        enemies.charm_until[j] = time + s.duration;
+                    }
                     charms -= 1;
                     return;
                 }
@@ -1033,36 +1129,179 @@ impl Arts {
     /// bursts, hurting the free enemies around it without killing any.
     fn end_charms(&mut self, w: &mut World, cues: &mut ArtCues) {
         let dominion = self.evolved[ALLURE];
+        let time = w.time;
+        for i in 0..w.enemies.len() {
+            let until = w.enemies.charm_until[i];
+            if until == 0.0 || until > time {
+                continue;
+            }
+            w.enemies.charm_until[i] = 0.0;
+            if dominion && w.enemies.hp[i] > 0.0 {
+                let p = w.enemies.pos(i);
+                self.siren_burst(w, p, Some(i), cues);
+            }
+        }
+    }
+
+    /// Siren's Dominion: a burst at `p` hurts the free enemies around it (not `skip`,
+    /// the one bursting) without killing any.
+    fn siren_burst(&mut self, w: &mut World, p: Vec2, skip: Option<usize>, cues: &mut ArtCues) {
         let s = self.stats[ALLURE];
         let (radius, damage) = (SIREN_BURST_RADIUS * s.area, s.damage * SIREN_BURST_DAMAGE);
         let time = w.time;
         let enemies = &mut *w.enemies;
-        for i in 0..enemies.len() {
-            let until = enemies.charm_until[i];
-            if until == 0.0 || until > time {
-                continue;
+        w.hash
+            .query_radius(p, radius + enemies.max_radius(), |j, _| {
+                if Some(j) != skip && !enemies.charmed(j, time) && touches(enemies, j, p, radius) {
+                    let floor = enemies.hp[j].min(SIREN_SPARE_HP);
+                    strike(enemies, j, damage, time, &mut cues.hits);
+                    enemies.hp[j] = enemies.hp[j].max(floor);
+                }
+            });
+        if self.siren_bursts.len() < MAX_SIREN_BURSTS {
+            self.siren_bursts.push(SirenBurst {
+                pos: p,
+                radius,
+                t: 0.0,
+            });
+        }
+        cues.burst = true;
+    }
+
+    /// Thralls: `amount` seduced villagers rise around her, while a foe is near and
+    /// the pool has room.
+    fn summon(&mut self, w: &mut World, cues: &mut ArtCues) -> bool {
+        if w.hash.nearest(w.player.pos, THRALL_SEEK).is_none() {
+            return false;
+        }
+        let s = self.stats[THRALLS];
+        let mut any = false;
+        for _ in 0..s.amount {
+            if self.thralls.len() >= MAX_THRALLS {
+                break;
             }
-            enemies.charm_until[i] = 0.0;
-            if !dominion || enemies.hp[i] <= 0.0 {
-                continue;
+            let pos = w.player.pos + Vec2::from_angle(gen_range(0.0, TAU)) * THRALL_SPAWN_RADIUS;
+            let mut t = Thrall::new(pos, None, s.duration);
+            t.t = 0.0;
+            t.damage = s.damage;
+            t.phase = gen_range(0.0, 2.0);
+            self.thralls.push(t);
+            any = true;
+        }
+        cues.summoned |= any;
+        any
+    }
+
+    /// Every thrall walks to the nearest foe (or back to her), strikes what it reaches
+    /// every `THRALL_BLOW` and is hurt by the free foes touching it. The fallen go to
+    /// `fallen`; a converted foe whose time runs out falls too (bursting first with
+    /// Siren's Dominion), a summoned one just fades away.
+    fn update_thralls(&mut self, w: &mut World, cues: &mut ArtCues) {
+        if self.thralls.is_empty() {
+            return;
+        }
+        // Keep apart: they are not in the hash, so the horde's separation misses them.
+        let n = self.thralls.len();
+        for i in 0..n {
+            for j in i + 1..n {
+                let d = self.thralls[i].pos - self.thralls[j].pos;
+                let l2 = d.length_squared();
+                if l2 >= THRALL_SPACING * THRALL_SPACING {
+                    continue;
+                }
+                let len = l2.sqrt();
+                let dir = if len > 1e-3 {
+                    d / len
+                } else {
+                    Vec2::from_angle(i as f32)
+                };
+                let push = dir * (1.0 - len / THRALL_SPACING) * THRALL_SPACING_PUSH * TICK_DT;
+                self.thralls[i].pos += push;
+                self.thralls[j].pos -= push;
             }
-            let p = enemies.pos(i);
-            w.hash
-                .query_radius(p, radius + enemies.max_radius(), |j, _| {
-                    if j != i && !enemies.charmed(j, time) && touches(enemies, j, p, radius) {
-                        let floor = enemies.hp[j].min(SIREN_SPARE_HP);
-                        strike(enemies, j, damage, time, &mut cues.hits);
-                        enemies.hp[j] = enemies.hp[j].max(floor);
+        }
+        let s = self.stats[THRALLS];
+        let (time, home) = (w.time, w.player.pos);
+        let enemies = &mut *w.enemies;
+        let extra = enemies.max_radius();
+        for th in &mut self.thralls {
+            th.t += TICK_DT;
+            th.flash = (th.flash - TICK_DT).max(0.0);
+            th.blow -= TICK_DT;
+            th.hurt -= TICK_DT;
+            let def = th.def();
+            let body = def.radius();
+            let reach = THRALL_REACH * s.area;
+            let target = w
+                .hash
+                .nearest(th.pos, THRALL_SEEK)
+                .filter(|&j| enemies.hp[j] > 0.0 && !enemies.charmed(j, time));
+            let in_reach = target.filter(|&j| touches(enemies, j, th.pos, body + reach));
+            let goal = match (target, in_reach) {
+                (_, Some(_)) => None,
+                (Some(j), None) => Some(enemies.pos(j)),
+                (None, _) => {
+                    (th.pos.distance_squared(home) > THRALL_LEASH * THRALL_LEASH).then_some(home)
+                }
+            };
+            th.moving = goal.is_some();
+            if let Some(g) = goal {
+                // A converted foe keeps its own pace.
+                let speed = if th.kind.is_some() {
+                    def.speed
+                } else {
+                    s.speed
+                };
+                let dir = (g - th.pos).normalize_or_zero();
+                th.pos += dir * speed * TICK_DT;
+                if dir.x.abs() > 0.2 {
+                    th.facing = dir.x.signum();
+                }
+            }
+            if let Some(j) = in_reach.filter(|_| th.blow <= 0.0) {
+                strike(enemies, j, th.damage, time, &mut cues.hits);
+                th.blow = THRALL_BLOW;
+                th.facing = (enemies.x[j] - th.pos.x).signum();
+            }
+            if th.hurt <= 0.0 {
+                let (mut damage, mut seen) = (0.0f32, 0);
+                w.hash.try_query_radius(th.pos, body + extra, |j, q| {
+                    let d = &ENEMY_DEFS[enemies.kind[j] as usize];
+                    let r = body + d.radius();
+                    let free = !enemies.charmed(j, time) && !enemies.frozen(j, time);
+                    if enemies.hp[j] > 0.0 && free && q.distance_squared(th.pos) <= r * r {
+                        damage = damage.max(d.contact_damage);
                     }
+                    seen += 1;
+                    seen < THRALL_CONTACT_MAX
                 });
-            if self.siren_bursts.len() < MAX_SIREN_BURSTS {
-                self.siren_bursts.push(SirenBurst {
-                    pos: p,
-                    radius,
-                    t: 0.0,
+                if damage > 0.0 {
+                    th.hp -= damage;
+                    th.hurt = THRALL_IFRAMES;
+                    th.flash = HIT_FLASH_TIME;
+                }
+            }
+        }
+        let dominion = self.evolved[ALLURE];
+        let mut k = 0;
+        while k < self.thralls.len() {
+            let th = &self.thralls[k];
+            let (dead, done) = (th.hp <= 0.0, th.t >= th.life);
+            if !dead && !done {
+                k += 1;
+                continue;
+            }
+            let th = self.thralls.swap_remove(k);
+            let converted = th.kind.is_some();
+            if (dead || converted) && self.fallen.len() < MAX_THRALLS {
+                self.fallen.push(Fallen {
+                    pos: th.pos,
+                    kind: th.kind,
                 });
             }
-            cues.burst = true;
+            if done && !dead && converted && dominion {
+                self.siren_burst(w, th.pos, None, cues);
+            }
         }
     }
 
@@ -2088,5 +2327,91 @@ mod tests {
         let before = g.enemies.hp[0];
         strike(&mut g.enemies, 0, 10.0, g.time, &mut hits);
         assert_eq!(before - g.enemies.hp[0], 10.0);
+    }
+
+    #[test]
+    fn thralls_rise_only_near_foes_hunt_them_and_can_die() {
+        let mut g = game_with(THRALLS, 1);
+        tick(&mut g, 60);
+        assert!(g.arts.thralls.is_empty(), "nobody to fight");
+        g.enemies.spawn(RAT, vec2(90.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        assert_eq!(g.arts.thralls.len(), 1);
+        assert!(g.cues.contains(&Cue::Thralls));
+        let th = &g.arts.thralls[0];
+        assert!(th.pos.distance(g.player.pos) <= THRALL_SPAWN_RADIUS + 3.0);
+        assert!(th.alpha() < 0.1, "it rises");
+        g.arts.hold();
+        tick(&mut g, 90);
+        assert!(
+            g.enemies.hp[0] < ENEMY_DEFS[RAT].hp * 100.0,
+            "it reached the rat"
+        );
+        // The rat bites back until the thrall falls; a thrall gives no soul.
+        tick(&mut g, 600);
+        assert!(g.arts.thralls.is_empty());
+        assert_eq!(g.kills, 0);
+        assert!(g.souls.is_empty());
+    }
+
+    #[test]
+    fn thralls_level_table() {
+        let top = ARTS[THRALLS].stats(ART_MAX_LEVEL);
+        assert_eq!(top.amount, 4);
+        assert_eq!(top.damage, 20.0);
+        assert_eq!(top.duration, 12.0);
+        assert!(
+            ARTS[THRALLS].evolution.is_none(),
+            "it grows only by the union"
+        );
+    }
+
+    /// Allure and Thralls at the top, fused into the Infernal Court.
+    fn court() -> Game {
+        let mut g = game_with(ALLURE, ART_MAX_LEVEL);
+        g.upgrades.arts[THRALLS] = ART_MAX_LEVEL;
+        g.upgrades.united[INFERNAL_COURT] = true;
+        g.arts.refresh(&g.upgrades);
+        g
+    }
+
+    #[test]
+    fn infernal_court_turns_the_charmed_into_thralls_that_fall_with_their_soul() {
+        let mut g = court();
+        g.enemies.spawn(KNIGHT, vec2(20.0, 0.0), 1.0);
+        g.enemies.spawn(KNIGHT, vec2(-20.0, 0.0), 1.0);
+        g.enemies.elite[1] = true;
+        tick(&mut g, 1);
+        assert_eq!(g.enemies.len(), 1, "the knight left the horde");
+        assert!(
+            g.enemies.elite[0] && g.enemies.charmed(0, g.time),
+            "elites are only charmed"
+        );
+        assert_eq!(g.kills, 0, "not a kill yet");
+        let knights = |g: &Game| {
+            let k = Some(KNIGHT as u8);
+            g.arts.thralls.iter().filter(|t| t.kind == k).count()
+        };
+        assert_eq!(knights(&g), 1);
+        g.enemies.swap_remove(0);
+        g.arts.hold();
+        let life = g.arts.stats[ALLURE].duration * COURT_LIFE;
+        tick(&mut g, (life / TICK_DT) as usize + 4);
+        assert_eq!(knights(&g), 0, "its time ran out");
+        assert_eq!(g.kills, 1, "it fell");
+        // Its soul dropped where it fell (she may have picked it up already).
+        assert!(g.souls.len() == 1 || g.xp == ENEMY_DEFS[KNIGHT].soul_xp);
+        assert!(!g.cues.contains(&Cue::SirenBurst));
+
+        // With Siren's Dominion it bursts as its time runs out.
+        let mut g = court();
+        g.upgrades.evolve(ALLURE);
+        g.arts.refresh(&g.upgrades);
+        g.enemies.spawn(KNIGHT, vec2(20.0, 0.0), 1.0);
+        tick(&mut g, 1);
+        g.arts.hold();
+        tick(&mut g, (life / TICK_DT) as usize + 4);
+        assert!(g.cues.contains(&Cue::SirenBurst));
+        assert_eq!(g.kills, 1);
     }
 }

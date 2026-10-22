@@ -178,8 +178,11 @@ keys! {
     ArtBlackMassDesc => "Now and then a rite strikes all in sight", "De vez en cuando un rito golpea a todo lo que ve";
     ArtGazeOfDesire => "Gaze of Desire", "Mirada del deseo";
     ArtGazeOfDesireDesc => "Her gaze freezes foes for a moment", "Su mirada congela a los enemigos un instante";
+    ArtThralls => "Thralls", "Siervos";
+    ArtThrallsDesc => "Seduced villagers fight for her", "Aldeanos seducidos luchan por ella";
     ArtMoreBats => "+{} bat", "+{} murciélago";
     ArtMoreGazes => "+{} gaze", "+{} mirada";
+    ArtMoreThralls => "+{} thrall", "+{} siervo";
     ArtMoreCharmed => "+{} charmed", "+{} hechizado";
     ArtMorePools => "+{} pool", "+{} charco";
     ArtMoreJumps => "+{} link", "+{} eslabón";
@@ -218,8 +221,11 @@ keys! {
     EvoWitchesSabbathDesc => "More often, and every soul flies to her", "Más a menudo, y todas las almas vuelan a ella";
     EvoEvilEye => "Evil Eye", "Mal de ojo";
     EvoEvilEyeDesc => "Frozen foes take more damage", "Los congelados reciben más daño";
+    UnionInfernalCourt => "Infernal Court", "Corte infernal";
+    UnionInfernalCourtDesc => "Her charmed join her court of thralls", "Sus hechizados se unen a su corte de siervos";
     OfferingTitle => "Abyssal Offering", "Ofrenda abisal";
     OfferingEvolved => "{} can evolve", "{} puede evolucionar";
+    OfferingUnited => "{} and {} can unite", "{} y {} pueden unirse";
     OfferingGift => "The Abyss offers a gift", "El Abismo ofrece un don";
     OfferingHeal => "The Abyss offers to restore her", "El Abismo ofrece restaurarla";
     OfferingHealDesc => "+{} HP", "+{} PV";

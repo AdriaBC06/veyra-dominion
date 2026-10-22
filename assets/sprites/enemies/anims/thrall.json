@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "thrall_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 14,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 14,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 14,
+    "h": 20
+   },
+   "duration": 167
+  },
+  "thrall_1": {
+   "frame": {
+    "x": 14,
+    "y": 0,
+    "w": 14,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 14,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 14,
+    "h": 20
+   },
+   "duration": 167
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "thrall.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 28,
+   "h": 20
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "thrall",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

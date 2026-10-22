@@ -19,8 +19,10 @@ pal({
   X: "#b8c4d4",                                            // tabard emblem
   Y: "#5e5236",                                            // dull bronze hilt
   Q: "#6c6a62", q: "#908e84", r: "#b2b0a4",                // linen shirt
+  E: "#4a1c3a", F: "#7e3058", G: "#b0567e",                // thrall tunic: Veyra's plum rose
+  O: "#ff6f9a",                                            // thrall eyes and heart: her pink
 })
-ramps("kABCD", "kMm", "kSsz", "kHh", "kTtu", "kPp", "kWwe", "kLlIij", "kNno", "kQqr")
+ramps("kABCD", "kMm", "kSsz", "kHh", "kTtu", "kPp", "kWwe", "kLlIij", "kNno", "kQqr", "kEFG")
 
 // ------------------------------------------------------------------ rat (12 long)
 // Arched back, big ear, a pale glint for the eye so it reads at 1x; the tail whips between frames.
@@ -49,6 +51,27 @@ anim("villager", { w: 12, h: 18, outline: "k", fps: 6 }, `
   ..WttttTTT..
   ..W.ttttTT..
   ..W.TTTTT...
+  ..W.ppPPP...`,
+  frame(grid(2, 14, "W.pP.PP..\nW.pP.PP..\nW.pP..PP.\nWpp...PPP")),
+  frame(grid(2, 14, "W.pP.PP..\nW..pPP...\nW..pPP...\nW.ppPPP..")))
+
+// ------------------------------------------------------------------ thrall (20 tall, Thralls Art)
+// A villager she seduced: same build, her plum rose instead of slate, pink eyes, a heart on the
+// chest. Hers, so it breaks the cold-enemy palette rule on purpose.
+anim("thrall", { w: 12, h: 18, outline: "k", fps: 6 }, `
+  j.j.j.......
+  j.j.j.......
+  iiiii.hHHh..
+  ..W..hHHHHh.
+  ..W.hzzzsHh.
+  ..W.zOzzsHH.
+  ..W..zzss...
+  ..W..GFFF...
+  ..W.GFFOFF..
+  .zzFFOOOFFE.
+  ..WFFFOFFE..
+  ..W.FFFFEE..
+  ..W.EEEEE...
   ..W.ppPPP...`,
   frame(grid(2, 14, "W.pP.PP..\nW.pP.PP..\nW.pP..PP.\nWpp...PPP")),
   frame(grid(2, 14, "W.pP.PP..\nW..pPP...\nW..pPP...\nW.ppPPP..")))

@@ -188,6 +188,7 @@ impl Run {
                 Cue::BatBlast => Sfx::BatBlast,
                 Cue::BlackMass => Sfx::BlackMass,
                 Cue::Gaze => Sfx::Gaze,
+                Cue::Thralls => Sfx::Thralls,
                 Cue::SirenBurst => Sfx::SirenBurst,
                 Cue::Offering => Sfx::Offering,
                 Cue::Hit { armored: false } => Sfx::Hit,
@@ -274,7 +275,7 @@ impl Run {
         self.set_state(State::Playing);
     }
 
-    /// F2 panel: up/down a level of the Art or Sin picked, or force an evolution.
+    /// F2 panel: up/down a level of the Art or Sin picked, or force an evolution or union.
     fn debug_panel(&mut self, input: &UiInput, view: Vec2) {
         let rects = hud::debug_rects(view);
         let action = self.focus.update(input, &rects);
@@ -295,8 +296,11 @@ impl Run {
         if item < n {
             self.game.debug_art_level(item, up);
         } else if item < 2 * n {
-            if up {
-                self.game.debug_evolve(item - n);
+            let art = item - n;
+            if up && ARTS[art].evolution.is_some() {
+                self.game.debug_evolve(art);
+            } else if up {
+                self.game.debug_unite(hud::debug_union(art));
             }
         } else {
             self.game.debug_sin_level(item - 2 * n, up);
@@ -342,6 +346,7 @@ impl Run {
         draw_offerings(game);
         draw_bursts(game, true);
         draw_enemies(game);
+        draw_thralls(game);
         draw_fades(game);
         draw_bursts(game, false);
         let pos = player_pos.round();
@@ -517,15 +522,52 @@ fn draw_enemies(game: &Game) {
     }
 }
 
-/// A beating heart over every charmed enemy's head.
+/// A beating heart over every charmed enemy's head, and over every foe the Infernal
+/// Court converted.
 fn draw_charm_marks(game: &Game) {
     let e = &game.enemies;
     let frame = assets::anim_frame(SpriteId::CharmHeart, game.time, true);
+    let mark = |pos: Vec2, h: f32, phase: f32, alpha: f32| {
+        let bob = (TAU * 2.0 * game.time + phase).sin().round();
+        let corner = pos.round() - vec2(3.0, h + CHARM_MARK_HEIGHT + 7.0 + bob);
+        let tint = Color::new(1.0, 1.0, 1.0, alpha);
+        draw_sprite_tinted(SpriteId::CharmHeart, frame, corner, false, tint);
+    };
     for i in (0..e.len()).filter(|&i| e.charmed(i, game.time)) {
         let h = ENEMY_DEFS[e.kind[i] as usize].size.1 as f32;
-        let bob = (TAU * 2.0 * game.time + e.phase[i]).sin().round();
-        let corner = e.pos(i).round() - vec2(3.0, h + CHARM_MARK_HEIGHT + 7.0 + bob);
-        draw_sprite(SpriteId::CharmHeart, frame, corner, false);
+        mark(e.pos(i), h, e.phase[i], 1.0);
+    }
+    for th in game.arts.thralls.iter().filter(|t| t.kind.is_some()) {
+        mark(th.pos, th.def().size.1 as f32, th.phase, th.alpha());
+    }
+}
+
+/// Thralls: summoned villagers in their own colours, converted foes (Infernal Court)
+/// in theirs tinted like the charmed. They face where they go and fade in and out.
+fn draw_thralls(game: &Game) {
+    for th in &game.arts.thralls {
+        let def = th.def();
+        let pos = th.pos.round();
+        let walk = if th.moving {
+            game.time * ENEMY_ANIM_FPS
+        } else {
+            0.0
+        };
+        let mut frame = (walk + th.phase) as usize % 2;
+        if th.flash > 0.0 {
+            frame += FLASH_FRAME_OFFSET;
+        }
+        let alpha = th.alpha();
+        let (_, src) = sprite(def.sprite, frame);
+        draw_shadow(pos, src.w * 0.32, (src.w * 0.09).max(1.5), alpha);
+        let corner = pos - vec2((src.w * 0.5).floor(), src.h - 1.0);
+        let mut tint = if th.kind.is_some() && th.flash <= 0.0 {
+            Color::from_hex(CHARM_TINT)
+        } else {
+            WHITE
+        };
+        tint.a = alpha;
+        draw_sprite_tinted(def.sprite, frame, corner, th.facing > 0.0, tint);
     }
 }
 

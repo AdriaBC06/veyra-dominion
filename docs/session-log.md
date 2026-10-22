@@ -106,3 +106,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - First drafts were rejected for slow intros: a title track must hook from bar 1 (full texture, crash, ostinato). Rewritten at 84–116 BPM.
   - The old "Dominion" and the three unused candidates are kept in `assets/music/drafts/` (not embedded).
   - Gotchas: the synth clamps at 1.0, so check the raw peak of a new track; drum tokens must be lowercase; a pattern can't be named `drum`.
+- **S14b part 4 (2026-10-22)** — V17f done (see 7.7 "Built in V17f"): Thralls (summon, 14 Arts) and the first union, Allure + Thralls → Infernal Court; union system (`UNIONS`, `Upgrades.united`, `Reward::Union`, F2 UNITE button). 154 tests, stress 0.30 ms.
+  - Decisions asked and agreed: the Court keeps the Thralls' summons; a converted foe drops its soul and counts as a kill when it falls, elites are never converted; Siren's Dominion combines (converted thralls burst when their time runs out).
+  - Committed without the in-game approval at the user's request ("mañana revisaré"): review Thralls/Court in game with F2/F7/F8.
+  - Gotchas: a converted enemy leaves through `Enemies.gone` (hp 0, removed quietly); with every Art maxed, Offerings now give the union first (tests that cap everything must set `united`).
+  - Next: S14c icons (V17c).

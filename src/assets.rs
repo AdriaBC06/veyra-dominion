@@ -24,6 +24,7 @@ pub enum SpriteId {
     Villager,
     Knight,
     Brute,
+    Thrall,
     TailLash,
     HeartBolt,
     Ember,
@@ -67,7 +68,7 @@ pub enum SpriteId {
     Ground,
 }
 
-const SPRITE_COUNT: usize = 54;
+const SPRITE_COUNT: usize = 55;
 
 /// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
 /// times the base sprite.
@@ -270,6 +271,7 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     enemy!(Villager, "villager"),
     enemy!(Knight, "knight"),
     enemy!(Brute, "brute"),
+    enemy!(Thrall, "thrall"),
     art!(TailLash, "tail_lash"),
     art!(HeartBolt, "heart_bolt"),
     art!(Ember, "ember"),
@@ -760,7 +762,8 @@ mod tests {
         assert_eq!(size(SpriteId::Villager), (14, 20));
         assert_eq!(size(SpriteId::Knight), (18, 26));
         assert_eq!(size(SpriteId::Brute), (32, 40));
-        for def in &crate::config::ENEMY_DEFS {
+        let thrall = [crate::config::THRALL_DEF];
+        for def in crate::config::ENEMY_DEFS.iter().chain(&thrall) {
             let (w, h) = def.size;
             assert_eq!(size(def.sprite), (w as u16, h as u16), "{}", def.name);
         }

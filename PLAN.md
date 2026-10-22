@@ -79,7 +79,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V17b Rework the 7 existing Arts (Kiss → Hellflare evolution, Wing Gust → Scent of Sin), 12 Sins, Offering sacrifice (+ F2 debug panel, Veyra centred on her hitbox)
   - [x] V17d Reaper's Scythe, Profaned Cross, Wandering Sigil (+ evolutions)
   - [x] V17e Bat Swarm, Black Mass, Gaze of Desire (+ evolutions)
-  - [ ] V17f Thralls + Allure/Thralls union
+  - [x] V17f Thralls + Allure/Thralls union (committed at the user's request, in-game review pending)
 - **S14c — Icons** *(user approval)*
   - [ ] Install the pxl pixel-art skill: https://github.com/crsolver/claude-pxl
   - [ ] V17c Icons for every Art, evolution (own icon) and Sin, in cards and HUD

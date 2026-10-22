@@ -171,6 +171,30 @@ pub const MAX_GAZES: usize = 16;
 /// Gaze beam colours (dark glow, body, core) and the tint of frozen enemies: her gold.
 pub const GAZE_COLORS: [u32; 3] = [0x8a5a1c, 0xe8b04a, 0xfff2c0];
 pub const FROZEN_TINT: u32 = 0xffd890;
+/// Thralls: every summon `amount` of them rise `THRALL_SPAWN_RADIUS` around her, only
+/// while an enemy is within `THRALL_SEEK` and the pool (`MAX_THRALLS`, shared with the
+/// Infernal Court's) has room. Each walks at the Art's speed to the nearest enemy within
+/// `THRALL_SEEK` of itself, or back to her (keeping `THRALL_LEASH` away), and hits one
+/// it touches every `THRALL_BLOW` for the Art's damage, `THRALL_REACH` (times area)
+/// beyond its body. It has `THRALL_HP` health; free enemies touching it hurt it with
+/// their contact damage at most every `THRALL_IFRAMES`. It serves for the Art's
+/// duration, fading in over `THRALL_RISE` and out over `THRALL_FADE`.
+pub const THRALL_SPAWN_RADIUS: f32 = 22.0;
+pub const THRALL_SEEK: f32 = 180.0;
+pub const THRALL_LEASH: f32 = 34.0;
+pub const THRALL_BLOW: f32 = 0.6;
+pub const THRALL_REACH: f32 = 5.0;
+pub const THRALL_HP: f32 = 24.0;
+pub const THRALL_IFRAMES: f32 = 0.4;
+pub const THRALL_RISE: f32 = 0.3;
+pub const THRALL_FADE: f32 = 0.4;
+pub const MAX_THRALLS: usize = 64;
+/// Thralls keep this far apart from each other (they are not in the enemy hash, so
+/// the horde's separation doesn't move them).
+pub const THRALL_SPACING: f32 = 10.0;
+pub const THRALL_SPACING_PUSH: f32 = 60.0;
+/// Free enemies checked for contact around a thrall (dense hordes bail out early).
+pub const THRALL_CONTACT_MAX: u32 = 8;
 
 // --- Evolutions (7.7), opened by Abyssal Offerings --------------------------
 /// Kiss of Ruin (Hellflare evolved): each volley throws `KISS_EXTRA` more shots, as
@@ -243,6 +267,14 @@ pub const SABBATH_SOUL_SPEED: f32 = 420.0;
 /// more damage from everything.
 pub const EVIL_EYE_EXTRA: u32 = 1;
 pub const EVIL_EYE_VULN: f32 = 0.5;
+// --- Unions (7.7): two maxed Arts fused by an Abyssal Offering ---------------
+/// Infernal Court (Allure + Thralls): each pulse turns its first `amount` free foes
+/// into thralls of their own kind instead of charming them (elites are only charmed,
+/// so their Offering is never lost). A converted foe keeps its health, hits with its
+/// own contact damage (times Wrath) and serves `COURT_LIFE` times Allure's duration.
+/// It drops its soul and counts as a kill when it falls; with Siren's Dominion it
+/// bursts when its time runs out. The Thralls' own summons go on.
+pub const COURT_LIFE: f32 = 2.5;
 /// Abyssal Offerings: dropped by elites, opened when Veyra gets this close. One with
 /// nothing to evolve or level up heals `OFFERING_HEAL` instead. Sacrificed (rejected),
 /// an Offering heals `SACRIFICE_HEAL` and gives `SACRIFICE_XP` souls' worth of XP.

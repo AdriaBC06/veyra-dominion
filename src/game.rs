@@ -1,6 +1,6 @@
 //! Simulation state. Pure logic: no drawing, input or window calls.
 
-use crate::arts::{Arts, World};
+use crate::arts::{Arts, Fallen, World};
 use crate::assets::{SpriteId, FLASH_FRAME_OFFSET};
 use crate::config::*;
 use crate::enemies::Enemies;
@@ -35,6 +35,8 @@ pub enum SimEvent {
 pub enum Reward {
     /// Index into `ARTS`: it takes its evolved form.
     Evolution(usize),
+    /// Index into `UNIONS`: its two Arts fuse into one.
+    Union(usize),
     /// Nothing can evolve: a free level of a random Art or Sin.
     Gift(Choice),
     /// Nothing left to level either: `OFFERING_HEAL` health.
@@ -66,6 +68,8 @@ pub enum Cue {
     BatBlast,
     BlackMass,
     Gaze,
+    /// Thralls rose at her side.
+    Thralls,
     /// A charmed enemy burst (Siren's Dominion).
     SirenBurst,
     /// An Abyssal Offering was opened.
@@ -352,10 +356,12 @@ impl Game {
         true
     }
 
-    /// Opens an Offering: decides what it holds (the first Art that can evolve, else a
-    /// random level, else health) without giving it yet.
+    /// Opens an Offering: decides what it holds (a union, else the first Art that can
+    /// evolve, else a random level, else health) without giving it yet.
     pub fn open_offering(&mut self) -> Reward {
-        let reward = if let Some(art) = self.upgrades.evolvable() {
+        let reward = if let Some(u) = self.upgrades.unitable() {
+            Reward::Union(u)
+        } else if let Some(art) = self.upgrades.evolvable() {
             Reward::Evolution(art)
         } else {
             let mut pick = [None];
@@ -371,6 +377,7 @@ impl Game {
     pub fn accept_offering(&mut self) {
         match self.reward.take() {
             Some(Reward::Evolution(art)) => self.upgrades.evolve(art),
+            Some(Reward::Union(u)) => self.upgrades.unite(u),
             Some(Reward::Gift(choice)) => self.upgrades.apply(choice, &mut self.player),
             Some(Reward::Heal) => self.heal(OFFERING_HEAL),
             None => return,
@@ -477,6 +484,7 @@ impl Game {
             (cues.bat_blast, Cue::BatBlast),
             (cues.mass, Cue::BlackMass),
             (cues.gazed, Cue::Gaze),
+            (cues.summoned, Cue::Thralls),
             (cues.burst, Cue::SirenBurst),
             (cues.hits[0], Cue::Hit { armored: false }),
             (cues.hits[1], Cue::Hit { armored: true }),
@@ -489,6 +497,36 @@ impl Game {
             for s in &mut self.souls {
                 s.called = true;
             }
+        }
+        for k in 0..self.arts.fallen.len() {
+            let f = self.arts.fallen[k];
+            self.thrall_fell(f);
+        }
+        self.arts.fallen.clear();
+    }
+
+    /// A thrall fell: its flash, burst and blood. A foe the Infernal Court converted
+    /// also counts as a kill and drops its soul now.
+    fn thrall_fell(&mut self, f: Fallen) {
+        let def = f.kind.map_or(&THRALL_DEF, |k| &ENEMY_DEFS[k as usize]);
+        if self.fades.len() < MAX_FADES {
+            self.fades.push(Fade {
+                pos: f.pos,
+                vel: Vec2::ZERO,
+                sprite: def.sprite,
+                frame: FLASH_FRAME_OFFSET,
+                t: 0.0,
+                duration: DEATH_FADE_TIME,
+            });
+        }
+        self.spawn_burst(def, f.pos);
+        if def.blood {
+            splat(&mut self.splats, f.pos, def.pool_radius());
+        }
+        if f.kind.is_some() {
+            self.kills += 1;
+            self.cue(Cue::Kill(def.family));
+            self.drop_soul(f.pos, def.soul_xp);
         }
     }
 
@@ -509,6 +547,10 @@ impl Game {
     fn remove_dead_enemies(&mut self) {
         for i in (0..self.enemies.len()).rev() {
             if self.enemies.hp[i] > 0.0 {
+                continue;
+            }
+            if self.enemies.gone[i] {
+                self.enemies.swap_remove(i);
                 continue;
             }
             if self.fades.len() < MAX_FADES {
@@ -840,6 +882,17 @@ impl Game {
             return false;
         }
         self.upgrades.evolve(art);
+        self.arts.refresh(&self.upgrades);
+        true
+    }
+
+    /// Debug (F2 panel): fuses union `u` straight away if both its Arts are at the top
+    /// level. Returns whether it did.
+    pub fn debug_unite(&mut self, u: usize) -> bool {
+        if !self.upgrades.can_unite(u) {
+            return false;
+        }
+        self.upgrades.unite(u);
         self.arts.refresh(&self.upgrades);
         true
     }
@@ -1192,7 +1245,7 @@ mod tests {
         let mut g = Game::new();
         g.spawn_acc = f32::NEG_INFINITY;
         g.upgrades.arts[HELLFLARE] = ART_MAX_LEVEL;
-        g.upgrades.sins[ARTS[HELLFLARE].evolution.sin] = 1;
+        g.upgrades.sins[ARTS[HELLFLARE].evolution.as_ref().unwrap().sin] = 1;
         g.arts.refresh(&g.upgrades);
         g.arts.hold();
         g.enemies.spawn(RAT, vec2(200.0, 0.0), 1.0);
@@ -1252,7 +1305,7 @@ mod tests {
     fn a_sacrificed_offering_heals_and_gives_xp_instead() {
         let mut g = Game::new();
         g.upgrades.arts[HELLFLARE] = ART_MAX_LEVEL;
-        g.upgrades.sins[ARTS[HELLFLARE].evolution.sin] = 1;
+        g.upgrades.sins[ARTS[HELLFLARE].evolution.as_ref().unwrap().sin] = 1;
         g.player.hp = 10.0;
         assert_eq!(g.open_offering(), Reward::Evolution(HELLFLARE));
         g.sacrifice_offering();
@@ -1283,6 +1336,10 @@ mod tests {
             *lv = def.max_level;
         }
         g.player.hp = 10.0;
+        // Both Allure and Thralls at the top: the union comes before anything else.
+        assert_eq!(g.open_offering(), Reward::Union(INFERNAL_COURT));
+        g.accept_offering();
+        assert!(g.upgrades.united[INFERNAL_COURT]);
         assert_eq!(g.open_offering(), Reward::Heal);
         g.accept_offering();
         assert_eq!(g.player.hp, 10.0 + OFFERING_HEAL);
@@ -1381,6 +1438,7 @@ mod tests {
         let mut g = Game::new();
         g.upgrades.arts = [ART_MAX_LEVEL; ARTS.len()];
         g.upgrades.evolved = [true; ARTS.len()];
+        g.upgrades.united = [true; UNIONS.len()];
         g.upgrades.sins = SINS.map(|d| d.max_level);
         g.stats = g.upgrades.stats();
         g.arts.refresh(&g.upgrades);
@@ -1421,6 +1479,8 @@ mod tests {
             assert!(g.arts.seal_blasts.capacity() == MAX_SEAL_BLASTS);
             assert!(g.arts.bombs.capacity() == MAX_BOMBS);
             assert!(g.arts.gazes.capacity() == MAX_GAZES);
+            assert!(g.arts.thralls.capacity() == MAX_THRALLS);
+            assert!(g.arts.fallen.capacity() == MAX_THRALLS);
             assert!(g.souls.len() <= MAX_SOULS);
             assert!(g.fades.len() <= MAX_FADES);
             assert!(g.bursts.capacity() == MAX_BURST_PIXELS);

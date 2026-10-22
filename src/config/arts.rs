@@ -24,26 +24,28 @@ pub enum ArtKind {
     BatSwarm,
     BlackMass,
     GazeOfDesire,
+    Thralls,
 }
 
 /// An Art's numbers at some level. Each Art reads the ones it uses:
 /// - `amount`: fireballs per volley, lashes per attack, flames, enemies charmed per
 ///   pulse, pools per cast, enemies a chain bites, scythes, crosses, sigils, bats and
-///   gaze beams (the Scent and Black Mass have none);
+///   gaze beams and thralls summoned (the Scent and Black Mass have none);
 /// - `cooldown`: seconds between attacks (the Halo: seconds off between spells; the
-///   Scent: between burns);
+///   Scent: between burns; Thralls: between summons);
 /// - `area`: lash reach, Halo orbit radius, Allure radius, pool size, chain jump, haze
 ///   radius, rift pull multiplier, the size of scythes, crosses and sigils (sprite
-///   and hit), bat blasts and gaze beams (length and width);
-/// - `speed`: projectile pixels per second (the Halo and the bats: radians per second);
+///   and hit), bat blasts, gaze beams (length and width) and a thrall's reach;
+/// - `speed`: projectile pixels per second (the Halo and the bats: radians per second;
+///   thralls: their walk);
 /// - `pierce`: enemies a scythe goes through after the first;
 /// - `duration`: projectile lifetime (the Halo: seconds each spell burns; Allure:
 ///   charm; Hellgate: pool life; Tail Lash: bleed once evolved; the Scent: weakness;
-///   the Sigil: how long it wanders; the Gaze: freeze; the Cross has none, it flies
-///   until it is back).
+///   the Sigil: how long it wanders; the Gaze: freeze; Thralls: how long one serves;
+///   the Cross has none, it flies until it is back).
 ///   Sloth lengthens every one but the projectile flights (see `ArtDef::sloth`).
 /// - `damage`: per hit (Allure: per pulse and per charmed bite; Hellgate and the
-///   Scent: per burn; the Gaze deals none).
+///   Scent: per burn; Thralls: per blow; the Gaze deals none).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ArtStats {
     pub damage: f32,
@@ -96,7 +98,17 @@ pub struct ArtDef {
     pub base: ArtStats,
     /// Gains for levels 2..=ART_MAX_LEVEL.
     pub gains: [ArtGain; ART_MAX_LEVEL as usize - 1],
-    pub evolution: Evolution,
+    /// `None` for an Art that only grows through a union (see `UNIONS`).
+    pub evolution: Option<Evolution>,
+}
+
+/// Two Arts at `ART_MAX_LEVEL` that an Abyssal Offering fuses into one (no Sin
+/// needed). The first keeps its slot under the union's name, the second leaves its
+/// slot free but keeps working as part of the union.
+pub struct UnionDef {
+    pub arts: [usize; 2],
+    pub name: Key,
+    pub desc: Key,
 }
 
 pub const HELLFLARE: usize = 0;
@@ -112,8 +124,9 @@ pub const WANDERING_SIGIL: usize = 9;
 pub const BAT_SWARM: usize = 10;
 pub const BLACK_MASS: usize = 11;
 pub const GAZE_OF_DESIRE: usize = 12;
+pub const THRALLS: usize = 13;
 
-pub const ARTS: [ArtDef; 13] = [
+pub const ARTS: [ArtDef; 14] = [
     // Fireballs at the nearest enemy (Magic Wand). Evolves into Kiss of Ruin.
     ArtDef {
         kind: ArtKind::Hellflare,
@@ -159,11 +172,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: LEGION,
             name: Key::EvoKissOfRuin,
             desc: Key::EvoKissOfRuinDesc,
-        },
+        }),
     },
     // A lash on the side she faces; the second one cracks behind her (Whip). Its reach
     // grows with area.
@@ -214,11 +227,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: WRATH,
             name: Key::EvoBarbedScourge,
             desc: Key::EvoBarbedScourgeDesc,
-        },
+        }),
     },
     // One big flame circling her, then more, faster and resting less (King Bible).
     ArtDef {
@@ -268,11 +281,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: SLOTH,
             name: Key::EvoInfernalCrown,
             desc: Key::EvoInfernalCrownDesc,
-        },
+        }),
     },
     // A pulse that burns and charms the nearest few; they turn on the horde.
     ArtDef {
@@ -322,11 +335,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: LUST,
             name: Key::EvoSirensDominion,
             desc: Key::EvoSirensDominionDesc,
-        },
+        }),
     },
     // Burning pools opened under random enemies, wider every few levels (Santa Water).
     ArtDef {
@@ -377,11 +390,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: DARK_SIGIL,
             name: Key::EvoAbyssalRift,
             desc: Key::EvoAbyssalRiftDesc,
-        },
+        }),
     },
     // A chain that bites one enemy and jumps from foe to foe (Lightning Ring).
     ArtDef {
@@ -431,11 +444,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: BLOODLUST,
             name: Key::EvoTormentEternal,
             desc: Key::EvoTormentEternalDesc,
-        },
+        }),
     },
     // A pink haze around her that burns slowly and weakens what it touches (Garlic).
     ArtDef {
@@ -484,11 +497,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: GLUTTONY,
             name: Key::EvoDevouringMusk,
             desc: Key::EvoDevouringMuskDesc,
-        },
+        }),
     },
     // Scythes thrown high that fall back through the horde (Axe), bigger every other
     // level.
@@ -541,11 +554,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: NIGHT_WINGS,
             name: Key::EvoMidnightHarvest,
             desc: Key::EvoMidnightHarvestDesc,
-        },
+        }),
     },
     // An inverted cross thrown at a foe that comes back to her like a boomerang
     // (Cross). Speed carries it further.
@@ -595,11 +608,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: WRATH,
             name: Key::EvoHereticsBrand,
             desc: Key::EvoHereticsBrandDesc,
-        },
+        }),
     },
     // Her sigil wandering the screen, bouncing off its edges (Runetracer).
     ArtDef {
@@ -650,11 +663,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: INFERNAL_HIDE,
             name: Key::EvoBrokenSeal,
             desc: Key::EvoBrokenSealDesc,
-        },
+        }),
     },
     // A flock circling her that bombs the horde, bigger every few levels (Peachone and
     // Ebony Wings as one Art).
@@ -705,11 +718,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: GLUTTONY,
             name: Key::EvoCrimsonHost,
             desc: Key::EvoCrimsonHostDesc,
-        },
+        }),
     },
     // Now and then a rite that strikes everything in sight hard, never an instant
     // kill (Pentagram).
@@ -757,11 +770,11 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: ENVY,
             name: Key::EvoWitchesSabbath,
             desc: Key::EvoWitchesSabbathDesc,
-        },
+        }),
     },
     // Her gaze: beams that freeze what they touch for a moment (Clock Lancet).
     ArtDef {
@@ -810,11 +823,73 @@ pub const ARTS: [ArtDef; 13] = [
                 ..NO_GAIN
             },
         ],
-        evolution: Evolution {
+        evolution: Some(Evolution {
             sin: PRIDE,
             name: Key::EvoEvilEye,
             desc: Key::EvoEvilEyeDesc,
+        }),
+    },
+    // Seduced villagers that rise at her side and fight on their own (a summon).
+    ArtDef {
+        kind: ArtKind::Thralls,
+        name: Key::ArtThralls,
+        desc: Key::ArtThrallsDesc,
+        amount_key: Key::ArtMoreThralls,
+        base: ArtStats {
+            damage: 8.0,
+            cooldown: 4.0,
+            amount: 1,
+            area: 1.0,
+            speed: 80.0,
+            pierce: 0,
+            duration: 8.0,
         },
+        gains: [
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 4.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                duration: 2.0,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                damage: 4.0,
+                cooldown: 0.1,
+                ..NO_GAIN
+            },
+            ArtGain {
+                duration: 2.0,
+                speed: 0.2,
+                ..NO_GAIN
+            },
+            ArtGain {
+                amount: 1,
+                damage: 4.0,
+                ..NO_GAIN
+            },
+        ],
+        // Grows only by uniting with Allure (Infernal Court).
+        evolution: None,
+    },
+];
+
+pub const INFERNAL_COURT: usize = 0;
+
+pub const UNIONS: [UnionDef; 1] = [
+    // Allure's charmed become thralls of the court; her own thralls keep coming.
+    UnionDef {
+        arts: [ALLURE, THRALLS],
+        name: Key::UnionInfernalCourt,
+        desc: Key::UnionInfernalCourtDesc,
     },
 ];
 

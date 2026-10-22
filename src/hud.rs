@@ -232,13 +232,22 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
     let Some(reward) = game.reward else { return };
     let (line, name, tag, desc) = match reward {
         Reward::Evolution(i) => {
-            let evo = &ARTS[i].evolution;
             let line = trf(Key::OfferingEvolved, &[&tr(ARTS[i].name)]);
+            let evo = ARTS[i]
+                .evolution
+                .as_ref()
+                .expect("only Arts with one evolve");
+            let (name, desc) = (tr(evo.name), tr(evo.desc));
+            (line, name.to_string(), String::new(), desc.to_string())
+        }
+        Reward::Union(u) => {
+            let def = &UNIONS[u];
+            let [a, b] = def.arts.map(|i| tr(ARTS[i].name));
             (
-                line,
-                tr(evo.name).to_string(),
+                trf(Key::OfferingUnited, &[&a, &b]),
+                tr(def.name).to_string(),
                 String::new(),
-                tr(evo.desc).to_string(),
+                tr(def.desc).to_string(),
             )
         }
         // Not taken yet: show the level it would reach and what that gives.
@@ -336,6 +345,14 @@ pub fn debug_rects(view: Vec2) -> Vec<Rect> {
     arts.chain(evos).chain(sins).collect()
 }
 
+/// The union whose Unite button sits on Art `art`'s row (an Art without an evolution
+/// of its own).
+pub fn debug_union(art: usize) -> usize {
+    (0..UNIONS.len())
+        .find(|&k| UNIONS[k].arts.contains(&art))
+        .unwrap_or(0)
+}
+
 /// A panel row: filled when owned, dimmed when it can't be taken, outlined when focused.
 fn debug_row(r: Rect, left: &str, right: &str, owned: bool, dim: bool, lit: bool, color: Color) {
     draw_rectangle(r.x, r.y, r.w, r.h, if owned { DBG_OWNED } else { DBG_FREE });
@@ -388,7 +405,17 @@ pub fn draw_debug_panel(game: &Game, view: Vec2, focus: &Focus) {
     );
     for (i, def) in ARTS.iter().enumerate() {
         let lv = u.arts[i];
-        let color = if u.evolved[i] { DBG_GOLD } else { WHITE };
+        let union = u.union_of(i);
+        let color = if u.evolved[i] || union.is_some() {
+            DBG_GOLD
+        } else {
+            WHITE
+        };
+        // The union's first Art carries its name; the second is out of the slots.
+        let name = match union {
+            Some(k) if UNIONS[k].arts[0] == i => tr(UNIONS[k].name),
+            _ => tr(def.name),
+        };
         let level = if lv > 0 {
             format!("{lv}/{ART_MAX_LEVEL}")
         } else {
@@ -397,20 +424,29 @@ pub fn draw_debug_panel(game: &Game, view: Vec2, focus: &Focus) {
         let dim = lv == 0 && arts_full;
         debug_row(
             rects[i],
-            tr(def.name),
+            name,
             &level,
             lv > 0,
             dim,
             focus.is_highlighted(i),
             color,
         );
-        let sin = tr(SINS[def.evolution.sin].name);
-        let (label, owned, dim, color) = if u.evolved[i] {
-            ("EVOLVED".to_string(), true, false, DBG_GOLD)
-        } else if u.can_evolve(i) {
-            ("EVOLVE".to_string(), true, false, WHITE)
-        } else {
-            (format!("+{sin}"), false, true, GRAY)
+        // An Art with no evolution of its own has a Unite button instead.
+        let (label, owned, dim, color) = match &def.evolution {
+            Some(_) if u.evolved[i] => ("EVOLVED".to_string(), true, false, DBG_GOLD),
+            Some(_) if u.can_evolve(i) => ("EVOLVE".to_string(), true, false, WHITE),
+            Some(evo) => (format!("+{}", tr(SINS[evo.sin].name)), false, true, GRAY),
+            None => {
+                let k = debug_union(i);
+                let other = UNIONS[k].arts.into_iter().find(|&a| a != i).unwrap_or(i);
+                if u.united[k] {
+                    ("UNITED".to_string(), true, false, DBG_GOLD)
+                } else if u.can_unite(k) {
+                    ("UNITE".to_string(), true, false, WHITE)
+                } else {
+                    (format!("+{}", tr(ARTS[other].name)), false, true, GRAY)
+                }
+            }
         };
         let lit = focus.is_highlighted(n + i);
         debug_row(rects[n + i], &label, "", owned, dim, lit, color);
@@ -437,7 +473,8 @@ pub fn draw_debug_panel(game: &Game, view: Vec2, focus: &Focus) {
     let help_y = DBG_TOP + 14.0 + SINS.len() as f32 * DBG_ROW + 14.0;
     for (k, line) in [
         "Click / Enter / Right: level up    Right-click / Left: level down",
-        "Evolve needs Lv 8 and the Sin shown    F2 / Esc: close",
+        "Evolve needs Lv 8 and the Sin shown    Unite needs both Arts at Lv 8",
+        "F2 / Esc: close",
     ]
     .iter()
     .enumerate()
