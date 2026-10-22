@@ -111,3 +111,9 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Committed without the in-game approval at the user's request ("mañana revisaré"): review Thralls/Court in game with F2/F7/F8.
   - Gotchas: a converted enemy leaves through `Enemies.gone` (hp 0, removed quietly); with every Art maxed, Offerings now give the union first (tests that cap everything must set `united`).
   - Next: S14c icons (V17c).
+- **Licence change (2026-10-22)** — loose task, outside the PLAN sessions: GPL-3.0 → proprietary (All rights reserved) for a Steam release. New `LICENSE` notice, `Cargo.toml` `license-file` + `publish = false`, README licence section, `licenses/` + `THIRD-PARTY-NOTICES.md`, EULA draft (EN/ES), credits show "(c) 2026" + "All rights reserved" and point to `licenses/` and the EULA.
+  - 48 crates in `Cargo.lock`, all permissive (MIT, Apache-2.0, Zlib, BSD-3-Clause, plus Unlicense/0BSD options); no copyleft. MIT chosen for every dual-licensed crate; hound is Apache-2.0 only, ogg BSD-3, foldhash and zlib-rs Zlib.
+  - Seven crates ship no licence file (dasp_frame, dasp_sample, malloc_buf, ndk-sys, quad-rand, quad-snd, winapi-*-gnu): standard MIT text generated with their Cargo authors. fontdue's vendored-code licences are copied too.
+  - Generated from `cargo metadata` + `~/.cargo/registry/src` with a throwaway script (not in the repo); redo it when dependencies change (V30).
+  - `save.rs` checked: only `settings.txt`/`save.txt` in the user data folder, no network code, so the EULA's "no telemetry" holds. Adding Steamworks/Steam Cloud later means updating that clause.
+  - Pending: EULA needs a lawyer before selling; commits published under GPL stay GPL for anyone who already got them.
