@@ -8,6 +8,12 @@ pub const PROJ_RADIUS: f32 = 4.0;
 /// Fireballs are launched from Veyra's hands, this high above her ground point.
 pub const PROJ_DRAW_HEIGHT: f32 = 18.0;
 pub const MAX_PROJECTILES: usize = 256;
+/// A spent fireball or heart (it hit or ran out of life) never just vanishes: it stops
+/// hurting and fades out over `SHOT_FADE`, slowing by `SHOT_FADE_DRAG` each tick. One
+/// that hits keeps only `SHOT_HIT_SLOW` of its speed, so it dies on the foe.
+pub const SHOT_FADE: f32 = 0.2;
+pub const SHOT_FADE_DRAG: f32 = 0.85;
+pub const SHOT_HIT_SLOW: f32 = 0.25;
 /// Spread between Hellflare fireballs of one volley.
 pub const PROJ_SPREAD: f32 = 0.16;
 /// Tail Lash hits a box on one side of Veyra: it starts `LASH_NEAR` from her ground

@@ -10,11 +10,18 @@ use macroquad::math::{vec2, Vec2};
 use macroquad::rand::gen_range;
 use std::f32::consts::TAU;
 
-/// A Hellflare fireball.
+/// A Hellflare fireball. Once spent it fades for `fade` seconds (0 while it flies).
 pub struct Projectile {
     pub pos: Vec2,
     pub vel: Vec2,
     pub life: f32,
+    pub fade: f32,
+}
+
+impl Projectile {
+    pub fn alpha(&self) -> f32 {
+        shot_alpha(self.fade)
+    }
 }
 
 /// One Tail Lash on `side` (-1 left, 1 right of Veyra). It strikes when `delay`
@@ -61,8 +68,15 @@ pub struct Bolt {
     pub pos: Vec2,
     pub vel: Vec2,
     pub life: f32,
+    pub fade: f32,
     pierce: u32,
     hits: HitList<BOLT_MAX_HITS>,
+}
+
+impl Bolt {
+    pub fn alpha(&self) -> f32 {
+        shot_alpha(self.fade)
+    }
 }
 
 /// A Reaper's Scythe: thrown up, it falls through the horde hitting each enemy once,
@@ -529,6 +543,7 @@ impl Arts {
                     pos: from,
                     vel: dir * KISS_SPEED,
                     life: KISS_LIFE,
+                    fade: 0.0,
                     pierce: KISS_PIERCE,
                     hits: HitList::new(),
                 });
@@ -540,6 +555,7 @@ impl Arts {
                     pos: from,
                     vel: dir * s.speed,
                     life: s.duration,
+                    fade: 0.0,
                 });
             }
         }
@@ -1366,8 +1382,9 @@ impl Arts {
         });
     }
 
-    /// Moves fireballs and applies hits. Dead enemies stay in place (hp <= 0) until
-    /// the game removes them, so hash indices stay valid for the whole pass.
+    /// Moves fireballs and applies hits; spent ones fade out. Dead enemies stay in
+    /// place (hp <= 0) until the game removes them, so hash indices stay valid for the
+    /// whole pass.
     fn update_projectiles(&mut self, w: &mut World, cues: &mut ArtCues) {
         let (damage, time) = (self.stats[HELLFLARE].damage, w.time);
         let enemies = &mut *w.enemies;
@@ -1376,6 +1393,12 @@ impl Arts {
         while k > 0 {
             k -= 1;
             let pr = &mut self.projectiles[k];
+            if pr.fade > 0.0 {
+                if !fade_shot(&mut pr.pos, &mut pr.vel, &mut pr.fade) {
+                    self.projectiles.swap_remove(k);
+                }
+                continue;
+            }
             pr.pos += pr.vel * TICK_DT;
             pr.life -= TICK_DT;
             let mut hit = None;
@@ -1390,9 +1413,10 @@ impl Arts {
                 } else {
                     strike(enemies, j, damage, time, &mut cues.hits);
                 }
+                pr.vel *= SHOT_HIT_SLOW;
             }
             if hit.is_some() || pr.life <= 0.0 {
-                self.projectiles.swap_remove(k);
+                pr.fade = SHOT_FADE;
             }
         }
     }
@@ -1430,12 +1454,16 @@ impl Arts {
         });
     }
 
-    /// Hearts fly straight, hitting each enemy at most once, one per tick.
+    /// Hearts fly straight, hitting each enemy at most once, one per tick; spent ones
+    /// fade out.
     fn update_bolts(&mut self, w: &mut World, cues: &mut ArtCues) {
         let (damage, time) = (self.stats[HELLFLARE].damage, w.time);
         let enemies = &mut *w.enemies;
         let query = BOLT_RADIUS + enemies.max_radius();
         self.bolts.retain_mut(|b| {
+            if b.fade > 0.0 {
+                return fade_shot(&mut b.pos, &mut b.vel, &mut b.fade);
+            }
             b.pos += b.vel * TICK_DT;
             b.life -= TICK_DT;
             let mut hit = None;
@@ -1447,16 +1475,20 @@ impl Arts {
                     hit = Some(j);
                 }
             });
-            let Some(j) = hit else {
-                return b.life > 0.0;
-            };
-            strike(enemies, j, damage, time, &mut cues.hits);
-            b.hits.push(enemies.uid[j]);
-            if b.pierce == 0 {
-                return false;
+            if let Some(j) = hit {
+                strike(enemies, j, damage, time, &mut cues.hits);
+                b.hits.push(enemies.uid[j]);
+                if b.pierce == 0 {
+                    b.vel *= SHOT_HIT_SLOW;
+                    b.fade = SHOT_FADE;
+                    return true;
+                }
+                b.pierce -= 1;
             }
-            b.pierce -= 1;
-            b.life > 0.0
+            if b.life <= 0.0 {
+                b.fade = SHOT_FADE;
+            }
+            true
         });
     }
 
@@ -1518,6 +1550,23 @@ impl Arts {
         }
         let left = self.stats[BRIMSTONE_HALO].duration - self.halo.t;
         (self.halo.t.min(left) / HALO_FADE).clamp(0.0, 1.0)
+    }
+}
+
+/// One tick of a spent shot fading out: it drifts on, slowing. False once it is gone.
+fn fade_shot(pos: &mut Vec2, vel: &mut Vec2, fade: &mut f32) -> bool {
+    *vel *= SHOT_FADE_DRAG;
+    *pos += *vel * TICK_DT;
+    *fade -= TICK_DT;
+    *fade > 0.0
+}
+
+/// How opaque a shot is: whole while it flies, then down to nothing as it fades.
+fn shot_alpha(fade: f32) -> f32 {
+    if fade > 0.0 {
+        fade / SHOT_FADE
+    } else {
+        1.0
     }
 }
 
@@ -2394,7 +2443,32 @@ mod tests {
             pos,
             vel,
             life: 2.0,
+            fade: 0.0,
         });
+    }
+
+    #[test]
+    fn spent_fireballs_fade_out_on_the_foe_without_hitting_again() {
+        let mut g = game_with(HELLFLARE, 1);
+        g.arts.hold();
+        g.enemies.spawn(DUMMY, vec2(40.0, 0.0), 100.0);
+        g.enemies.frozen_until[0] = f32::INFINITY;
+        fireball(&mut g, vec2(20.0, 0.0), vec2(300.0, 0.0));
+        let mut ticks = 0;
+        while !hurt(&g, 0) {
+            tick(&mut g, 1);
+            ticks += 1;
+            assert!(ticks < 30, "never hit");
+        }
+        let (hp, at) = (g.enemies.hp[0], g.arts.projectiles[0].pos.x);
+        assert!(g.arts.projectiles[0].alpha() <= 1.0);
+        tick(&mut g, 4);
+        let p = &g.arts.projectiles[0];
+        assert!(p.alpha() < 1.0 && p.alpha() > 0.0, "fading");
+        assert!(p.pos.x - at < 6.0, "it dies on the foe");
+        assert_eq!(g.enemies.hp[0], hp, "spent: no second hit");
+        tick(&mut g, (SHOT_FADE / TICK_DT) as usize + 2);
+        assert!(g.arts.projectiles.is_empty());
     }
 
     #[test]

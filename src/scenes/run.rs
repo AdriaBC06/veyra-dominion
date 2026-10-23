@@ -1097,13 +1097,14 @@ fn draw_enemy_blasts(game: &Game) {
 fn draw_projectiles(game: &Game, alpha: f32) {
     for p in &game.arts.projectiles {
         let pos = p.pos + p.vel * (alpha - 1.0) * TICK_DT;
-        draw_flying(SpriteId::Fireball, pos, p.vel, PROJ_DRAW_HEIGHT, game.time);
+        let tint = Color::new(1.0, 1.0, 1.0, p.alpha());
+        draw_flying(SpriteId::Fireball, pos, p.vel, PROJ_DRAW_HEIGHT, game.time, tint);
     }
 }
 
 /// A strip baked at 9 headings (straight up to straight down on the right, mirrored
 /// for the left) times 4 flickers, centred `height` above `pos` and turned along `vel`.
-fn draw_flying(id: SpriteId, pos: Vec2, vel: Vec2, height: f32, time: f32) {
+fn draw_flying(id: SpriteId, pos: Vec2, vel: Vec2, height: f32, time: f32, tint: Color) {
     const HEADINGS: usize = 9;
     const FLICKERS: usize = 4;
     let angle = vel.y.atan2(vel.x.abs());
@@ -1112,7 +1113,7 @@ fn draw_flying(id: SpriteId, pos: Vec2, vel: Vec2, height: f32, time: f32) {
     let frame = heading.min(HEADINGS - 1) * FLICKERS + flicker;
     let (_, src) = sprite(id, frame);
     let corner = pos - vec2((src.w * 0.5).floor(), (src.h * 0.5).floor() + height);
-    draw_sprite(id, frame, corner, vel.x < 0.0);
+    draw_sprite_tinted(id, frame, corner, vel.x < 0.0, tint);
 }
 
 /// Tail lashes at Veyra's sides, centred on her hitbox. A longer reach (area)
@@ -1459,7 +1460,8 @@ fn draw_gazes(game: &Game) {
 fn draw_bolts(game: &Game, alpha: f32) {
     for b in &game.arts.bolts {
         let pos = b.pos + b.vel * (alpha - 1.0) * TICK_DT;
-        draw_flying(SpriteId::HeartBolt, pos, b.vel, BOLT_DRAW_HEIGHT, game.time);
+        let tint = Color::new(1.0, 1.0, 1.0, b.alpha());
+        draw_flying(SpriteId::HeartBolt, pos, b.vel, BOLT_DRAW_HEIGHT, game.time, tint);
     }
 }
 
