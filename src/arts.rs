@@ -456,6 +456,24 @@ impl Arts {
         self.evolved[art]
     }
 
+    /// How far Art `art` is back from its cooldown, 0..1 (1 = ready, or the Halo burning),
+    /// for the HUD's cooldown sweep.
+    pub fn charge(&self, art: usize) -> f32 {
+        let s = &self.stats[art];
+        let left = if art == BRIMSTONE_HALO {
+            if self.halo.on {
+                return 1.0;
+            }
+            s.cooldown - self.halo.t
+        } else {
+            self.cooldown[art]
+        };
+        if !left.is_finite() || s.cooldown <= 0.0 {
+            return 1.0;
+        }
+        (1.0 - left / s.cooldown).clamp(0.0, 1.0)
+    }
+
     /// Stops every attack (tests that need an enemy to stay alive).
     #[cfg(test)]
     pub fn hold(&mut self) {

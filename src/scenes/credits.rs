@@ -130,11 +130,12 @@ fn build_lines() -> Vec<(Kind, String)> {
     section(Key::CreditsDesign, &[AUTHOR]);
     section(Key::CreditsArt, &[AUTHOR]);
     section(Key::CreditsMusic, &[AUTHOR, tr(Key::CreditsSynth)]);
+    let own_fonts = format!("Veyra Blackletter, Veyra Display - {AUTHOR}");
     section(
         Key::CreditsFonts,
         &[
-            "Jacquard 24, Jersey 15 - Sarah Cadigan-Fried",
-            "Press Start 2P - Cody \"CodeMan38\" Boisclair",
+            &own_fonts,
+            "Jacquard 24 - Sarah Cadigan-Fried",
             "SIL Open Font License 1.1",
         ],
     );

@@ -28,7 +28,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V19 Boss framework + first boss *(user approval)*
   - [x] **CP7 Combat depth**
 - **S16b — Interface** *(user approval)*
-  - [ ] V19b Premium UI kit + every menu and the HUD redone (7.14)
+  - [x] V19b Premium UI kit + every menu and the HUD redone (7.14)
   - [ ] V19c Grimoire of Evolutions (title + pause)
   - [ ] V19g First-time setup (language, blood, display, volume) + Blood setting
 - **S16c — Living Ashford** *(user approval)*

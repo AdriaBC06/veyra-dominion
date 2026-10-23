@@ -20,6 +20,7 @@ use crate::ui::UiInput;
 use backdrop::Backdrop;
 use credits::Credits;
 use macroquad::prelude::*;
+pub use run::LOW_HP;
 use run::Run;
 use settings::SettingsScene;
 use title::Title;

@@ -7,8 +7,6 @@ Veyra: Dominion is proprietary (see `LICENSE`). It is built with the components 
 | Font | Author | Licence | Text |
 |---|---|---|---|
 | Jacquard 24 | Sarah Cadigan-Fried (The Soft Type Project Authors) | SIL OFL 1.1 | `licenses/fonts/OFL-Jacquard24.txt` |
-| Jersey 15 | Sarah Cadigan-Fried (The Soft Type Project Authors) | SIL OFL 1.1 | `licenses/fonts/OFL-Jersey15.txt` |
-| Press Start 2P | Cody "CodeMan38" Boisclair (The Press Start 2P Project Authors) | SIL OFL 1.1 | `licenses/fonts/OFL-PressStart2P.txt` |
 
 ## Rust crates
 

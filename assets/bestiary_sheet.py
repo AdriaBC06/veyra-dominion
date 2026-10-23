@@ -8,7 +8,7 @@ EN=R+'enemies'; FX=R+'enemy_fx'
 OUT=sys.argv[1] if len(sys.argv)>1 else ROOT+'/docs/art/ashford_bestiary.png'
 S=4; BG=(60,76,52,255)
 fonts=glob.glob(ROOT+'/assets/fonts/*.ttf')
-try: font=ImageFont.truetype(ROOT+'/assets/fonts/Jersey15-Regular.ttf',26)
+try: font=ImageFont.truetype(ROOT+'/assets/fonts/VeyraDisplay.ttf',34)
 except Exception: font=ImageFont.load_default(size=18)
 def frames(png):
     im=Image.open(png).convert('RGBA'); js=png[:-4]+'.json'

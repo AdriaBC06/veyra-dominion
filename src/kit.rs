@@ -306,6 +306,18 @@ pub fn well(rect: Rect, lit: bool, alpha: f32, seed: u32) {
     }
 }
 
+/// A slim moulding `thick` px wide around a HUD bar or plate, with its blood; `lit` sets
+/// its cracks ablaze.
+pub fn moulding(rect: Rect, thick: u16, lit: bool, alpha: f32, seed: u32) {
+    match skin() {
+        Skin::Gilt => {
+            nine(UiArt::Inset, 0, rect, 4.0, alpha);
+            blood(rect, seed, alpha);
+        }
+        Skin::Stone => stone_frame(rect, thick, seed, lit, alpha),
+    }
+}
+
 /// A slider groove over `rect` filled to `value` (0..1) with hellfire, and its knob.
 pub fn slider(rect: Rect, value: f32, lit: bool, alpha: f32) {
     let p = pal();

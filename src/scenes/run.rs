@@ -12,7 +12,7 @@ use crate::bot::{self, Autopilot};
 use crate::config::*;
 use crate::enemies::MODE_WINDUP;
 use crate::game::{Cue, Game, InputState, SimEvent};
-use crate::hud;
+use crate::hud::{self, HudFx};
 use crate::i18n::{tr, trf, Key};
 use crate::screen::Screen;
 use crate::ui::{Action, Focus, Overlay, UiInput};
@@ -22,7 +22,7 @@ use std::f32::consts::TAU;
 /// Mouse movement ignores a cursor this close to Veyra (logical pixels).
 const MOUSE_DEADZONE: f32 = 6.0;
 /// The heartbeat starts at this HP fraction, and quickens below the second.
-const LOW_HP: f32 = 0.3;
+pub const LOW_HP: f32 = 0.3;
 const CRITICAL_HP: f32 = 0.15;
 /// Seconds between heartbeats while low and critical.
 const HEARTBEAT_SLOW: f32 = 0.9;
@@ -55,6 +55,8 @@ pub struct Run {
     blood: BloodLayer,
     /// Motion of the open overlay (pause, level-up, Offering, ...).
     overlay: Overlay,
+    /// Motion of the HUD (counting numbers, flashes, sparks).
+    hud: HudFx,
     /// F12: the bot plays (debug); a run it touched stays out of the lifetime stats.
     pub autopilot: Autopilot,
     pub autopiloted: bool,
@@ -75,6 +77,7 @@ impl Run {
             update_ms: 0.0,
             blood: BloodLayer::default(),
             overlay: Overlay::default(),
+            hud: HudFx::default(),
             autopilot: Autopilot::Off,
             autopiloted: false,
         }
@@ -98,6 +101,7 @@ impl Run {
     }
 
     pub fn update(&mut self, input: &UiInput, view: Vec2, mouse_move: bool) -> Option<Nav> {
+        self.hud.update(&self.game, view, ui_dt());
         match self.state {
             State::Playing if input.back => {
                 audio::cue(Sfx::Pause);
@@ -260,6 +264,7 @@ impl Run {
         self.heartbeat -= get_frame_time().min(MAX_FRAME_DT);
         if self.heartbeat <= 0.0 {
             audio::cue(Sfx::Heartbeat);
+            self.hud.beat();
             self.heartbeat = if health > CRITICAL_HP {
                 HEARTBEAT_SLOW
             } else {
@@ -433,28 +438,28 @@ impl Run {
         let game = &self.game;
         let stats = match self.state {
             State::Playing => {
-                hud::draw_hud(game, view);
+                hud::draw_hud(game, &self.hud, view);
                 if self.autopilot != Autopilot::Off {
                     hud::draw_autopilot(view, self.autopilot.label());
                 }
                 return;
             }
             State::LevelUp => {
-                hud::draw_hud(game, view);
+                hud::draw_hud(game, &self.hud, view);
                 return hud::draw_level_up(game, view, &self.focus, &self.overlay);
             }
             State::Debug => {
-                hud::draw_hud(game, view);
+                hud::draw_hud(game, &self.hud, view);
                 hud::draw_debug_panel(game, view, &self.focus);
                 None
             }
             State::Offering => {
-                hud::draw_hud(game, view);
+                hud::draw_hud(game, &self.hud, view);
                 let ready = self.overlay.t >= OFFERING_HOLD;
                 return hud::draw_offering(game, view, ready, &self.focus, &self.overlay);
             }
             State::Paused => {
-                hud::draw_hud(game, view);
+                hud::draw_hud(game, &self.hud, view);
                 Some((Key::Paused, None))
             }
             State::Victory => Some((

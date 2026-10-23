@@ -53,8 +53,7 @@ Copyright (c) 2026 Adrià Bonnin Catalán. **All rights reserved.** The code, ar
 Third-party components keep their own licences. Full texts are in [`licenses/`](licenses/), summarised in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md):
 
 - Fonts, embedded in the executable under the SIL Open Font License 1.1 (also in `assets/fonts/`):
-  - **Jacquard 24** and **Jersey 15** by Sarah Cadigan-Fried (The Soft Type Project Authors)
-  - **Press Start 2P** by Cody "CodeMan38" Boisclair (The Press Start 2P Project Authors)
+  - **Jacquard 24** by Sarah Cadigan-Fried (The Soft Type Project Authors)
 - **macroquad** by Fedor Logachev and its dependencies, under permissive licences (MIT / Apache-2.0 / Zlib / BSD).
 
 ## En español

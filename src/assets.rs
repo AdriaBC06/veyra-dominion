@@ -441,14 +441,10 @@ struct Atlas {
 
 /// Gothic display face (Jacquard 24): crisp at 43 px.
 const GOTHIC_TTF: &[u8] = include_bytes!("../assets/fonts/Jacquard24-Regular.ttf");
-/// Readable body face (Jersey 15): crisp at 27 px.
-const BODY_TTF: &[u8] = include_bytes!("../assets/fonts/Jersey15-Regular.ttf");
 /// Own gothic face for names and buttons (`assets/fonts/veyra/blackletter.py`): crisp at 30 px.
 const NAME_TTF: &[u8] = include_bytes!("../assets/fonts/VeyraBlackletter.ttf");
 /// Own small-caps face for descriptions (`assets/fonts/veyra/display.py`): crisp at 17 px.
 const DESC_TTF: &[u8] = include_bytes!("../assets/fonts/VeyraDisplay.ttf");
-/// Compact face for dense text such as the debug overlay (Press Start 2P): crisp at 8 px.
-const SMALL_TTF: &[u8] = include_bytes!("../assets/fonts/PressStart2P-Regular.ttf");
 
 /// Every text style the UI uses; each maps to a font and a crisp size.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -457,30 +453,18 @@ pub enum TextStyle {
     Title,
     /// Upgrade names and button labels (Veyra Blackletter 30).
     Name,
-    /// Upgrade descriptions and tags (Veyra Display 17).
+    /// Descriptions, tags, small numbers and the debug overlays (Veyra Display 17).
     Desc,
-    /// Everything else (body 27).
-    Body,
-    /// Dense secondary text, e.g. the debug overlay (small 8).
-    Small,
 }
 
 impl TextStyle {
-    const ALL: [TextStyle; 5] = [
-        TextStyle::Title,
-        TextStyle::Name,
-        TextStyle::Desc,
-        TextStyle::Body,
-        TextStyle::Small,
-    ];
+    const ALL: [TextStyle; 3] = [TextStyle::Title, TextStyle::Name, TextStyle::Desc];
 
     fn spec(self) -> (Face, u16) {
         match self {
             TextStyle::Title => (Face::Gothic, 43),
             TextStyle::Name => (Face::Name, 30),
             TextStyle::Desc => (Face::Desc, 17),
-            TextStyle::Body => (Face::Body, 27),
-            TextStyle::Small => (Face::Small, 8),
         }
     }
 }
@@ -490,16 +474,12 @@ enum Face {
     Gothic,
     Name,
     Desc,
-    Body,
-    Small,
 }
 
 struct Fonts {
     gothic: Font,
     name: Font,
     desc: Font,
-    body: Font,
-    small: Font,
 }
 
 impl Fonts {
@@ -508,8 +488,6 @@ impl Fonts {
             Face::Gothic => &self.gothic,
             Face::Name => &self.name,
             Face::Desc => &self.desc,
-            Face::Body => &self.body,
-            Face::Small => &self.small,
         }
     }
 }
@@ -892,8 +870,6 @@ pub fn init() {
         gothic: load(GOTHIC_TTF),
         name: load(NAME_TTF),
         desc: load(DESC_TTF),
-        body: load(BODY_TTF),
-        small: load(SMALL_TTF),
     };
     // Rasterise printable ASCII plus Spanish letters up front to avoid first-use hitches.
     let chars: Vec<char> = (' '..='~').chain(EXTRA_GLYPHS.chars()).collect();

@@ -1,8 +1,13 @@
 //! Screen-space UI drawn into the logical frame (call with the UI camera set).
 
+mod play;
+
+pub use play::{draw as draw_hud, HudFx};
+
 use crate::assets::{draw_ui_text, measure_ui_text, sprite, SpriteId, TextStyle, ICON_SIZE};
 use crate::config::*;
 use crate::game::{Game, Reward};
+
 use crate::i18n::{tr, trf, Key};
 use crate::kit::{self, Rim};
 use crate::motion;
@@ -27,12 +32,6 @@ impl Anchor {
             Anchor::Right => (view.x - width - margin).round(),
         }
     }
-}
-
-pub fn draw_text_centered(view: Vec2, text: &str, y: f32, style: TextStyle, color: Color) {
-    let dims = measure_ui_text(text, style);
-    let x = Anchor::Center.x(view, dims.width, 0.0);
-    draw_ui_text(text, x, y, style, color);
 }
 
 pub fn draw_dim(view: Vec2) {
@@ -100,95 +99,6 @@ impl Icon {
     }
 }
 
-/// Draws `icon` with its top-left at (`x`, `y`), `scale` times its pixel size.
-pub fn draw_icon(icon: Icon, x: f32, y: f32, scale: f32) {
-    let (tex, src) = sprite(SpriteId::Icons, icon.frame());
-    let params = DrawTextureParams {
-        source: Some(src),
-        dest_size: Some(Vec2::splat(ICON_SIZE * scale)),
-        ..Default::default()
-    };
-    draw_texture_ex(&tex, x, y, WHITE, params);
-}
-
-const HP_COLOR: Color = Color::new(0.78, 0.16, 0.22, 1.0);
-const XP_COLOR: Color = Color::new(0.45, 0.72, 0.95, 1.0);
-const BAR_BG: Color = Color::new(0.0, 0.0, 0.0, 0.55);
-/// The boss bar wears the Watch's royal blue.
-const BOSS_COLOR: Color = Color::new(0.27, 0.38, 0.63, 1.0);
-const BOSS_BAR_W: f32 = 300.0;
-const BOSS_BAR_H: f32 = 6.0;
-/// Bar top and name baseline, up from the bottom edge of the view.
-const BOSS_BAR_UP: f32 = 14.0;
-const BOSS_NAME_UP: f32 = 19.0;
-
-fn draw_bar(x: f32, y: f32, w: f32, h: f32, frac: f32, color: Color) {
-    draw_rectangle(x, y, w, h, BAR_BG);
-    draw_rectangle(x, y, (w * frac.clamp(0.0, 1.0)).round(), h, color);
-}
-
-/// The HUD's rows of owned Arts (slot order) and Sins, under the HP bar.
-const HUD_ICONS_X: f32 = 6.0;
-const HUD_ICONS_Y: f32 = 26.0;
-const HUD_ICON_STEP: f32 = ICON_SIZE + 2.0;
-
-/// XP bar across the top, HP bar under it, timer centred, level and kills on the right;
-/// owned Arts and Sins below the HP bar.
-pub fn draw_hud(game: &Game, view: Vec2) {
-    let p = &game.player;
-    draw_bar(
-        0.0,
-        0.0,
-        view.x,
-        4.0,
-        game.xp as f32 / xp_to_next(game.level) as f32,
-        XP_COLOR,
-    );
-    draw_bar(6.0, 9.0, 100.0, 8.0, p.hp / p.max_hp, HP_COLOR);
-    draw_rectangle_lines(6.0, 9.0, 100.0, 8.0, 1.0, BLACK);
-    let hp = format!("{}/{}", p.hp.ceil(), p.max_hp);
-    draw_ui_text(&hp, 112.0, 21.0, TextStyle::Body, WHITE);
-    draw_text_centered(view, &format_time(game.time), 21.0, TextStyle::Body, WHITE);
-    let right = trf(Key::HudRight, &[&game.level, &game.kills]);
-    let dims = measure_ui_text(&right, TextStyle::Body);
-    let x = Anchor::Right.x(view, dims.width, 6.0);
-    draw_ui_text(&right, x, 21.0, TextStyle::Body, WHITE);
-    let u = &game.upgrades;
-    let x = |n: usize| HUD_ICONS_X + n as f32 * HUD_ICON_STEP;
-    for (n, &i) in u.slots.iter().flatten().enumerate() {
-        draw_icon(Icon::of_art(u, i), x(n), HUD_ICONS_Y, 1.0);
-    }
-    let sins = (0..SINS.len()).filter(|&i| u.sins[i] > 0);
-    for (n, i) in sins.enumerate() {
-        draw_icon(Icon::Sin(i), x(n), HUD_ICONS_Y + HUD_ICON_STEP, 1.0);
-    }
-    draw_boss_bar(game, view);
-}
-
-/// While a boss lives: its name over a health bar along the bottom, notched where its
-/// later phases begin.
-fn draw_boss_bar(game: &Game, view: Vec2) {
-    let Some(b) = &game.boss else {
-        return;
-    };
-    let w = BOSS_BAR_W.min(view.x - 40.0);
-    let x = Anchor::Center.x(view, w, 0.0);
-    let y = view.y - BOSS_BAR_UP;
-    draw_text_centered(
-        view,
-        tr(b.def.name),
-        view.y - BOSS_NAME_UP,
-        TextStyle::Body,
-        WHITE,
-    );
-    draw_bar(x, y, w, BOSS_BAR_H, b.health(), BOSS_COLOR);
-    for phase in &b.def.phases[1..] {
-        let nx = (x + w * phase.below).round();
-        draw_line(nx, y, nx, y + BOSS_BAR_H, 1.0, BLACK);
-    }
-    draw_rectangle_lines(x, y, w, BOSS_BAR_H, 1.0, BLACK);
-}
-
 /// F3 overlay: frame timing and entity counts.
 pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
     let mut lines = vec![
@@ -211,17 +121,17 @@ pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
         game.fades.len()
     ));
     lines.push(format!("spawn {:.1}/s", Game::spawn_rate(game.time)));
-    let h = lines.len() as f32 * 11.0 + 6.0;
+    let h = lines.len() as f32 * 13.0 + 6.0;
     draw_rectangle(4.0, 64.0, 200.0, h, Color::new(0.0, 0.0, 0.0, 0.6));
     for (i, line) in lines.iter().enumerate() {
-        draw_ui_text(line, 8.0, 76.0 + i as f32 * 11.0, TextStyle::Small, LIME);
+        draw_ui_text(line, 8.0, 78.0 + i as f32 * 13.0, TextStyle::Desc, LIME);
     }
 }
 
 /// F12: which bot is playing, top right under the HUD (developer-only, not translated).
 pub fn draw_autopilot(view: Vec2, label: &str) {
-    let w = measure_ui_text(label, TextStyle::Small).width;
-    draw_ui_text(label, view.x - w - 8.0, 76.0, TextStyle::Small, LIME);
+    let w = measure_ui_text(label, TextStyle::Desc).width;
+    draw_ui_text(label, view.x - w - 8.0, 76.0, TextStyle::Desc, LIME);
 }
 
 /// Panel menus (pause, game over, victory): side padding, title baseline from the panel top,
@@ -408,7 +318,7 @@ impl Card<'_> {
             let ny = slot.bottom() - 6.0;
             draw_rectangle(nx - 2.0, ny - 2.0, 10.0, 11.0, kit::fade(BLACK, alpha * 0.85));
             let color = if lit { kit::pal().gold_lit } else { kit::pal().dim };
-            draw_ui_text(&num, nx, ny + 8.0, TextStyle::Small, kit::fade(color, alpha));
+            draw_ui_text(&num, nx, ny + 8.0, TextStyle::Desc, kit::fade(color, alpha));
         }
         let name_color = if lit { kit::pal().gold_lit } else { kit::pal().gold };
         // Name and description are centred between the slot and the tag column.
@@ -667,10 +577,10 @@ fn debug_row(r: Rect, left: &str, right: &str, owned: bool, dim: bool, lit: bool
     } else {
         GRAY
     };
-    let y = r.y + 12.0;
-    draw_ui_text(left, r.x + 5.0, y, TextStyle::Small, text);
-    let w = measure_ui_text(right, TextStyle::Small).width;
-    draw_ui_text(right, r.x + r.w - w - 5.0, y, TextStyle::Small, text);
+    let y = r.y + 13.0;
+    draw_ui_text(left, r.x + 5.0, y, TextStyle::Desc, text);
+    let w = measure_ui_text(right, TextStyle::Desc).width;
+    draw_ui_text(right, r.x + r.w - w - 5.0, y, TextStyle::Desc, text);
 }
 
 /// Debug panel: every Art and Sin, what is owned and at what level, the slot limits,
@@ -686,7 +596,7 @@ pub fn draw_debug_panel(game: &Game, view: Vec2, focus: &Focus) {
     );
     let header = |r: Rect, text: String, full: bool| {
         let color = if full { TITLE_COLOR } else { WHITE };
-        draw_ui_text(&text, r.x, DBG_TOP + 8.0, TextStyle::Small, color);
+        draw_ui_text(&text, r.x, DBG_TOP + 8.0, TextStyle::Desc, color);
     };
     let full = |f: bool| if f { "  FULL" } else { "" };
     header(
@@ -775,12 +685,12 @@ pub fn draw_debug_panel(game: &Game, view: Vec2, focus: &Focus) {
     .iter()
     .enumerate()
     {
-        let w = measure_ui_text(line, TextStyle::Small).width;
+        let w = measure_ui_text(line, TextStyle::Desc).width;
         draw_ui_text(
             line,
             ((view.x - w) * 0.5).round(),
-            help_y + k as f32 * 12.0,
-            TextStyle::Small,
+            help_y + k as f32 * 13.0,
+            TextStyle::Desc,
             LIGHTGRAY,
         );
     }
