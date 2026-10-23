@@ -18,6 +18,11 @@ pal({
   u: "#1f4aa8", c: "#6cc8ff", C: "#dff6ff",                // soul blue (the XP souls)
   m: "#5a1a4e", M: "#8c3478", j: "#c860a8",                // Veyra's wings
   a: "#2e0c2a", g: "#5c1c4a", G: "#7e2c64", l: "#b04a8a",  // the in-game bats (arts.px.js)
+  // the summoned thrall (enemies.px.js `thrall`)
+  t: "#6e5246", T: "#96705e", z: "#b8927c",                // skin
+  N: "#2e2620", O: "#4a3e32",                              // hair
+  D: "#4a1c3a", J: "#7e3058", K: "#b0567e",                // tunic: Veyra's plum rose
+  L: "#6e5a44", U: "#9aa6b0", Z: "#c8d2da",                // pitchfork: wood, steel
 })
 ramps("XxfF", "RrqQ", "HhiI", "oyY", "sSwW", "pPvV", "ebB", "ucC", "mMj")
 
@@ -290,22 +295,23 @@ sym("gaze_of_desire", [`
   .y....Y
   y.....Y`], [grid(5, 3, "Y")])
 
-// Thralls: a seduced villager, a heart over the hood and hearts in the eyes.
-sym("thralls", [`
-  ....qq.
-  ....qqq
-  .....qq
-  ......q
-  ...HHHH
-  ..HHIII
-  ..HIqIq
-  ..HHIII
-  ...HIII
-  ....hhh
-  ..hhhhh
-  .hhhhhh
-  .hhhhhh
-  .hhhhhh`], [grid(4, 0, "Q"), recolor({ h: "H", I: "i" }, (x) => x > 7)])
+// Thralls: the villager she summons, front on: plum rose tunic with her heart, her pink in
+// the eyes, a hand on the pitchfork.
+icon("thralls", grid(0, 0, `
+  Z.Z.Z.........
+  Z.Z.Z...NNNN..
+  UUUUU..NOOOON.
+  ..L...NOOOOOON
+  ..L...OzzzzzTO
+  ..L...OzizziTO
+  ..L....zzzzTT.
+  ..L.....zTTT..
+  ..L......TT...
+  .zLzKKJJJJJJD.
+  .TLTJJJJiJiJJD
+  ..LKJJJJiiiJDD
+  ..LKJJJJJiJJDD
+  ..LDDDDDDDDDDD`))
 
 // --- Evolutions (Arts with one, in ARTS order) --------------------------------
 

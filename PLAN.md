@@ -21,7 +21,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V17j Wandering Sigil sprite + matching icon *(user approval)*
   - [x] V17k Hellflare flames, Halo fireballs, flame hearts (Kiss of Ruin), Broken Seal look *(user approval)*
   - [x] V17l Bat Swarm / Crimson Host icons like their bats *(user approval)*
-  - [ ] V17m Thralls icon reads as a thrall *(user approval)*
+  - [x] V17m Thralls icon reads as a thrall *(user approval)*
   - [x] V17n Visible evolutions: Barbed Scourge, Infernal Crown, Abyssal Rift, Torment Eternal, Devouring Musk, Midnight Harvest *(user approval)*
   - [x] V18b Progression rebalance (10:00 Ashford timeline, stepped XP curve, soul tiers and drop chances, HP per minute; plan in design.md 7.8)
 - **S16 — First boss**
