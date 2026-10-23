@@ -85,9 +85,16 @@ pub struct Scythe {
     pub pos: Vec2,
     pub vel: Vec2,
     pub life: f32,
+    pub fade: f32,
     pub harvest: bool,
     pierce: u32,
     hits: HitList<PIERCE_MEMORY>,
+}
+
+impl Scythe {
+    pub fn alpha(&self) -> f32 {
+        shot_alpha(self.fade)
+    }
 }
 
 /// A Profaned Cross: it flies out along `dir`, slowing at `speed` falls to zero, then
@@ -99,7 +106,14 @@ pub struct Cross {
     speed: f32,
     returning: bool,
     life: f32,
+    pub fade: f32,
     hits: HitList<PIERCE_MEMORY>,
+}
+
+impl Cross {
+    pub fn alpha(&self) -> f32 {
+        shot_alpha(self.fade)
+    }
 }
 
 /// A Wandering Sigil bouncing inside the view; it hits each enemy once between
@@ -762,6 +776,7 @@ impl Arts {
                 pos: w.player.pos,
                 vel,
                 life: if harvest { HARVEST_LIFE } else { s.duration },
+                fade: 0.0,
                 harvest,
                 pierce: if harvest { u32::MAX } else { s.pierce },
                 hits: HitList::new(),
@@ -799,6 +814,7 @@ impl Arts {
                 speed: s.speed,
                 returning: false,
                 life: CROSS_MAX_LIFE,
+                fade: 0.0,
                 hits: HitList::new(),
             });
         }
@@ -960,7 +976,8 @@ impl Arts {
         bat_offsets(self.bat_angle, n)
     }
 
-    /// Scythes fall (Midnight Harvest ones curl outwards) and cut what they cross.
+    /// Scythes fall (Midnight Harvest ones curl outwards) and cut what they cross;
+    /// spent ones fade out.
     fn update_scythes(&mut self, w: &mut World, cues: &mut ArtCues) {
         let s = self.stats[REAPERS_SCYTHE];
         let time = w.time;
@@ -968,6 +985,9 @@ impl Arts {
         let extra = enemies.max_radius();
         let curl = Vec2::from_angle(HARVEST_CURL * TICK_DT);
         self.scythes.retain_mut(|sc| {
+            if sc.fade > 0.0 {
+                return fade_shot(&mut sc.pos, &mut sc.vel, &mut sc.fade);
+            }
             if sc.harvest {
                 sc.vel = curl.rotate(sc.vel);
             } else {
@@ -994,7 +1014,13 @@ impl Arts {
                     _ => sc.pierce -= 1,
                 }
             });
-            !spent && sc.life > 0.0
+            if spent {
+                sc.vel *= SHOT_HIT_SLOW;
+            }
+            if spent || sc.life <= 0.0 {
+                sc.fade = SHOT_FADE;
+            }
+            true
         });
     }
 
@@ -1009,11 +1035,22 @@ impl Arts {
         let query = radius + enemies.max_radius();
         let home = w.player.pos;
         self.crosses.retain_mut(|c| {
+            if c.fade > 0.0 {
+                if c.returning {
+                    // Caught: it fades into her hands, wherever she goes.
+                    c.pos = c.pos.lerp(home, CROSS_CATCH_PULL);
+                    c.fade -= TICK_DT;
+                    return c.fade > 0.0;
+                }
+                return fade_shot(&mut c.pos, &mut c.vel, &mut c.fade);
+            }
             if c.returning {
                 c.speed += CROSS_DECEL * TICK_DT;
                 let to = home - c.pos;
                 if to.length() <= CROSS_CATCH + c.speed * TICK_DT {
-                    return false;
+                    c.vel *= SHOT_HIT_SLOW;
+                    c.fade = SHOT_FADE;
+                    return true;
                 }
                 c.vel = to.normalize() * c.speed;
             } else {
@@ -1036,7 +1073,10 @@ impl Arts {
                     }
                 }
             });
-            c.life > 0.0
+            if c.life <= 0.0 {
+                c.fade = SHOT_FADE;
+            }
+            true
         });
     }
 
@@ -2068,6 +2108,7 @@ mod tests {
             pos: vec2(200.0, 0.0),
             vel: vec2(0.0, 200.0),
             life: 2.0,
+            fade: 0.0,
             harvest: false,
             pierce: ARTS[REAPERS_SCYTHE].base.pierce,
             hits: HitList::new(),
@@ -2149,6 +2190,41 @@ mod tests {
             tick(&mut g, 1);
         }
         assert!(g.arts.crosses.is_empty(), "caught where she is");
+    }
+
+    #[test]
+    fn spent_scythes_and_caught_crosses_fade_out() {
+        let mut g = game_with(REAPERS_SCYTHE, 1);
+        g.enemies.spawn(DUMMY, vec2(30.0, 0.0), 100.0);
+        tick(&mut g, 1);
+        g.arts.hold();
+        let mut ticks = 0;
+        while g.arts.scythes.iter().all(|sc| sc.fade == 0.0) {
+            tick(&mut g, 1);
+            ticks += 1;
+            assert!(ticks < 600, "never spent");
+        }
+        let sc = g.arts.scythes.iter().find(|sc| sc.fade > 0.0).unwrap();
+        assert!(sc.alpha() > 0.0 && sc.alpha() <= 1.0);
+
+        let mut g = game_with(PROFANED_CROSS, 1);
+        g.enemies.spawn(DUMMY, vec2(60.0, 0.0), 1000.0);
+        tick(&mut g, 1);
+        g.arts.hold();
+        let mut ticks = 0;
+        while g.arts.crosses[0].fade == 0.0 {
+            tick(&mut g, 1);
+            ticks += 1;
+            assert!(ticks < 600, "never caught");
+        }
+        tick(&mut g, 3);
+        let c = &g.arts.crosses[0];
+        assert!(
+            c.alpha() < 1.0 && c.pos.length() < CROSS_CATCH,
+            "fading in her hands"
+        );
+        tick(&mut g, (SHOT_FADE / TICK_DT) as usize);
+        assert!(g.arts.crosses.is_empty());
     }
 
     #[test]

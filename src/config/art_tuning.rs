@@ -8,9 +8,10 @@ pub const PROJ_RADIUS: f32 = 4.0;
 /// Fireballs are launched from Veyra's hands, this high above her ground point.
 pub const PROJ_DRAW_HEIGHT: f32 = 18.0;
 pub const MAX_PROJECTILES: usize = 256;
-/// A spent fireball or heart (it hit or ran out of life) never just vanishes: it stops
-/// hurting and fades out over `SHOT_FADE`, slowing by `SHOT_FADE_DRAG` each tick. One
-/// that hits keeps only `SHOT_HIT_SLOW` of its speed, so it dies on the foe.
+/// A spent shot (fireball, heart, scythe, cross: it hit or ran out of life) never just
+/// vanishes: it stops hurting and fades out over `SHOT_FADE`, slowing by
+/// `SHOT_FADE_DRAG` each tick. One spent on a hit keeps only `SHOT_HIT_SLOW` of its
+/// speed, so it dies on the foe.
 pub const SHOT_FADE: f32 = 0.2;
 pub const SHOT_FADE_DRAG: f32 = 0.85;
 pub const SHOT_HIT_SLOW: f32 = 0.25;
@@ -136,6 +137,9 @@ pub const CROSS_RADIUS: f32 = 10.0;
 pub const CROSS_CATCH: f32 = 10.0;
 pub const CROSS_MAX_LIFE: f32 = 10.0;
 pub const CROSS_DECEL: f32 = 240.0;
+/// A caught cross fades into her hands (`SHOT_FADE`), closing this share of the gap
+/// to her each tick.
+pub const CROSS_CATCH_PULL: f32 = 0.35;
 pub const MAX_CROSSES: usize = 32;
 pub const CROSS_SPIN: f32 = 3.0;
 pub const CROSS_DRAW_HEIGHT: f32 = 14.0;

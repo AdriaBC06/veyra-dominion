@@ -1098,7 +1098,14 @@ fn draw_projectiles(game: &Game, alpha: f32) {
     for p in &game.arts.projectiles {
         let pos = p.pos + p.vel * (alpha - 1.0) * TICK_DT;
         let tint = Color::new(1.0, 1.0, 1.0, p.alpha());
-        draw_flying(SpriteId::Fireball, pos, p.vel, PROJ_DRAW_HEIGHT, game.time, tint);
+        draw_flying(
+            SpriteId::Fireball,
+            pos,
+            p.vel,
+            PROJ_DRAW_HEIGHT,
+            game.time,
+            tint,
+        );
     }
 }
 
@@ -1266,13 +1273,14 @@ fn draw_scythes(game: &Game, alpha: f32) {
             let mut ghost = Color::from_hex(HARVEST_TRAIL_COLOR);
             for n in (1..=HARVEST_TRAIL).rev() {
                 let lag = n as f32 * HARVEST_TRAIL_LAG;
-                ghost.a = 0.45 * (1.0 - n as f32 / (HARVEST_TRAIL + 1) as f32);
+                ghost.a = 0.45 * (1.0 - n as f32 / (HARVEST_TRAIL + 1) as f32) * sc.alpha();
                 let at = sc.pos - sc.vel * lag;
                 let spin = turns - lag * SCYTHE_SPIN;
                 draw_spinning(id, at, sc.vel, alpha, SCYTHE_DRAW_HEIGHT, spin, ghost);
             }
         }
-        draw_spinning(id, sc.pos, sc.vel, alpha, SCYTHE_DRAW_HEIGHT, turns, WHITE);
+        let tint = Color::new(1.0, 1.0, 1.0, sc.alpha());
+        draw_spinning(id, sc.pos, sc.vel, alpha, SCYTHE_DRAW_HEIGHT, turns, tint);
     }
 }
 
@@ -1286,7 +1294,8 @@ fn draw_crosses(game: &Game, alpha: f32) {
     let id = tiers[assets::size_tier(game.arts.stats[PROFANED_CROSS].area)];
     for (k, c) in game.arts.crosses.iter().enumerate() {
         let turns = game.time * CROSS_SPIN + k as f32 * 0.37;
-        draw_spinning(id, c.pos, c.vel, alpha, CROSS_DRAW_HEIGHT, turns, WHITE);
+        let tint = Color::new(1.0, 1.0, 1.0, c.alpha());
+        draw_spinning(id, c.pos, c.vel, alpha, CROSS_DRAW_HEIGHT, turns, tint);
     }
 }
 
@@ -1461,7 +1470,14 @@ fn draw_bolts(game: &Game, alpha: f32) {
     for b in &game.arts.bolts {
         let pos = b.pos + b.vel * (alpha - 1.0) * TICK_DT;
         let tint = Color::new(1.0, 1.0, 1.0, b.alpha());
-        draw_flying(SpriteId::HeartBolt, pos, b.vel, BOLT_DRAW_HEIGHT, game.time, tint);
+        draw_flying(
+            SpriteId::HeartBolt,
+            pos,
+            b.vel,
+            BOLT_DRAW_HEIGHT,
+            game.time,
+            tint,
+        );
     }
 }
 
