@@ -2,7 +2,7 @@
 //! wheel scrolls) and keyboard (arrows/WASD + Enter/Esc). Logic is separate from
 //! drawing so it can be tested headless with hand-made `UiInput`s.
 
-use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
+use crate::assets::{measure_ui_text, TextStyle, UiArt};
 use crate::audio::{self, Sfx};
 use crate::i18n::{tr, Key};
 use crate::kit::{self, ButtonLook};
@@ -10,8 +10,6 @@ use crate::motion::{self, Glide};
 use crate::screen::Layout;
 use macroquad::prelude::*;
 
-pub const ACCENT: Color = Color::new(0.88, 0.19, 0.29, 1.0);
-const PANEL: Color = Color::new(0.08, 0.04, 0.1, 0.95);
 pub const BUTTON_W: f32 = 220.0;
 /// Room for a label (18 px capitals + 6 px descenders) inside the stone frame, 3 px clear
 /// above and below.
@@ -225,15 +223,26 @@ impl Overlay {
     }
 }
 
-fn draw_frame(rect: Rect, highlighted: bool) {
-    let border = if highlighted { ACCENT } else { GRAY };
-    draw_rectangle(rect.x, rect.y, rect.w, rect.h, PANEL);
-    draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, border);
+/// Room between a row's edge and its text or controls (5 px frame + 7 px air).
+const ROW_PAD: f32 = 12.0;
+/// Display capitals are 10 px tall: tab labels sit with their caps centred, so the accents
+/// don't move one tab's label off its neighbours'.
+const TAB_CAP: f32 = 10.0;
+
+/// A row's frame and its label on the left.
+fn draw_row(rect: Rect, label: &str, highlighted: bool) {
+    kit::well(rect, highlighted, 1.0, kit::seed_of(label));
+    let p = kit::pal();
+    let color = if highlighted { p.label_lit } else { p.label };
+    let y = kit::ink_baseline(label, TextStyle::Name, rect);
+    kit::text(label, rect.x + ROW_PAD, y, TextStyle::Name, color);
 }
 
-/// Label baseline for a one-line widget of `rect`.
-fn baseline(rect: Rect) -> f32 {
-    (rect.y + rect.h * 0.5 + 7.0).round()
+/// `value` right-aligned at `right`, centred on its ink in `rect`.
+fn draw_value(rect: Rect, value: &str, right: f32, color: Color) {
+    let w = measure_ui_text(value, TextStyle::Name).width;
+    let y = kit::ink_baseline(value, TextStyle::Name, rect);
+    kit::text(value, (right - w).round(), y, TextStyle::Name, color);
 }
 
 pub struct Button<'a> {
@@ -289,12 +298,11 @@ pub fn draw_buttons(rects: &[Rect], labels: &[&str], focus: &Focus, overlay: &Ov
 }
 
 /// Label on the left, value on the right.
-fn draw_labeled(rect: Rect, label: &str, value: &str, color: Color, highlighted: bool) {
-    draw_frame(rect, highlighted);
-    let y = baseline(rect);
-    draw_ui_text(label, rect.x + 10.0, y, TextStyle::Body, WHITE);
-    let w = measure_ui_text(value, TextStyle::Body).width;
-    draw_ui_text(value, rect.right() - w - 10.0, y, TextStyle::Body, color);
+fn draw_labeled(rect: Rect, label: &str, value: &str, highlighted: bool) {
+    draw_row(rect, label, highlighted);
+    let p = kit::pal();
+    let color = if highlighted { p.gold_lit } else { p.gold };
+    draw_value(rect, value, rect.right() - ROW_PAD, color);
 }
 
 pub struct Toggle<'a> {
@@ -314,9 +322,19 @@ impl Toggle<'_> {
     }
 
     pub fn draw(&self, highlighted: bool) {
+        draw_row(self.rect, self.label, highlighted);
+        let gem = kit::art_size(UiArt::Toggle);
+        let gx = self.rect.right() - ROW_PAD - gem.x;
+        let gy = (self.rect.center().y - gem.y * 0.5).round();
+        kit::toggle(vec2(gx, gy), self.on, 1.0);
+        let p = kit::pal();
         let value = tr(if self.on { Key::On } else { Key::Off });
-        let color = if self.on { ACCENT } else { LIGHTGRAY };
-        draw_labeled(self.rect, self.label, value, color, highlighted);
+        let color = match (self.on, highlighted) {
+            (true, true) => p.gold_lit,
+            (true, false) => p.gold,
+            (false, _) => p.dim,
+        };
+        draw_value(self.rect, value, gx - 6.0, color);
     }
 }
 
@@ -338,7 +356,7 @@ impl Choice<'_> {
     }
 
     pub fn draw(&self, highlighted: bool) {
-        draw_labeled(self.rect, self.label, self.value, ACCENT, highlighted);
+        draw_labeled(self.rect, self.label, self.value, highlighted);
     }
 }
 
@@ -354,10 +372,10 @@ impl Slider<'_> {
     fn bar(&self) -> Rect {
         let w = (self.rect.w * 0.45).round();
         Rect::new(
-            self.rect.right() - w - 10.0,
-            self.rect.center().y - 3.0,
+            self.rect.right() - w - ROW_PAD - 4.0,
+            (self.rect.center().y - 2.0).round(),
             w,
-            6.0,
+            5.0,
         )
     }
 
@@ -378,19 +396,8 @@ impl Slider<'_> {
     }
 
     pub fn draw(&self, highlighted: bool) {
-        draw_frame(self.rect, highlighted);
-        draw_ui_text(
-            self.label,
-            self.rect.x + 10.0,
-            baseline(self.rect),
-            TextStyle::Body,
-            WHITE,
-        );
-        let bar = self.bar();
-        draw_rectangle(bar.x, bar.y, bar.w, bar.h, Color::new(0.0, 0.0, 0.0, 0.6));
-        draw_rectangle(bar.x, bar.y, (bar.w * self.value).round(), bar.h, ACCENT);
-        let knob = (bar.x + bar.w * self.value).round();
-        draw_rectangle(knob - 2.0, bar.y - 3.0, 4.0, bar.h + 6.0, WHITE);
+        draw_row(self.rect, self.label, highlighted);
+        kit::slider(self.bar(), self.value, highlighted, 1.0);
     }
 }
 
@@ -425,19 +432,21 @@ impl Tabs<'_> {
     }
 
     pub fn draw(&self, highlighted: bool) {
+        let p = kit::pal();
         for (k, label) in self.labels.iter().enumerate() {
-            let r = self.header(k);
+            let h = self.header(k);
+            // a 2 px joint between neighbouring tabs
+            let r = Rect::new(h.x.round() + 1.0, h.y, h.w.round() - 2.0, h.h);
             let active = k == self.active;
-            draw_frame(r, active && highlighted);
-            let w = measure_ui_text(label, TextStyle::Body).width;
-            let color = if active { ACCENT } else { GRAY };
-            draw_ui_text(
-                label,
-                (r.x + (r.w - w) * 0.5).round(),
-                baseline(r),
-                TextStyle::Body,
-                color,
-            );
+            kit::well(r, active && highlighted, 1.0, kit::seed_of(label));
+            let w = measure_ui_text(label, TextStyle::Desc).width;
+            let color = match (active, highlighted) {
+                (true, true) => p.gold_lit,
+                (true, false) => p.gold,
+                (false, _) => p.dim,
+            };
+            let y = (r.y + (r.h + TAB_CAP) * 0.5).round();
+            kit::text(label, (r.x + (r.w - w) * 0.5).round(), y, TextStyle::Desc, color);
         }
     }
 }

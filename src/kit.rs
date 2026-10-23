@@ -9,6 +9,7 @@
 use crate::assets::{self, draw_ui_text, measure_ui_text, TextStyle, UiArt};
 use crate::motion;
 use crate::stone::{self, GLOW_FRAMES};
+use macroquad::miniquad::{BlendFactor, BlendState, BlendValue, Equation};
 use macroquad::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -46,7 +47,7 @@ pub struct Palette {
     /// Titles: the face, the lower edge under it and the drop shadow.
     title: Color,
     title_edge: Color,
-    shadow: Color,
+    pub shadow: Color,
 }
 
 const GILT: Palette = Palette {
@@ -85,6 +86,11 @@ thread_local! {
     /// Stone frames by (w, h, thick, seed): base, relief and glow frames.
     static STONES: RefCell<HashMap<(u16, u16, u16, u32), StoneTex>> =
         RefCell::new(HashMap::new());
+    /// Offscreen canvases for bloodied titles, by size.
+    static TITLE_TARGETS: RefCell<HashMap<(u32, u32), RenderTarget>> =
+        RefCell::new(HashMap::new());
+    /// Draws only where the canvas already has ink (see `stained_title`).
+    static INK_ONLY: RefCell<Option<Material>> = const { RefCell::new(None) };
 }
 
 pub fn skin() -> Skin {
@@ -281,6 +287,44 @@ pub fn panel(rect: Rect, lit: bool, alpha: f32, seed: u32) {
     }
 }
 
+/// The baseline that centres the ink of `s` (capitals, accents and descenders it has) in
+/// `rect`, so the space above and below it is the same.
+pub fn ink_baseline(s: &str, style: TextStyle, rect: Rect) -> f32 {
+    let dims = measure_ui_text(s, style);
+    (rect.y + (rect.h - dims.height) * 0.5 + dims.offset_y).round()
+}
+
+/// A framed row or tab (settings rows, tab headers) with its blood: the button moulding,
+/// `lit` when focused.
+pub fn well(rect: Rect, lit: bool, alpha: f32, seed: u32) {
+    match skin() {
+        Skin::Gilt => {
+            nine(UiArt::Inset, 0, rect, 4.0, alpha);
+            blood(rect, seed, alpha);
+        }
+        Skin::Stone => stone_frame(rect, STONE_BUTTON, seed, lit, alpha),
+    }
+}
+
+/// A slider groove over `rect` filled to `value` (0..1) with hellfire, and its knob.
+pub fn slider(rect: Rect, value: f32, lit: bool, alpha: f32) {
+    let p = pal();
+    let r = Rect::new(rect.x.round(), rect.y.round(), rect.w.round(), rect.h.round());
+    draw_rectangle(r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, fade(p.dim, alpha));
+    draw_rectangle(r.x, r.y, r.w, r.h, fade(p.shadow, alpha));
+    let fill = (r.w * value.clamp(0.0, 1.0)).round();
+    draw_rectangle(r.x, r.y, fill, r.h, fade(p.ruby, alpha));
+    draw_rectangle(r.x, r.y, fill, 1.0, fade(if lit { p.gold_lit } else { p.gold }, alpha));
+    let knob = art_size(UiArt::SliderKnob);
+    let pos = vec2(r.x + fill - (knob.x * 0.5).floor(), r.center().y - (knob.y * 0.5).floor());
+    stamp(UiArt::SliderKnob, lit as u32, pos, false, alpha);
+}
+
+/// The on/off gem with its top-left at `pos`.
+pub fn toggle(pos: Vec2, on: bool, alpha: f32) {
+    stamp(UiArt::Toggle, on as u32, pos, false, alpha);
+}
+
 /// A recessed well (descriptions, lists, slider grooves).
 #[allow(dead_code)] // first used by the settings rows
 pub fn inset(rect: Rect, alpha: f32) {
@@ -328,11 +372,9 @@ pub fn button(rect: Rect, look: ButtonLook, label: &str, alpha: f32) {
         ButtonLook::Idle => p.label,
         ButtonLook::Disabled => p.dim,
     };
-    let dims = measure_ui_text(label, TextStyle::Name);
-    let x = (rect.x + (rect.w - dims.width) * 0.5).round();
-    // the label's ink (capitals, and descenders when it has g/p/y) is centred, so the space
-    // above and below it inside the frame is the same
-    let y = (rect.y + (rect.h - dims.height) * 0.5 + dims.offset_y).round() + down;
+    let w = measure_ui_text(label, TextStyle::Name).width;
+    let x = (rect.x + (rect.w - w) * 0.5).round();
+    let y = ink_baseline(label, TextStyle::Name, rect) + down;
     draw_ui_text(label, x, y + 1.0, TextStyle::Name, fade(p.shadow, alpha));
     draw_ui_text(label, x, y, TextStyle::Name, fade(color, alpha));
 }
@@ -452,9 +494,106 @@ pub fn title(s: &str, cx: f32, baseline: f32, alpha: f32) -> f32 {
     let p = pal();
     draw_ui_text(s, x + 1.0, baseline + 2.0, TextStyle::Title, fade(p.shadow, alpha));
     draw_ui_text(s, x, baseline + 1.0, TextStyle::Title, fade(p.title_edge, alpha));
-    draw_ui_text(s, x, baseline, TextStyle::Title, fade(p.title, alpha));
+    if blood_level() > 0.0 {
+        stained_title(s, x, baseline, alpha);
+    } else {
+        draw_ui_text(s, x, baseline, TextStyle::Title, fade(p.title, alpha));
+    }
     let rule_w = (w + 60.0).max(120.0);
     rule(cx, baseline + RULE_GAP, rule_w, alpha)
+}
+
+/// Blend for `INK_ONLY`: the fragment comes premultiplied and is scaled by the canvas' alpha,
+/// so it lands only on the letters; the canvas keeps its alpha.
+const INK_ONLY_FRAGMENT: &str = r#"#version 100
+varying lowp vec4 color;
+varying lowp vec2 uv;
+uniform sampler2D Texture;
+void main() {
+    lowp vec4 c = color * texture2D(Texture, uv);
+    gl_FragColor = vec4(c.rgb * c.a, c.a);
+}"#;
+
+const DEFAULT_VERTEX: &str = r#"#version 100
+attribute vec3 position;
+attribute vec2 texcoord;
+attribute vec4 color0;
+varying lowp vec2 uv;
+varying lowp vec4 color;
+uniform mat4 Model;
+uniform mat4 Projection;
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    color = color0 / 255.0;
+    uv = texcoord;
+}"#;
+
+fn ink_only() -> Material {
+    INK_ONLY.with(|m| {
+        m.borrow_mut()
+            .get_or_insert_with(|| {
+                let pipeline_params = PipelineParams {
+                    color_blend: Some(BlendState::new(
+                        Equation::Add,
+                        BlendFactor::Value(BlendValue::DestinationAlpha),
+                        BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
+                    )),
+                    alpha_blend: Some(BlendState::new(
+                        Equation::Add,
+                        BlendFactor::Zero,
+                        BlendFactor::One,
+                    )),
+                    ..Default::default()
+                };
+                let source = ShaderSource::Glsl {
+                    vertex: DEFAULT_VERTEX,
+                    fragment: INK_ONLY_FRAGMENT,
+                };
+                let params = MaterialParams {
+                    pipeline_params,
+                    ..Default::default()
+                };
+                load_material(source, params).expect("ink-only shader compiles")
+            })
+            .clone()
+    })
+}
+
+/// The face of a title with the run's blood on its letters (and only on them): the face is
+/// lettered on an offscreen canvas, the blood is laid over it with `INK_ONLY`, and the canvas
+/// goes where the face would have been drawn.
+fn stained_title(s: &str, x: f32, baseline: f32, alpha: f32) {
+    // 2 px of air round the measured ink, so no edge pixel is cut
+    const AIR: f32 = 2.0;
+    let dims = measure_ui_text(s, TextStyle::Title);
+    let (w, h) = (
+        (dims.width + 2.0 * AIR).ceil(),
+        (dims.height + 2.0 * AIR).ceil(),
+    );
+    let target = TITLE_TARGETS.with(|t| {
+        t.borrow_mut()
+            .entry((w as u32, h as u32))
+            .or_insert_with(|| {
+                let rt = render_target(w as u32, h as u32);
+                rt.texture.set_filter(FilterMode::Nearest);
+                rt
+            })
+            .clone()
+    });
+    push_camera_state();
+    let mut cam = Camera2D::from_display_rect(Rect::new(0.0, 0.0, w, h));
+    cam.zoom.y = -cam.zoom.y;
+    cam.render_target = Some(target.clone());
+    set_camera(&cam);
+    clear_background(Color::new(0.0, 0.0, 0.0, 0.0));
+    let local = AIR + dims.offset_y;
+    draw_ui_text(s, AIR, local, TextStyle::Title, pal().title);
+    gl_use_material(&ink_only());
+    blood(Rect::new(0.0, 0.0, w, h), seed_of(s), 1.0);
+    gl_use_default_material();
+    pop_camera_state();
+    let pos = vec2(x - AIR, (baseline - local).round());
+    draw_texture(&target.texture, pos.x, pos.y, white(alpha));
 }
 
 /// The gilt rule `w` wide centred on `cx` at `y` (top): finials at both ends, a ruby in the

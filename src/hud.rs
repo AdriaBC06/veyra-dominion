@@ -229,7 +229,7 @@ pub fn draw_autopilot(view: Vec2, label: &str) {
 const MENU_PAD_X: f32 = 30.0;
 const MENU_TITLE_Y: f32 = 50.0;
 const MENU_RULE_H: f32 = 17.0;
-const MENU_LINE: f32 = 18.0;
+const MENU_LINE: f32 = 17.0;
 const MENU_BOTTOM: f32 = 30.0;
 
 /// Where a panel menu with `lines` lines of text and `n` buttons goes, centred in the view.
@@ -279,7 +279,7 @@ pub fn draw_menu(
     kit::title(title, cx, m.title_y + dy, alpha);
     for (k, line) in lines.iter().enumerate() {
         let y = m.lines_y + dy + k as f32 * MENU_LINE;
-        kit::text_centered(line, cx, y, TextStyle::Body, kit::fade(kit::pal().desc, alpha));
+        kit::text_centered(line, cx, y, TextStyle::Desc, kit::fade(kit::pal().desc, alpha));
     }
     ui::draw_buttons(&m.buttons, labels, focus, overlay);
 }
@@ -551,8 +551,10 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus, overla
     };
     let (alpha, dy) = motion::open(overlay.t);
     let line_color = kit::fade(kit::pal().label, alpha);
-    kit::text_centered(&line, view.x * 0.5, CARDS_Y + 22.0 + dy, TextStyle::Body, line_color);
     let cards = offering_cards(view);
+    // the line sits centred (by its 10 px capitals) in the free slot above the cards
+    let line_y = ((CARDS_Y + cards[0].y) * 0.5 + 5.0).round() + dy;
+    kit::text_centered(&line, view.x * 0.5, line_y, TextStyle::Desc, line_color);
     let tag = match tag {
         Tag::None => Tag::Text(tr(Key::OfferingAccept).to_string()),
         tag => tag,

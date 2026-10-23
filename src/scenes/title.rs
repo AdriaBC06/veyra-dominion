@@ -3,9 +3,9 @@
 //! portrait are drawn by `Backdrop`.
 
 use super::Nav;
-use crate::assets::{self, draw_ui_text, measure_ui_text, TextStyle, TitleArt};
+use crate::assets::{self, TitleArt};
 use crate::i18n::{tr, Key};
-use crate::ui::{Action, Focus, UiInput};
+use crate::ui::{self, Action, Focus, Overlay, UiInput};
 use macroquad::prelude::*;
 
 const ITEMS: [(Key, Nav); 4] = [
@@ -19,18 +19,15 @@ const LOGO_Y: f32 = 26.0;
 /// Gap between VEYRA and DOMINION.
 const DOMINION_GAP: f32 = 5.0;
 const BUTTONS_Y: f32 = 120.0;
-const BUTTON: Vec2 = vec2(168.0, 26.0);
-const BUTTON_GAP: f32 = 7.0;
-/// Margin around a button in its sprite (room for the hover glow).
-const BUTTON_MARGIN: f32 = 4.0;
+/// The kit's stone buttons, narrower than the panel ones to fit left of the portrait.
+const BUTTON: Vec2 = vec2(168.0, ui::BUTTON_H);
 /// Margin around the logo in its glow sprite.
 const GLOW_MARGIN: f32 = 8.0;
-const LABEL: Color = Color::new(0.8, 0.72, 0.78, 1.0);
-const LABEL_HIGHLIGHT: Color = Color::new(1.0, 0.91, 0.72, 1.0);
 
 #[derive(Default)]
 pub struct Title {
     focus: Focus,
+    overlay: Overlay,
 }
 
 /// The part of the view left of the portrait (never narrower than the logo), as a view.
@@ -49,7 +46,7 @@ fn buttons(view: Vec2) -> Vec<Rect> {
     let x = centred(view, BUTTON.x);
     (0..ITEMS.len())
         .map(|i| {
-            let y = BUTTONS_Y + i as f32 * (BUTTON.y + BUTTON_GAP);
+            let y = BUTTONS_Y + i as f32 * (BUTTON.y + ui::BUTTON_GAP);
             Rect::new(x, y, BUTTON.x, BUTTON.y)
         })
         .collect()
@@ -63,7 +60,11 @@ fn glow_frame(t: f64) -> u32 {
 
 impl Title {
     pub fn update(&mut self, input: &UiInput, view: Vec2) -> Option<Nav> {
-        match self.focus.update(input, &buttons(view)) {
+        let items = buttons(view);
+        let action = self.focus.update(input, &items);
+        self.overlay
+            .update(input, &self.focus, &items, get_frame_time());
+        match action {
             Action::Confirm(i) => Some(ITEMS[i].1),
             _ => None,
         }
@@ -78,16 +79,7 @@ impl Title {
         let y = LOGO_Y + logo.y + DOMINION_GAP;
         assets::draw_title_art(TitleArt::Dominion, 0, vec2(centred(view, dominion.x), y));
 
-        for (i, rect) in buttons(view).into_iter().enumerate() {
-            let on = self.focus.is_highlighted(i);
-            let pos = rect.point() - BUTTON_MARGIN;
-            assets::draw_title_art(TitleArt::Button, on as u32, pos);
-            let label = tr(ITEMS[i].0);
-            let w = measure_ui_text(label, TextStyle::Body).width;
-            let x = (rect.x + (rect.w - w) * 0.5).round();
-            let baseline = (rect.y + rect.h * 0.5 + 7.0).round();
-            let color = if on { LABEL_HIGHLIGHT } else { LABEL };
-            draw_ui_text(label, x, baseline, TextStyle::Body, color);
-        }
+        let labels = ITEMS.map(|(k, _)| tr(k));
+        ui::draw_buttons(&buttons(view), &labels, &self.focus, &self.overlay);
     }
 }

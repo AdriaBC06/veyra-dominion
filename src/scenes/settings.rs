@@ -3,21 +3,32 @@
 //! caller writes `settings.txt` when the screen is left.
 
 use super::Nav;
-use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
+use crate::assets::{measure_ui_text, TextStyle};
 use crate::hud::{self, Anchor};
+use crate::kit;
 use crate::i18n::{self, tr, trf, Key};
 use crate::save::{SaveData, Settings};
 use crate::screen::{ScaleMode, Screen};
-use crate::ui::{self, Action, Button, Choice, Focus, Slider, Tabs, Toggle, UiInput};
+use crate::ui::{self, Action, Button, Choice, Focus, Overlay, Slider, Tabs, Toggle, UiInput};
 use macroquad::prelude::*;
 
+/// Width of the rows; the stone panel adds `PANEL_PAD` on each side.
 const PANEL_W: f32 = 440.0;
-const TITLE_Y: f32 = 44.0;
-const TABS_Y: f32 = 58.0;
-const ROWS_Y: f32 = 100.0;
-const ROW_H: f32 = 28.0;
+const PANEL_PAD: f32 = 30.0;
+/// The panel runs from `PANEL_Y` (room above for its skull) to `PANEL_BOTTOM` above the
+/// view's bottom; the Back button sits `BACK_PAD` above the panel's bottom edge.
+const PANEL_Y: f32 = 14.0;
+const PANEL_BOTTOM: f32 = 8.0;
+const BACK_PAD: f32 = 30.0;
+const TITLE_Y: f32 = PANEL_Y + 50.0;
+const TABS_Y: f32 = PANEL_Y + 77.0;
+const TAB_H: f32 = 28.0;
+const ROWS_Y: f32 = TABS_Y + TAB_H + 10.0;
+/// Rows are as tall as buttons: room for a label's capitals and descenders in the frame.
+const ROW_H: f32 = ui::BUTTON_H;
 const ROW_GAP: f32 = 6.0;
-const LINE_H: f32 = 22.0;
+/// Lines of the controls sheet and the stats (Display).
+const LINE_H: f32 = 17.0;
 const VOLUME_STEP: f32 = 0.1;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -60,6 +71,7 @@ pub struct SettingsScene {
     /// The reset button was pressed once and waits for the second press.
     reset_armed: bool,
     reset_done: bool,
+    overlay: Overlay,
 }
 
 impl SettingsScene {
@@ -70,6 +82,7 @@ impl SettingsScene {
             from_run,
             reset_armed: false,
             reset_done: false,
+            overlay: Overlay::default(),
         }
     }
 
@@ -85,12 +98,13 @@ impl SettingsScene {
     /// Focusable rects: the tab row, the current tab's rows, then Back.
     fn items(&self, view: Vec2) -> Vec<Rect> {
         let x = Anchor::Center.x(view, PANEL_W, 0.0);
-        let mut items = vec![Rect::new(x, TABS_Y, PANEL_W, ROW_H)];
+        let mut items = vec![Rect::new(x, TABS_Y, PANEL_W, TAB_H)];
         items.extend((0..self.rows().len()).map(|k| {
             let y = ROWS_Y + k as f32 * (ROW_H + ROW_GAP);
             Rect::new(x, y, PANEL_W, ROW_H)
         }));
-        let back = ui::button_column(view, view.y - ui::BUTTON_H - 14.0, 1)[0];
+        let back_y = view.y - PANEL_BOTTOM - BACK_PAD - ui::BUTTON_H;
+        let back = ui::button_column(view, back_y, 1)[0];
         items.push(back);
         items
     }
@@ -106,6 +120,8 @@ impl SettingsScene {
         let items = self.items(view);
         let back = items.len() - 1;
         let action = self.focus.update(input, &items);
+        self.overlay
+            .update(input, &self.focus, &items, get_frame_time());
         if action == Action::Back && self.reset_armed {
             self.reset_armed = false;
             return None;
@@ -188,10 +204,16 @@ impl SettingsScene {
     }
 
     pub fn draw(&self, view: Vec2, settings: &Settings, screen: &Screen, save: &SaveData) {
-        hud::draw_dim(view);
-        let title = tr(Key::MenuSettings);
-        hud::draw_text_centered(view, title, TITLE_Y, TextStyle::Title, hud::TITLE_COLOR);
+        kit::dim(view, 1.0);
         let items = self.items(view);
+        let panel = Rect::new(
+            items[0].x - PANEL_PAD,
+            PANEL_Y,
+            PANEL_W + 2.0 * PANEL_PAD,
+            view.y - PANEL_Y - PANEL_BOTTOM,
+        );
+        kit::panel(panel, false, 1.0, kit::seed_of("settings"));
+        kit::title(tr(Key::MenuSettings), view.x * 0.5, TITLE_Y, 1.0);
         let lit = |i: usize| self.focus.is_highlighted(i);
         let labels = TABS.map(|(k, _)| tr(k));
         Tabs {
@@ -254,14 +276,15 @@ impl SettingsScene {
         }
 
         let x = items[0].x;
+        let p = kit::pal();
         match TABS[self.tab].0 {
             Key::TabControls => {
                 for (n, (action, keys, literal)) in CONTROLS.iter().enumerate() {
                     let keys = keys.map_or(*literal, tr);
-                    let y = ROWS_Y + 18.0 + n as f32 * LINE_H;
-                    draw_ui_text(tr(*action), x + 10.0, y, TextStyle::Body, WHITE);
-                    let w = measure_ui_text(keys, TextStyle::Body).width;
-                    draw_ui_text(keys, x + PANEL_W - w - 10.0, y, TextStyle::Body, LIGHTGRAY);
+                    let y = ROWS_Y + 12.0 + n as f32 * LINE_H;
+                    kit::text(tr(*action), x + 12.0, y, TextStyle::Desc, p.label);
+                    let w = measure_ui_text(keys, TextStyle::Desc).width;
+                    kit::text(keys, x + PANEL_W - w - 12.0, y, TextStyle::Desc, p.gold);
                 }
             }
             Key::TabData => {
@@ -270,14 +293,14 @@ impl SettingsScene {
                     trf(Key::DataKills, &[&save.total_kills]),
                     trf(Key::DataBest, &[&hud::format_time(save.best_time)]),
                 ];
-                let mut y = ROWS_Y + ROW_H + 30.0;
+                let mut y = ROWS_Y + ROW_H + 22.0;
                 for line in &lines {
-                    draw_ui_text(line, x + 10.0, y, TextStyle::Body, LIGHTGRAY);
+                    kit::text(line, x + 12.0, y, TextStyle::Desc, p.desc);
                     y += LINE_H;
                 }
                 if self.reset_done {
                     let done = tr(Key::ResetDone);
-                    draw_ui_text(done, x + 10.0, y + 10.0, TextStyle::Body, ui::ACCENT);
+                    kit::text(done, x + 12.0, y + 6.0, TextStyle::Desc, p.ruby);
                 }
             }
             _ => {}
@@ -289,6 +312,10 @@ impl SettingsScene {
             label: tr(Key::MenuBack),
         }
         .draw(lit(items.len() - 1));
+        if let Some(i) = self.focus.highlight().filter(|&i| i < items.len()) {
+            kit::cursors(self.overlay.cursor_rect(items[i]), self.overlay.t, 1.0);
+            kit::sparks(items[i], self.overlay.t, 1.0);
+        }
     }
 }
 

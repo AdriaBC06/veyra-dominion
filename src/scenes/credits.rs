@@ -3,11 +3,12 @@
 //! folder next to the game, with the EULA, not on screen.
 
 use super::Nav;
-use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
+use crate::assets::{measure_ui_text, TextStyle};
 use crate::config::GAME_TITLE;
-use crate::hud::{self, Anchor};
+use crate::hud::Anchor;
 use crate::i18n::{self, tr, Key, Lang};
-use crate::ui::{self, UiInput};
+use crate::kit;
+use crate::ui::UiInput;
 use macroquad::prelude::*;
 
 const AUTHOR: &str = "Adrià Bonnin Catalán";
@@ -23,6 +24,8 @@ const SCROLL_STEP: f32 = 40.0;
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Kind {
     Title,
+    /// Room for the rule under the title (it hangs 6..17 px below the title's baseline).
+    Rule,
     Heading,
     Name,
     Gap,
@@ -32,8 +35,10 @@ impl Kind {
     fn height(self) -> f32 {
         match self {
             Kind::Title => 40.0,
-            Kind::Heading | Kind::Name => 20.0,
-            Kind::Gap => 14.0,
+            Kind::Rule => 18.0,
+            Kind::Heading => 28.0,
+            Kind::Name => 17.0,
+            Kind::Gap => 12.0,
         }
     }
 }
@@ -83,39 +88,36 @@ impl Credits {
     }
 
     pub fn draw(&self, view: Vec2) {
-        hud::draw_dim(view);
-        draw_rectangle(0.0, 0.0, view.x, view.y, Color::new(0.0, 0.0, 0.0, 0.3));
+        kit::dim(view, 1.0);
+        let p = kit::pal();
+        let cx = view.x * 0.5;
         let mut y = TOP_Y - self.scroll.round();
         for (kind, text) in &self.lines {
             y += kind.height();
             if y < -10.0 || y > view.y + 40.0 {
                 continue;
             }
-            let (style, color) = match kind {
-                Kind::Title => (TextStyle::Title, hud::TITLE_COLOR),
-                Kind::Heading => (TextStyle::Body, ui::ACCENT),
-                Kind::Name => (TextStyle::Body, WHITE),
-                Kind::Gap => continue,
-            };
-            hud::draw_text_centered(view, text, y, style, color);
+            match kind {
+                Kind::Title => {
+                    kit::title(text, cx, y, 1.0);
+                }
+                Kind::Heading => kit::text_centered(text, cx, y, TextStyle::Name, p.gold),
+                Kind::Name => kit::text_centered(text, cx, y, TextStyle::Desc, p.label),
+                Kind::Rule | Kind::Gap => {}
+            }
         }
         let help = tr(Key::CreditsHelp);
-        let w = measure_ui_text(help, TextStyle::Small).width;
-        let bar = view.y - 16.0;
-        draw_rectangle(0.0, bar, view.x, 16.0, BLACK);
-        draw_ui_text(
-            help,
-            Anchor::Right.x(view, w, 6.0),
-            bar + 12.0,
-            TextStyle::Small,
-            GRAY,
-        );
+        let w = measure_ui_text(help, TextStyle::Desc).width;
+        let bar = view.y - 20.0;
+        draw_rectangle(0.0, bar, view.x, 20.0, p.shadow);
+        kit::text(help, Anchor::Right.x(view, w, 8.0), bar + 15.0, TextStyle::Desc, p.dim);
     }
 }
 
 fn build_lines() -> Vec<(Kind, String)> {
     let mut lines = vec![
         (Kind::Title, GAME_TITLE.to_owned()),
+        (Kind::Rule, String::new()),
         (Kind::Name, format!("(c) {COPYRIGHT_YEAR} {AUTHOR}")),
         (Kind::Name, tr(Key::CreditsRights).to_owned()),
         (Kind::Gap, String::new()),

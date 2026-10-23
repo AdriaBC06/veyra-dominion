@@ -461,13 +461,14 @@ SMALL = {
 
 ACCENTS = {  # base, mark rows (drawn above the letter, centred)
 'acute': ["..#", ".#."],
+'grave': ["#..", ".#."],
 'diaer': ["#.#"],
 'tilde': [".#.#", "#.#."],
 }
 COMPOSED = {
 'Á': ('A', 'acute'), 'É': ('E', 'acute'), 'Í': ('I', 'acute'), 'Ó': ('O', 'acute'),
-'Ú': ('U', 'acute'), 'Ü': ('U', 'diaer'), 'Ñ': ('N', 'tilde'),
-'á': ('a', 'acute'), 'é': ('e', 'acute'), 'í': ('i', 'acute'), 'ó': ('o', 'acute'),
+'Ú': ('U', 'acute'), 'Ü': ('U', 'diaer'), 'Ñ': ('N', 'tilde'), 'À': ('A', 'grave'),
+'à': ('a', 'grave'), 'á': ('a', 'acute'), 'é': ('e', 'acute'), 'í': ('i', 'acute'), 'ó': ('o', 'acute'),
 'ú': ('u', 'acute'), 'ü': ('u', 'diaer'), 'ñ': ('n', 'tilde'),
 }
 
