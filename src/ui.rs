@@ -13,8 +13,9 @@ use macroquad::prelude::*;
 pub const ACCENT: Color = Color::new(0.88, 0.19, 0.29, 1.0);
 const PANEL: Color = Color::new(0.08, 0.04, 0.1, 0.95);
 pub const BUTTON_W: f32 = 220.0;
-/// The kit's button sprite is this tall.
-pub const BUTTON_H: f32 = 26.0;
+/// Room for a label (18 px capitals + 6 px descenders) inside the stone frame, 3 px clear
+/// above and below.
+pub const BUTTON_H: f32 = 40.0;
 pub const BUTTON_GAP: f32 = 8.0;
 
 /// One frame of UI input, already in logical frame coordinates.

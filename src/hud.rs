@@ -227,10 +227,10 @@ pub fn draw_autopilot(view: Vec2, label: &str) {
 /// Panel menus (pause, game over, victory): side padding, title baseline from the panel top,
 /// the title rule's height, text line height and bottom padding.
 const MENU_PAD_X: f32 = 30.0;
-const MENU_TITLE_Y: f32 = 42.0;
+const MENU_TITLE_Y: f32 = 50.0;
 const MENU_RULE_H: f32 = 17.0;
 const MENU_LINE: f32 = 18.0;
-const MENU_BOTTOM: f32 = 22.0;
+const MENU_BOTTOM: f32 = 30.0;
 
 /// Where a panel menu with `lines` lines of text and `n` buttons goes, centred in the view.
 pub struct MenuLayout {
@@ -287,9 +287,9 @@ pub fn draw_menu(
 /// Cards take the view's width up to this, less a margin on each side (room for the cursors).
 const CARD_MAX_W: f32 = 500.0;
 const CARD_MARGIN: f32 = 26.0;
-/// Tall enough for the name and two lines of description.
-const CARD_H: f32 = 70.0;
-const CARD_GAP: f32 = 8.0;
+/// Tall enough for the name and two lines of description inside the frame.
+const CARD_H: f32 = 80.0;
+const CARD_GAP: f32 = 6.0;
 const CARDS_Y: f32 = 94.0;
 const CARDS_TITLE_Y: f32 = 64.0;
 /// The level-up flash: peak alpha and how long it takes to fade.
@@ -413,28 +413,30 @@ impl Card<'_> {
         let name_color = if lit { kit::pal().gold_lit } else { kit::pal().gold };
         // Name and description are centred between the slot and the tag column.
         let cx = (x + CARD_TEXT_X + x + w - CARD_PAD_R) * 0.5;
-        kit::text_centered(self.name, cx, y + 25.0, TextStyle::Name, kit::fade(name_color, alpha));
+        let (first, second) = wrap_two(self.desc, w - CARD_TEXT_X - CARD_PAD_R);
+        // a one-line description drops the text block half a line, so it stays centred
+        let ty = y + if second.is_empty() { 7.0 } else { 0.0 };
+        kit::text_centered(self.name, cx, ty + 31.0, TextStyle::Name, kit::fade(name_color, alpha));
         let right = x + w - CARD_PAD_R;
         match &self.tag {
             Tag::None => {}
             Tag::New => {
                 let s = tr(Key::LevelUpNew);
                 let tw = measure_ui_text(s, TextStyle::Desc).width;
-                kit::text(s, right - tw, y + 20.0, TextStyle::Desc, kit::fade(kit::pal().ruby, alpha));
+                kit::text(s, right - tw, y + 26.0, TextStyle::Desc, kit::fade(kit::pal().ruby, alpha));
             }
             Tag::Level(lv, max) => {
                 let pw = kit::pips_width(*max);
-                kit::pips(vec2(right - pw, y + 15.0), *lv, true, *max, t, alpha);
+                kit::pips(vec2(right - pw, y + 21.0), *lv, true, *max, t, alpha);
             }
             Tag::Text(s) => {
                 let tw = measure_ui_text(s, TextStyle::Desc).width;
-                kit::text(s, right - tw, y + 20.0, TextStyle::Desc, kit::fade(kit::pal().desc, alpha));
+                kit::text(s, right - tw, y + 26.0, TextStyle::Desc, kit::fade(kit::pal().desc, alpha));
             }
         }
-        let (first, second) = wrap_two(self.desc, w - CARD_TEXT_X - CARD_PAD_R);
         let color = kit::fade(if lit { kit::pal().label_lit } else { kit::pal().desc }, alpha);
-        kit::text_centered(first, cx, y + 44.0, TextStyle::Desc, color);
-        kit::text_centered(second, cx, y + 58.0, TextStyle::Desc, color);
+        kit::text_centered(first, cx, ty + 50.0, TextStyle::Desc, color);
+        kit::text_centered(second, cx, ty + 64.0, TextStyle::Desc, color);
     }
 }
 

@@ -304,7 +304,7 @@ pub fn seed_of(label: &str) -> u32 {
     label.bytes().fold(2166136261u32, |h, b| (h ^ b as u32).wrapping_mul(16777619))
 }
 
-/// A button whose frame covers `rect` (26 tall), its label centred; pressed sinks 1 px.
+/// A button whose frame covers `rect`, its label centred; pressed sinks 1 px.
 pub fn button(rect: Rect, look: ButtonLook, label: &str, alpha: f32) {
     let down = if look == ButtonLook::Pressed { 1.0 } else { 0.0 };
     let seed = seed_of(label);
@@ -328,10 +328,11 @@ pub fn button(rect: Rect, look: ButtonLook, label: &str, alpha: f32) {
         ButtonLook::Idle => p.label,
         ButtonLook::Disabled => p.dim,
     };
-    let w = measure_ui_text(label, TextStyle::Name).width;
-    let x = (rect.x + (rect.w - w) * 0.5).round();
-    // Blackletter capitals are 18 px tall: the baseline sits half of that below the centre.
-    let y = (rect.y + rect.h * 0.5 + 9.0).round() + down;
+    let dims = measure_ui_text(label, TextStyle::Name);
+    let x = (rect.x + (rect.w - dims.width) * 0.5).round();
+    // the label's ink (capitals, and descenders when it has g/p/y) is centred, so the space
+    // above and below it inside the frame is the same
+    let y = (rect.y + (rect.h - dims.height) * 0.5 + dims.offset_y).round() + down;
     draw_ui_text(label, x, y + 1.0, TextStyle::Name, fade(p.shadow, alpha));
     draw_ui_text(label, x, y, TextStyle::Name, fade(color, alpha));
 }
