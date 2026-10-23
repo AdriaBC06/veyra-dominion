@@ -27,6 +27,12 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S16 — First boss**
   - [x] V19 Boss framework + first boss *(user approval)*
   - [x] **CP7 Combat depth**
+- **S16b — Interface** *(user approval)*
+  - [ ] V19b Premium UI kit + every menu and the HUD redone (7.14)
+  - [ ] V19c Grimoire of Evolutions (title + pause)
+- **S16c — Living Ashford** *(user approval)*
+  - [ ] V19d Coherent map: layout, houses, villagers who flee, breakables and drops, razing
+  - [ ] V19e Minimap + full map (M)
 - **S17 — Pacts**
   - [ ] V20 Tribute and Infernal Pacts
 - **S18 — Familiars**
@@ -68,6 +74,10 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 | V18b | 10:00 Ashford timeline (retirements, pressure events, elites), stepped XP curve, soul tiers + phase drop chances, HP per minute; tuned with the balance probe | Probe hits the 7.8 level targets | `feat: progression rebalance` |
 | V19 | Boss framework + Captain of the Watch | Boss beatable | `feat: boss framework and first boss` |
 | **CP7** | **Checkpoint 7 — Combat depth** | | |
+| V19b | UI kit (`assets/ui.px.js`: frames, buttons, sliders, tabs, slots) + motion/easing helpers; pause, level-up, Offering, game over, victory, settings, credits and HUD redone (7.14) | User approves captures of every screen | `feat: premium ui pass` |
+| V19c | Grimoire of Evolutions: every evolution/union with recipe icons, silhouettes until fused once, `evolved=`/`seen=` in the save, from title and pause | Save tests green + user approves | `feat: grimoire of evolutions` |
+| V19d | Authored Ashford layout (roads, square, houses, fields, woods border); y-sorted baked props; fleeing civilians pool; breakables with drop table (coins, food heal, coffers, relics); burning houses | Stress test with full map green + user approves | `feat: living ashford` |
+| V19e | Minimap (baked landmarks, density-grid enemy dots, boss icon + edge arrow) and full map on M (pauses) | Stress tick unchanged + user approves | `feat: minimap and full map` |
 | V20 | Tribute currency, end-of-run payout screen, Altar + Pacts (refund) | Meta tests green | `feat: tribute and infernal pacts` |
 | V21 | Summoning Circles + Familiars (4 Lesser), equip, ranks, duplicate refund, rate display | Distribution tests green | `feat: summoning circles and familiars` |
 | V22 | Greater + Abyssal Familiars | Visible + tested | `feat: greater and abyssal familiars` |
