@@ -1,7 +1,7 @@
 """Glyph sheet of one Veyra font straight from its pixel sets (exact; Pillow's TTF hinting
 shifts rows, the game's rasteriser doesn't).
 
-usage: python3 preview.py <display|gothic13|gothic|titling> <out.png> 'line one|line two' [row step]
+usage: python3 preview.py <blackletter|display> <out.png> 'line one|line two' [row step]
 """
 import importlib
 import os

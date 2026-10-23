@@ -413,28 +413,28 @@ impl Card<'_> {
         let name_color = if lit { kit::pal().gold_lit } else { kit::pal().gold };
         // Name and description are centred between the slot and the tag column.
         let cx = (x + CARD_TEXT_X + x + w - CARD_PAD_R) * 0.5;
-        kit::text_centered(self.name, cx, y + 24.0, TextStyle::Body, kit::fade(name_color, alpha));
+        kit::text_centered(self.name, cx, y + 25.0, TextStyle::Name, kit::fade(name_color, alpha));
         let right = x + w - CARD_PAD_R;
         match &self.tag {
             Tag::None => {}
             Tag::New => {
                 let s = tr(Key::LevelUpNew);
-                let tw = measure_ui_text(s, TextStyle::Body).width;
-                kit::text(s, right - tw, y + 24.0, TextStyle::Body, kit::fade(kit::pal().ruby, alpha));
+                let tw = measure_ui_text(s, TextStyle::Desc).width;
+                kit::text(s, right - tw, y + 20.0, TextStyle::Desc, kit::fade(kit::pal().ruby, alpha));
             }
             Tag::Level(lv, max) => {
                 let pw = kit::pips_width(*max);
                 kit::pips(vec2(right - pw, y + 15.0), *lv, true, *max, t, alpha);
             }
             Tag::Text(s) => {
-                let tw = measure_ui_text(s, TextStyle::Body).width;
-                kit::text(s, right - tw, y + 24.0, TextStyle::Body, kit::fade(kit::pal().desc, alpha));
+                let tw = measure_ui_text(s, TextStyle::Desc).width;
+                kit::text(s, right - tw, y + 20.0, TextStyle::Desc, kit::fade(kit::pal().desc, alpha));
             }
         }
         let (first, second) = wrap_two(self.desc, w - CARD_TEXT_X - CARD_PAD_R);
         let color = kit::fade(if lit { kit::pal().label_lit } else { kit::pal().desc }, alpha);
-        kit::text_centered(first, cx, y + 44.0, TextStyle::Body, color);
-        kit::text_centered(second, cx, y + 60.0, TextStyle::Body, color);
+        kit::text_centered(first, cx, y + 44.0, TextStyle::Desc, color);
+        kit::text_centered(second, cx, y + 58.0, TextStyle::Desc, color);
     }
 }
 
@@ -452,7 +452,7 @@ fn draw_icon_alpha(icon: Icon, x: f32, y: f32, scale: f32, alpha: f32) {
 /// Splits `text` at a space into two lines when it is wider than `width`: the first
 /// takes as many words as fit.
 fn wrap_two(text: &str, width: f32) -> (&str, &str) {
-    let fits = |t: &str| measure_ui_text(t, TextStyle::Body).width <= width;
+    let fits = |t: &str| measure_ui_text(t, TextStyle::Desc).width <= width;
     if fits(text) {
         return (text, "");
     }

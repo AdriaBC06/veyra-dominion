@@ -328,11 +328,12 @@ pub fn button(rect: Rect, look: ButtonLook, label: &str, alpha: f32) {
         ButtonLook::Idle => p.label,
         ButtonLook::Disabled => p.dim,
     };
-    let w = measure_ui_text(label, TextStyle::Body).width;
+    let w = measure_ui_text(label, TextStyle::Name).width;
     let x = (rect.x + (rect.w - w) * 0.5).round();
-    let y = (rect.y + rect.h * 0.5 + 7.0).round() + down;
-    draw_ui_text(label, x, y + 1.0, TextStyle::Body, fade(p.shadow, alpha));
-    draw_ui_text(label, x, y, TextStyle::Body, fade(color, alpha));
+    // Blackletter capitals are 18 px tall: the baseline sits half of that below the centre.
+    let y = (rect.y + rect.h * 0.5 + 9.0).round() + down;
+    draw_ui_text(label, x, y + 1.0, TextStyle::Name, fade(p.shadow, alpha));
+    draw_ui_text(label, x, y, TextStyle::Name, fade(color, alpha));
 }
 
 /// A fully soaked box holds one splatter per this many square pixels, a run from its top edge

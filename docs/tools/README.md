@@ -26,6 +26,6 @@ Dark captures look lighter in most image viewers than in game: sample pixels (e.
 
 If the patch stops applying after code changes, re-create it by hand from the description above and refresh this file with `git diff > docs/tools/capture-hack.patch` (only the hack hunks).
 
-## `assets/fonts/veyra/`: Veyra's own pixel fonts (work in progress)
+## `assets/fonts/veyra/`: Veyra's own pixel fonts
 
-Fonts drawn as code (V19b, pending review). See design.md 7.14. Build a TTF with `python3 assets/fonts/veyra/<font>.py <out.ttf>` (needs `fontTools`), preview with `python3 assets/fonts/veyra/preview.py <font> <out.png> 'Line one|Line two' [row step]` (needs Pillow).
+Fonts drawn as code (design.md 7.14): `blackletter.py` (Veyra Blackletter, names and buttons) and `display.py` (Veyra Display, descriptions). The game embeds the built TTFs, so rebuild after any change: `python3 assets/fonts/veyra/blackletter.py assets/fonts/VeyraBlackletter.ttf` and `python3 assets/fonts/veyra/display.py assets/fonts/VeyraDisplay.ttf` (needs `fontTools`). Preview straight from the pixel sets with `python3 assets/fonts/veyra/preview.py <blackletter|display> <out.png> 'Line one|Line two' [row step]` (needs Pillow; Pillow's own TTF rendering hints and shifts rows, the game's doesn't). Delete the `__pycache__/` the scripts leave.
