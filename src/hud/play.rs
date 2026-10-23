@@ -61,15 +61,22 @@ struct Ramp {
 }
 
 const SOUL_RAMP: Ramp = Ramp {
-    deep: Color::new(0.13, 0.15, 0.42, 1.0),
-    body: Color::new(0.3, 0.5, 0.9, 1.0),
-    hi: Color::new(0.68, 0.9, 1.0, 1.0),
+    deep: Color::new(0.06, 0.08, 0.24, 1.0),
+    body: Color::new(0.16, 0.3, 0.62, 1.0),
+    hi: Color::new(0.68, 0.95, 1.0, 1.0),
 };
+/// Blood: dark venous red with a wet highlight.
 const HP_RAMP: Ramp = Ramp {
-    deep: Color::new(0.34, 0.03, 0.08, 1.0),
-    body: Color::new(0.72, 0.1, 0.16, 1.0),
-    hi: Color::new(0.97, 0.38, 0.34, 1.0),
+    deep: Color::new(0.24, 0.0, 0.03, 1.0),
+    body: Color::new(0.52, 0.02, 0.06, 1.0),
+    hi: Color::new(0.9, 0.26, 0.24, 1.0),
 };
+/// Red cells carried along the blood: a light rim around a dark dimple.
+const CELL_RIM: Color = Color::new(0.92, 0.2, 0.18, 1.0);
+const CELL_CORE: Color = Color::new(0.3, 0.0, 0.03, 1.0);
+/// Heartbeats per second, calm and at low health.
+const PULSE_RATE: f32 = 1.15;
+const PULSE_RATE_LOW: f32 = 2.0;
 /// The boss bar wears the Watch's royal blue.
 const BOSS_RAMP: Ramp = Ramp {
     deep: Color::new(0.1, 0.13, 0.3, 1.0),
@@ -130,6 +137,9 @@ pub struct HudFx {
     boss_hp: f32,
     boss_lag: f32,
     since_boss_hit: f32,
+    /// The blood's heartbeat (0..1 per beat) and how far it has flowed, in pixels.
+    pulse: f32,
+    flow: f32,
     sparks: [Spark; SPARKS],
     next_spark: usize,
     rng: u32,
@@ -166,6 +176,8 @@ impl Default for HudFx {
             boss_hp: 0.0,
             boss_lag: 0.0,
             since_boss_hit: f32::INFINITY,
+            pulse: 0.0,
+            flow: 0.0,
             sparks: [Spark::default(); SPARKS],
             next_spark: 0,
             rng: 0x9e37_79b9,
@@ -299,6 +311,14 @@ impl HudFx {
             self.lag = (self.lag - p.max_hp * 0.8 * dt).max(p.hp);
         }
         self.lag = self.lag.max(p.hp);
+        // The heart pumps: the blood surges on each beat and coasts between them.
+        let rate = if p.hp <= p.max_hp * VIGNETTE_HP {
+            PULSE_RATE_LOW
+        } else {
+            PULSE_RATE
+        };
+        self.pulse = (self.pulse + rate * dt).fract();
+        self.flow += (5.0 + 26.0 * pump(self.pulse)) * dt;
 
         // Souls: the bar glides to its fill, a level-up flashes and empties it.
         let medal = Rect::new(M, M, MEDAL, MEDAL);
@@ -312,8 +332,8 @@ impl HudFx {
             let bar = inner(soul_rect(view));
             let tip = vec2(bar.x + bar.w * target, bar.y + bar.h * 0.5);
             for _ in 0..2 {
-                let vel = vec2(self.rand() * 30.0 - 15.0, -20.0 - self.rand() * 25.0);
-                let life = 0.4 + self.rand() * 0.3;
+                let vel = vec2(self.rand() * 16.0 - 8.0, -14.0 - self.rand() * 14.0);
+                let life = 0.7 + self.rand() * 0.5;
                 self.spark(tip, vel, life, SparkKind::Soul);
             }
         }
@@ -393,7 +413,11 @@ impl HudFx {
                 s.age += dt;
                 s.pos += s.vel * dt;
                 s.vel *= (-3.0 * dt).exp();
-                s.vel.y += 30.0 * dt;
+                // Souls float away; everything else falls.
+                s.vel.y += match s.kind {
+                    SparkKind::Soul => -12.0,
+                    _ => 30.0,
+                } * dt;
             }
         }
     }
@@ -426,6 +450,141 @@ fn ripples(r: Rect, frac: f32, ramp: &Ramp, t: f32, alpha: f32) {
             draw_rectangle(r.x + x, y.round(), 2.0, 1.0, kit::fade(WHITE, k * 0.55 * alpha));
         }
         x += 2.0;
+    }
+}
+
+/// 0..1 noise for item `i` of a decorative set, stable from frame to frame.
+fn hash(i: u32, salt: u32) -> f32 {
+    let mut x = i.wrapping_mul(0x9e37_79b9) ^ salt.wrapping_mul(0x85eb_ca6b);
+    x ^= x >> 15;
+    x = x.wrapping_mul(0x2c1b_3c6d);
+    x ^= x >> 12;
+    (x >> 8) as f32 / (1u32 << 24) as f32
+}
+
+/// The heart's push at `phase` (0..1 of a beat): a sharp surge, then a smaller echo.
+fn pump(phase: f32) -> f32 {
+    let surge = (1.0 - phase / 0.22).max(0.0);
+    let echo = (1.0 - (phase - 0.36).abs() / 0.09).max(0.0);
+    surge * surge + 0.35 * echo
+}
+
+/// Inside the soul bar: spectral mist and wisps (a bright head, a wavering tail) drifting
+/// toward the tip, where they melt into it.
+fn souls(r: Rect, frac: f32, t: f32) {
+    let w = (r.w * frac.clamp(0.0, 1.0)).round();
+    let mut x = 0.0;
+    while x < w {
+        let k = ((x * 0.09 + t * 0.7).sin() + (x * 0.23 - t * 1.1 + 1.3).sin()) * 0.5;
+        if k > 0.0 {
+            let h = (r.h * (0.4 + 0.5 * k)).round();
+            let y = r.y + ((r.h - h) * (0.5 + 0.4 * (x * 0.05 + t).sin())).round();
+            draw_rectangle(r.x + x, y, 2.0, h, kit::fade(SOUL_RAMP.hi, k * 0.22));
+        }
+        x += 2.0;
+    }
+    let count = (r.w / 22.0) as u32;
+    let wave = |s: f32, phase: f32| r.y + r.h * 0.5 - 1.0 + (s * 2.3 + phase).sin() * (r.h * 0.28);
+    for i in 0..count {
+        let speed = 7.0 + 12.0 * hash(i, 1);
+        let phase = hash(i, 2) * TAU;
+        let head = (hash(i, 3) * r.w + t * speed) % r.w;
+        if head + 2.0 > w {
+            continue;
+        }
+        // Fade in from the left and out into the tip.
+        let a = (head / 8.0).min((w - head - 2.0) / 10.0).clamp(0.0, 1.0)
+            * (0.75 + 0.25 * (t * 4.0 + phase).sin());
+        // The tail: thick near the head, thinning as it wavers behind.
+        for j in 1..=10 {
+            let tx = head - j as f32;
+            if tx < 0.0 {
+                break;
+            }
+            let ty = wave(t - j as f32 * 0.07, phase).round();
+            let fade = 1.0 - j as f32 / 11.0;
+            let h = if j <= 4 { 2.0 } else { 1.0 };
+            let y = if j <= 4 { ty } else { ty + 0.5 };
+            draw_rectangle(r.x + tx, y.round(), 1.0, h, kit::fade(SOUL_RAMP.hi, a * fade * 0.75));
+        }
+        let hy = wave(t, phase).round();
+        let (hx, glow) = (r.x + head, kit::fade(SOUL_RAMP.hi, a * 0.35));
+        draw_rectangle(hx - 1.0, hy, 4.0, 2.0, glow);
+        draw_rectangle(hx, hy - 1.0, 2.0, 4.0, glow);
+        draw_rectangle(hx, hy, 2.0, 2.0, kit::fade(SOUL_RAMP.hi, a));
+        draw_rectangle(hx + 1.0, hy, 1.0, 1.0, kit::fade(WHITE, a));
+    }
+}
+
+/// Health as blood in circulation: each heartbeat sends a pressure wave down the bar, red
+/// cells stream along it (faster mid-vessel than at the walls), a wet sheen slides on top
+/// and the edge laps like a liquid.
+fn blood(r: Rect, frac: f32, pulse: f32, flow: f32, t: f32) {
+    let w = (r.w * frac.clamp(0.0, 1.0)).round();
+    if w <= 0.0 {
+        return;
+    }
+    // Dark eddies carried by the flow, and the pressure wave brightening what it passes.
+    let mut x = 0.0;
+    while x < w {
+        let u = x - flow;
+        let e = ((u * 0.17).sin() + (u * 0.061 + 1.7).sin()) * 0.5;
+        if e > 0.2 {
+            let y = r.y + 2.0 + (((u * 0.09).sin() * 0.5 + 0.5) * (r.h - 5.0)).round();
+            draw_rectangle(r.x + x, y, 2.0, 2.0, kit::fade(HP_RAMP.deep, (e - 0.2) * 0.9));
+        }
+        let k = pump((pulse - x / (r.w * 2.5)).rem_euclid(1.0));
+        if k > 0.05 {
+            draw_rectangle(r.x + x, r.y + 1.0, 2.0, r.h - 2.0, kit::fade(CELL_RIM, k * 0.4));
+        }
+        x += 2.0;
+    }
+    let count = (r.w / 6.0) as u32;
+    for i in 0..count {
+        let lane = hash(i, 4);
+        let y = r.y + 1.0 + (lane * (r.h - 4.0)).round();
+        let wall = (lane * 2.0 - 1.0).abs();
+        let speed = (1.0 - 0.6 * wall * wall) * (0.85 + 0.3 * hash(i, 5));
+        let cx = ((hash(i, 6) * r.w + flow * speed) % r.w).round();
+        if cx + 3.0 > w {
+            continue;
+        }
+        let a = if hash(i, 7) < 0.35 { 0.5 } else { 0.95 };
+        draw_rectangle(r.x + cx, y + 1.0, 3.0, 1.0, kit::fade(CELL_RIM, a));
+        draw_rectangle(r.x + cx + 1.0, y, 1.0, 3.0, kit::fade(CELL_RIM, a));
+        draw_rectangle(r.x + cx + 1.0, y + 1.0, 1.0, 1.0, kit::fade(CELL_CORE, a));
+    }
+    // A wet sheen in streaks drifting with the flow.
+    let mut x = 0.0;
+    while x < w {
+        let k = ((x - flow * 0.8) * 0.13).sin();
+        if k > 0.55 {
+            let a = (k - 0.55) / 0.45 * 0.45;
+            draw_rectangle(r.x + x, r.y + 1.0, 1.0, 1.0, kit::fade(WHITE, a));
+        }
+        x += 1.0;
+    }
+    // The edge laps: each row reaches a little further or shorter, swelling on the beat.
+    if w < r.w {
+        let band = (r.h * 0.3).round().max(1.0);
+        let surge = pump(pulse);
+        for row in 0..r.h as u32 {
+            let y = row as f32;
+            let reach = (1.0 + (y * 0.8 - t * 5.0).sin() + surge).round().max(0.0);
+            let reach = reach.min(r.w - w);
+            if reach <= 0.0 {
+                continue;
+            }
+            let c = if y >= r.h - band {
+                HP_RAMP.deep
+            } else if row == 0 {
+                HP_RAMP.hi
+            } else {
+                HP_RAMP.body
+            };
+            draw_rectangle(r.x + w, r.y + y, reach, 1.0, c);
+            draw_rectangle(r.x + w + reach - 1.0, r.y + y, 1.0, 1.0, kit::fade(HP_RAMP.hi, 0.4));
+        }
     }
 }
 
@@ -463,7 +622,14 @@ pub fn draw(game: &Game, fx: &HudFx, view: Vec2) {
             SparkKind::Ember => mix(HP_RAMP.body, kit::pal().gold, k),
         };
         let size = if k > 0.5 { 2.0 } else { 1.0 };
-        draw_rectangle(s.pos.x.round(), s.pos.y.round(), size, size, kit::fade(c, k));
+        let mut pos = s.pos;
+        if let SparkKind::Soul = s.kind {
+            // A wisp: it sways as it rises and trails a fading tail.
+            pos.x += (s.age * 9.0 + s.life * 40.0).sin() * 1.5;
+            let tail = vec2(pos.x.round(), pos.y.round() + size);
+            draw_rectangle(tail.x, tail.y, 1.0, 2.0, kit::fade(c, k * 0.5));
+        }
+        draw_rectangle(pos.x.round(), pos.y.round(), size, size, kit::fade(c, k));
     }
 }
 
@@ -524,7 +690,7 @@ fn soul_bar(fx: &HudFx, view: Vec2) {
     let i = inner(r);
     let up = fresh(fx.since_level, 0.4);
     fill(i, fx.soul, &SOUL_RAMP, 0.0, 1.0);
-    ripples(i, fx.soul, &SOUL_RAMP, fx.t, 1.0);
+    souls(i, fx.soul, fx.t);
     tip(i, fx.soul, &SOUL_RAMP, fresh(fx.since_soul, SOUL_TIME), fx.t);
     if up > 0.0 {
         draw_rectangle(i.x, i.y, i.w, i.h, kit::fade(SOUL_RAMP.hi, up * up * 0.85));
@@ -553,8 +719,7 @@ fn hp_bar(game: &Game, fx: &HudFx) {
     let beat = if low { fresh(fx.since_beat, 0.45) } else { 0.0 };
     let bright = hit * 0.3 + beat * 0.25 + fresh(fx.since_heal, 0.4) * 0.3;
     fill(i, health, &HP_RAMP, bright, 1.0);
-    ripples(i, health, &HP_RAMP, fx.t * 0.6, 0.5);
-    tip(i, health, &HP_RAMP, 0.0, fx.t);
+    blood(i, health, fx.pulse, fx.flow, fx.t);
     let s = format!("{} / {}", p.hp.max(0.0).ceil(), p.max_hp.round());
     let color = mix(BONE, Color::new(1.0, 0.6, 0.55, 1.0), hit);
     let y = kit::ink_baseline(&s, TextStyle::Desc, r);
