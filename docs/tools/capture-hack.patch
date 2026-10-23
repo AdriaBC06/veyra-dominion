@@ -1,0 +1,86 @@
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -39,6 +39,8 @@
+     }
+ }
+ 
++thread_local!(static CAP_FRAME: std::cell::Cell<u32> = const { std::cell::Cell::new(0) });
++
+ #[macroquad::main(window_conf)]
+ async fn main() {
+     assets::init();
+@@ -52,6 +54,15 @@
+             app.shutdown();
+             break;
+         }
++        // VEYRA_CAPTURE hack (never committed)
++        if let Ok(spec) = std::env::var("VEYRA_CAPTURE") {
++            CAP_FRAME.with(|f| f.set(f.get() + 1));
++            let n = CAP_FRAME.with(|f| f.get());
++            let (kind, out) = spec.split_once(':').unwrap();
++            if n == 2 { request_new_screen_size(1280.0, 720.0); }
++            app.capture_step(n, kind);
++            if n == 640 { get_screen_data().export_png(out); app.shutdown(); std::process::exit(0); }
++        }
+         next_frame().await;
+     }
+ }
+--- a/src/scenes/mod.rs
++++ b/src/scenes/mod.rs
+@@ -77,6 +77,15 @@
+         }
+     }
+ 
++    pub fn capture_step(&mut self, n: u32, kind: &str) {
++        if n == 5 && kind != "title" && kind != "settings" && kind != "credits" { self.navigate(Nav::NewRun); }
++        if n == 5 && kind == "settings" { self.navigate(Nav::Settings); }
++        if n == 5 && kind == "credits" { self.navigate(Nav::Credits); }
++        if matches!(self.scene, Scene::Run) { self.run.capture_step(n, kind); }
++        if let Ok(skin) = std::env::var("VEYRA_SKIN") { kit::set_skin(if skin == "gilt" { kit::Skin::Gilt } else { kit::Skin::Stone }); }
++        if let Ok(b) = std::env::var("VEYRA_BLOOD") { kit::set_blood(b.parse().unwrap()); }
++    }
++
+     /// Copies the screen state into the settings and writes them.
+     fn store_settings(&mut self) {
+         let windowed = self.screen.windowed_size();
+@@ -179,6 +188,7 @@
+         };
+         let kills = if in_run { self.run.game.kills } else { 0 };
+         kit::set_blood(kit::blood_for_kills(kills));
++        if let Ok(b) = std::env::var("VEYRA_BLOOD") { kit::set_blood(b.parse().unwrap()); }
+         self.screen.update();
+         let view = self.screen.view();
+         self.run.game.set_view(view);
+--- a/src/scenes/run.rs
++++ b/src/scenes/run.rs
+@@ -80,6 +80,20 @@
+         }
+     }
+ 
++    pub fn capture_step(&mut self, n: u32, kind: &str) {
++        if n == 6 { self.autopilot = Autopilot::Off.next(); self.autopiloted = true; self.game.debug_level_arts(); self.game.debug_level_arts(); }
++        if n == 380 {
++            match kind {
++                "pause" => self.set_state(State::Paused),
++                "levelup" => { self.autopilot = Autopilot::Off; self.game.gain_xp(xp_to_next(self.game.level)) }
++                "offering" => { self.autopilot = Autopilot::Off; self.game.debug_drop_offering() }
++                "gameover" => self.set_state(State::GameOver),
++                "victory" => self.set_state(State::Victory),
++                _ => {}
++            }
++        }
++    }
++
+     /// Buttons and the number of text lines above them for the current menu, if any.
+     fn menu(&self) -> Option<(&'static [Key], usize)> {
+         match self.state {
+--- a/src/assets.rs
++++ b/src/assets.rs
+@@ -892,6 +892,7 @@
+ 
+ /// Draws `text` with its baseline at `y` (snapped to whole pixels to stay crisp).
+ pub fn draw_ui_text(text: &str, x: f32, y: f32, style: TextStyle, color: Color) {
++    if std::env::var_os("VEYRA_NOTEXT").is_some() { return; } // capture hack (never committed)
+     with_font(style, |font, size| {
+         let params = TextParams {
+             font: Some(font),

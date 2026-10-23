@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "ui_toggle_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 13,
+    "h": 13
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 13,
+    "h": 13
+   },
+   "sourceSize": {
+    "w": 13,
+    "h": 13
+   },
+   "duration": 1000
+  },
+  "ui_toggle_1": {
+   "frame": {
+    "x": 13,
+    "y": 0,
+    "w": 13,
+    "h": 13
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 13,
+    "h": 13
+   },
+   "sourceSize": {
+    "w": 13,
+    "h": 13
+   },
+   "duration": 1000
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "ui_toggle.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 26,
+   "h": 13
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "ui_toggle",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

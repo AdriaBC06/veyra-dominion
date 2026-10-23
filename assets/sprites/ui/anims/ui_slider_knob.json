@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "ui_slider_knob_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 11,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 11,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 11,
+    "h": 15
+   },
+   "duration": 1000
+  },
+  "ui_slider_knob_1": {
+   "frame": {
+    "x": 11,
+    "y": 0,
+    "w": 11,
+    "h": 15
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 11,
+    "h": 15
+   },
+   "sourceSize": {
+    "w": 11,
+    "h": 15
+   },
+   "duration": 1000
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "ui_slider_knob.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 22,
+   "h": 15
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "ui_slider_knob",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

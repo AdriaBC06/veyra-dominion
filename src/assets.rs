@@ -598,7 +598,144 @@ impl TitleArt {
     }
 }
 
+/// The UI kit (`assets/ui.px.js`, design.md 7.14): frames, buttons, slots and widget parts,
+/// one texture each, drawn sliced by `kit.rs`. Strips are horizontal, equal frames.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum UiArt {
+    /// 9-slice, idle and lit.
+    Panel,
+    /// 9-slice recessed well.
+    Inset,
+    /// 3-slice: idle, lit, pressed, disabled.
+    Button,
+    RuleEnd,
+    RuleGem,
+    /// 9-slice icon slot, one frame per `kit::Rim`.
+    Slot,
+    /// 3-slice groove, idle and lit.
+    SliderTrack,
+    SliderKnob,
+    /// Off and on.
+    Toggle,
+    /// 3-slice: idle, lit, active.
+    Tab,
+    /// 4 frames of ember flicker.
+    Cursor,
+    /// 4 frames: grow, flash, fade.
+    Spark,
+    /// Blood (`kit::blood`): 6 splatters, 6 runs, 6 fleck patterns and a 12-frame drip.
+    BloodSplat,
+    BloodRun,
+    BloodFleck,
+    BloodDrip,
+    /// Stone skin ornaments: the horned keystone skull, the title rule's eye and end, the
+    /// focus claw (4 glow frames each but the rule end).
+    Skull,
+    Eye,
+    StoneRuleEnd,
+    Claw,
+}
+
+impl UiArt {
+    pub const ALL: [UiArt; 20] = [
+        UiArt::Panel,
+        UiArt::Inset,
+        UiArt::Button,
+        UiArt::RuleEnd,
+        UiArt::RuleGem,
+        UiArt::Slot,
+        UiArt::SliderTrack,
+        UiArt::SliderKnob,
+        UiArt::Toggle,
+        UiArt::Tab,
+        UiArt::Cursor,
+        UiArt::Spark,
+        UiArt::BloodSplat,
+        UiArt::BloodRun,
+        UiArt::BloodFleck,
+        UiArt::BloodDrip,
+        UiArt::Skull,
+        UiArt::Eye,
+        UiArt::StoneRuleEnd,
+        UiArt::Claw,
+    ];
+
+    pub const fn frames(self) -> u32 {
+        match self {
+            UiArt::Panel | UiArt::SliderTrack | UiArt::SliderKnob | UiArt::Toggle => 2,
+            UiArt::Tab => 3,
+            UiArt::Button
+            | UiArt::Cursor
+            | UiArt::Spark
+            | UiArt::Skull
+            | UiArt::Eye
+            | UiArt::Claw => 4,
+            UiArt::Slot | UiArt::BloodSplat | UiArt::BloodRun | UiArt::BloodFleck => 6,
+            UiArt::BloodDrip => 12,
+            UiArt::Inset | UiArt::RuleEnd | UiArt::RuleGem | UiArt::StoneRuleEnd => 1,
+        }
+    }
+
+    /// Strip name, as `assets/ui.px.js` writes it.
+    #[cfg(test)]
+    const fn name(self) -> &'static str {
+        match self {
+            UiArt::Panel => "ui_panel",
+            UiArt::Inset => "ui_inset",
+            UiArt::Button => "ui_button",
+            UiArt::RuleEnd => "ui_rule_end",
+            UiArt::RuleGem => "ui_rule_gem",
+            UiArt::Slot => "ui_slot",
+            UiArt::SliderTrack => "ui_slider_track",
+            UiArt::SliderKnob => "ui_slider_knob",
+            UiArt::Toggle => "ui_toggle",
+            UiArt::Tab => "ui_tab",
+            UiArt::Cursor => "ui_cursor",
+            UiArt::Spark => "ui_spark",
+            UiArt::BloodSplat => "ui_blood_splat",
+            UiArt::BloodRun => "ui_blood_run",
+            UiArt::BloodFleck => "ui_blood_fleck",
+            UiArt::BloodDrip => "ui_blood_drip",
+            UiArt::Skull => "ui_skull",
+            UiArt::Eye => "ui_eye",
+            UiArt::StoneRuleEnd => "ui_stone_rule_end",
+            UiArt::Claw => "ui_claw",
+        }
+    }
+
+    const fn png(self) -> &'static [u8] {
+        macro_rules! png {
+            ($p:literal) => {
+                include_bytes!(concat!("../assets/sprites/ui/", $p, ".png"))
+            };
+        }
+        match self {
+            UiArt::Panel => png!("anims/ui_panel"),
+            UiArt::Inset => png!("sprites/ui_inset"),
+            UiArt::Button => png!("anims/ui_button"),
+            UiArt::RuleEnd => png!("sprites/ui_rule_end"),
+            UiArt::RuleGem => png!("sprites/ui_rule_gem"),
+            UiArt::Slot => png!("anims/ui_slot"),
+            UiArt::SliderTrack => png!("anims/ui_slider_track"),
+            UiArt::SliderKnob => png!("anims/ui_slider_knob"),
+            UiArt::Toggle => png!("anims/ui_toggle"),
+            UiArt::Tab => png!("anims/ui_tab"),
+            UiArt::Cursor => png!("anims/ui_cursor"),
+            UiArt::Spark => png!("anims/ui_spark"),
+            UiArt::BloodSplat => png!("anims/ui_blood_splat"),
+            UiArt::BloodRun => png!("anims/ui_blood_run"),
+            UiArt::BloodFleck => png!("anims/ui_blood_fleck"),
+            UiArt::BloodDrip => png!("anims/ui_blood_drip"),
+            UiArt::Skull => png!("anims/ui_skull"),
+            UiArt::Eye => png!("anims/ui_eye"),
+            UiArt::StoneRuleEnd => png!("sprites/ui_stone_rule_end"),
+            UiArt::Claw => png!("anims/ui_claw"),
+        }
+    }
+}
+
 thread_local! {
+    static UI_ART: OnceCell<Vec<Texture2D>> = const { OnceCell::new() };
     static TITLE_ART: OnceCell<Vec<Texture2D>> = const { OnceCell::new() };
     static TITLE_PORTRAIT: OnceCell<TitlePortrait> = const { OnceCell::new() };
     static ATLAS: OnceCell<Atlas> = const { OnceCell::new() };
@@ -719,6 +856,10 @@ pub fn init() {
     TITLE_ART.with(|t| {
         let _ = t.set(title_art);
     });
+    let ui_art = UiArt::ALL.map(|art| load_png(art.png())).to_vec();
+    UI_ART.with(|t| {
+        let _ = t.set(ui_art);
+    });
 
     let load = |bytes| {
         let mut font = load_ttf_font_from_bytes(bytes).expect("embedded font");
@@ -771,6 +912,21 @@ pub fn measure_ui_text(text: &str, style: TextStyle) -> TextDimensions {
 /// The animated title portrait.
 pub fn title_portrait() -> TitlePortrait {
     TITLE_PORTRAIT.with(|p| p.get().expect("assets::init not called").clone())
+}
+
+fn load_png(bytes: &[u8]) -> Texture2D {
+    let tex = Texture2D::from_file_with_format(bytes, Some(ImageFormat::Png));
+    tex.set_filter(FilterMode::Nearest);
+    tex
+}
+
+/// Texture and frame size of a UI kit strip.
+pub fn ui_art(art: UiArt) -> (Texture2D, Vec2) {
+    UI_ART.with(|t| {
+        let tex = t.get().expect("assets::init not called")[art as usize].clone();
+        let size = vec2(tex.width() / art.frames() as f32, tex.height());
+        (tex, size)
+    })
 }
 
 /// Size of one frame of a title art strip.
@@ -827,6 +983,27 @@ mod tests {
                 let path = format!(
                     "{}/assets/sprites/title/anims/{name}.json",
                     env!("CARGO_MANIFEST_DIR")
+                );
+                let json = std::fs::read_to_string(path).unwrap();
+                assert_eq!(
+                    json.matches("\"duration\"").count() as u32,
+                    art.frames(),
+                    "{art:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn ui_art_strips_split_into_their_frames() {
+        for art in UiArt::ALL {
+            let img = Image::from_file_with_format(art.png(), Some(ImageFormat::Png)).unwrap();
+            assert_eq!(img.width as u32 % art.frames(), 0, "{art:?}");
+            if art.frames() > 1 {
+                let path = format!(
+                    "{}/assets/sprites/ui/anims/{}.json",
+                    env!("CARGO_MANIFEST_DIR"),
+                    art.name()
                 );
                 let json = std::fs::read_to_string(path).unwrap();
                 assert_eq!(

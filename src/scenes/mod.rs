@@ -13,6 +13,7 @@ mod wipe;
 use crate::audio::{Audio, Track};
 use crate::hud;
 use crate::i18n;
+use crate::kit;
 use crate::save::{SaveData, Settings};
 use crate::screen::Screen;
 use crate::ui::UiInput;
@@ -108,6 +109,10 @@ impl App {
         if is_key_pressed(KeyCode::F3) {
             self.debug = !self.debug;
         }
+        // F1: switch the UI skin (V19b comparison)
+        if is_key_pressed(KeyCode::F1) {
+            kit::set_skin(kit::skin().next());
+        }
         let mut changed = false;
         if is_key_pressed(KeyCode::F9) {
             i18n::set_lang(i18n::lang().next());
@@ -167,6 +172,13 @@ impl App {
     /// Runs one frame. Returns false when the player chose to quit.
     pub fn frame(&mut self) -> bool {
         self.hotkeys();
+        let in_run = match &self.scene {
+            Scene::Run => true,
+            Scene::Settings(s) => s.in_run(),
+            _ => false,
+        };
+        let kills = if in_run { self.run.game.kills } else { 0 };
+        kit::set_blood(kit::blood_for_kills(kills));
         self.screen.update();
         let view = self.screen.view();
         self.run.game.set_view(view);

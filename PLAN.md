@@ -30,6 +30,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S16b — Interface** *(user approval)*
   - [ ] V19b Premium UI kit + every menu and the HUD redone (7.14)
   - [ ] V19c Grimoire of Evolutions (title + pause)
+  - [ ] V19g First-time setup (language, blood, display, volume) + Blood setting
 - **S16c — Living Ashford** *(user approval)*
   - [ ] V19d Coherent map: layout, houses, villagers who flee, breakables and drops, razing
   - [ ] V19e Minimap + full map (M)
@@ -78,6 +79,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 | **CP7** | **Checkpoint 7 — Combat depth** | | |
 | V19b | UI kit (`assets/ui.px.js`: frames, buttons, sliders, tabs, slots) + motion/easing helpers; pause, level-up, Offering, game over, victory, settings, credits and HUD redone (7.14) | User approves captures of every screen | `feat: premium ui pass` |
 | V19c | Grimoire of Evolutions: every evolution/union with recipe icons, silhouettes until fused once, `evolved=`/`seen=` in the save, from title and pause | Save tests green + user approves | `feat: grimoire of evolutions` |
+| V19g | First-time setup on the first launch (no settings file): language, **blood** (full / reduced / off: UI blood, stained titles, in-game gore and the permanent blood layer), scale mode + fullscreen, master volume; skippable, each step reachable later in Settings, where Blood gets its own row | Save tests green + user approves | `feat: first-time setup and blood setting` |
 | V19d | Authored, irregular Ashford layout that blocks (houses, walls, river + bridges, ridges, dense woods; small props never block): solid grid, push-out, flow-field chasers, bot navigation; y-sorted baked props; fleeing civilians pool; breakables with drop table (coins, food heal, coffers, relics); burning houses | Stress test with full map green + user approves | `feat: living ashford` |
 | V19e | Minimap (baked landmarks, density-grid enemy dots, boss icon + edge arrow) and full map on M (pauses) | Stress tick unchanged + user approves | `feat: minimap and full map` |
 | V19f | New in-game Veyra sprite (all layers and animations) matching the title portrait; method agreed with the user first (7.6) | User approves | `feat: new veyra sprite` |

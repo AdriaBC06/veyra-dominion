@@ -152,3 +152,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Open (V29): snowballed builds kill him before phase III; sounds reuse Horn/Gust/armoured hits; enemies aren't y-sorted against Veyra (the boss draws under her).
   - Gotchas: the boss flickered left/right with her straight above (fixed with a 12 px turn deadzone); a float-summed spawn count needs ±1 in tests; boss tests live in `boss.rs` (Game API only).
   - Still pending from S14b: in-game review of Thralls / Infernal Court (V17f).
+- **S16b (2026-10-23)** — V19b UI kit, work in progress (committed for the next session, possibly on another PC; V19b stays unchecked).
+  - Done: Stone skin + UI blood approved; warnings fixed; capture hack saved as `docs/tools/capture-hack.patch` (README next to it); V19g (first-time setup + Blood setting) added to `PLAN.md`.
+  - Fonts: three own pixel fonts as code in `assets/fonts/veyra/` (Titling 24 / Gothic 18 / Display 10), review sheet `docs/art/fonts_review_v3.png`. **The user says they are NOT right yet: start the next session by reviewing them with the user.** Not wired into the game.
+  - Next: font review → wire fonts (`TextStyle`, glyph-bound centring) → screen-by-screen captures and OKs → V19c.
+  - Gotchas: Pillow hints TTFs and shifts rows (accents looked broken); preview from the pixel sets (`preview.py`). The game rasterises with fontdue (no hinting), crisp at the font's native size (cap + above + below px).

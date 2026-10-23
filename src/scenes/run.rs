@@ -15,7 +15,7 @@ use crate::game::{Cue, Game, InputState, SimEvent};
 use crate::hud;
 use crate::i18n::{tr, trf, Key};
 use crate::screen::Screen;
-use crate::ui::{self, Action, Focus, UiInput};
+use crate::ui::{Action, Focus, Overlay, UiInput};
 use macroquad::prelude::*;
 use std::f32::consts::TAU;
 
@@ -53,8 +53,8 @@ pub struct Run {
     pub update_ms: f32,
     /// Every pool and splash of blood shed in this run.
     blood: BloodLayer,
-    /// Seconds the Offering screen has been up.
-    offering_t: f32,
+    /// Motion of the open overlay (pause, level-up, Offering, ...).
+    overlay: Overlay,
     /// F12: the bot plays (debug); a run it touched stays out of the lifetime stats.
     pub autopilot: Autopilot,
     pub autopiloted: bool,
@@ -74,7 +74,7 @@ impl Run {
             heartbeat: 0.0,
             update_ms: 0.0,
             blood: BloodLayer::default(),
-            offering_t: 0.0,
+            overlay: Overlay::default(),
             autopilot: Autopilot::Off,
             autopiloted: false,
         }
@@ -93,6 +93,7 @@ impl Run {
     fn set_state(&mut self, state: State) {
         self.state = state;
         self.focus = Focus::default();
+        self.overlay = Overlay::default();
         self.accumulator = 0.0;
     }
 
@@ -181,11 +182,11 @@ impl Run {
                     audio::cue(Sfx::LevelUp);
                     self.state = State::LevelUp;
                     self.focus = Focus::default();
+                    self.overlay = Overlay::default();
                     break;
                 }
                 SimEvent::Offering => {
                     self.set_state(State::Offering);
-                    self.offering_t = 0.0;
                     break;
                 }
                 SimEvent::PlayerDied => {
@@ -271,6 +272,7 @@ impl Run {
         let count = self.game.choices.iter().flatten().count().max(1);
         let cards = hud::level_up_cards(view);
         let action = self.focus.update(input, &cards[..count]);
+        self.overlay.update(input, &self.focus, &cards[..count], ui_dt());
         let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3];
         let by_key = keys
             .iter()
@@ -284,6 +286,7 @@ impl Run {
             audio::recue(Sfx::UiConfirm, Sfx::UpgradePick);
             self.game.choose_upgrade(slot);
             self.focus.index = 0;
+            self.overlay.redeal();
             if self.game.pending_levels == 0 {
                 self.state = State::Playing;
             }
@@ -293,10 +296,10 @@ impl Run {
     /// The Offering screen: accept (card 1) or sacrifice (card 2), once `OFFERING_HOLD`
     /// has passed.
     fn offering(&mut self, input: &UiInput, view: Vec2) {
-        self.offering_t += get_frame_time().min(MAX_FRAME_DT);
         let cards = hud::offering_cards(view);
         let action = self.focus.update(input, &cards);
-        if self.offering_t < OFFERING_HOLD {
+        self.overlay.update(input, &self.focus, &cards, ui_dt());
+        if self.overlay.t < OFFERING_HOLD {
             return;
         }
         let keys = [KeyCode::Key1, KeyCode::Key2];
@@ -350,8 +353,10 @@ impl Run {
 
     fn menu_update(&mut self, input: &UiInput, view: Vec2) -> Option<Nav> {
         let (labels, lines) = self.menu()?;
-        let rects = ui::button_column(view, hud::center_screen_buttons(lines), labels.len());
-        let picked = match self.focus.update(input, &rects) {
+        let rects = hud::menu_layout(view, lines, labels.len()).buttons;
+        let action = self.focus.update(input, &rects);
+        self.overlay.update(input, &self.focus, &rects, ui_dt());
+        let picked = match action {
             Action::Confirm(i) => labels[i],
             Action::Back if self.state == State::Paused => Key::MenuResume,
             _ => return None,
@@ -436,7 +441,7 @@ impl Run {
             }
             State::LevelUp => {
                 hud::draw_hud(game, view);
-                return hud::draw_level_up(game, view, &self.focus);
+                return hud::draw_level_up(game, view, &self.focus, &self.overlay);
             }
             State::Debug => {
                 hud::draw_hud(game, view);
@@ -445,35 +450,36 @@ impl Run {
             }
             State::Offering => {
                 hud::draw_hud(game, view);
-                let ready = self.offering_t >= OFFERING_HOLD;
-                return hud::draw_offering(game, view, ready, &self.focus);
+                let ready = self.overlay.t >= OFFERING_HOLD;
+                return hud::draw_offering(game, view, ready, &self.focus, &self.overlay);
             }
             State::Paused => {
                 hud::draw_hud(game, view);
-                hud::draw_center_screen(view, tr(Key::Paused), &[]);
-                None
+                Some((Key::Paused, None))
             }
             State::Victory => Some((
                 Key::VictoryTitle,
-                trf(Key::VictoryStats, &[&game.kills, &game.level]),
+                Some(trf(Key::VictoryStats, &[&game.kills, &game.level])),
             )),
             State::GameOver => Some((
                 Key::GameOverTitle,
-                trf(
+                Some(trf(
                     Key::GameOverStats,
                     &[&hud::format_time(game.time), &game.kills],
-                ),
+                )),
             )),
         };
-        if let Some((title, stats)) = stats {
-            hud::draw_center_screen(view, tr(title), &[&stats]);
-        }
-        if let Some((keys, lines)) = self.menu() {
-            let rects = ui::button_column(view, hud::center_screen_buttons(lines), keys.len());
+        if let (Some((title, stats)), Some((keys, _))) = (stats, self.menu()) {
+            let lines: Vec<&str> = stats.iter().map(String::as_str).collect();
             let labels: Vec<&str> = keys.iter().map(|&k| tr(k)).collect();
-            ui::draw_buttons(&rects, &labels, &self.focus);
+            hud::draw_menu(view, tr(title), &lines, &labels, &self.focus, &self.overlay);
         }
     }
+}
+
+/// Real seconds since the last frame, for UI motion.
+fn ui_dt() -> f32 {
+    get_frame_time().min(MAX_FRAME_DT)
 }
 
 fn read_input() -> InputState {

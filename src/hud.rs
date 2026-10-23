@@ -4,7 +4,9 @@ use crate::assets::{draw_ui_text, measure_ui_text, sprite, SpriteId, TextStyle, 
 use crate::config::*;
 use crate::game::{Game, Reward};
 use crate::i18n::{tr, trf, Key};
-use crate::ui::Focus;
+use crate::kit::{self, Rim};
+use crate::motion;
+use crate::ui::{self, Focus, Overlay};
 use crate::upgrades::{Choice, Upgrades};
 use macroquad::prelude::*;
 
@@ -222,37 +224,77 @@ pub fn draw_autopilot(view: Vec2, label: &str) {
     draw_ui_text(label, view.x - w - 8.0, 76.0, TextStyle::Small, LIME);
 }
 
-const SCREEN_TITLE_Y: f32 = 96.0;
+/// Panel menus (pause, game over, victory): side padding, title baseline from the panel top,
+/// the title rule's height, text line height and bottom padding.
+const MENU_PAD_X: f32 = 30.0;
+const MENU_TITLE_Y: f32 = 42.0;
+const MENU_RULE_H: f32 = 17.0;
+const MENU_LINE: f32 = 18.0;
+const MENU_BOTTOM: f32 = 22.0;
 
-/// Dims the frame and shows a title with lines of text below it.
-pub fn draw_center_screen(view: Vec2, title: &str, lines: &[&str]) {
-    draw_dim(view);
-    draw_center_text(view, title, lines);
+/// Where a panel menu with `lines` lines of text and `n` buttons goes, centred in the view.
+pub struct MenuLayout {
+    pub panel: Rect,
+    pub title_y: f32,
+    pub lines_y: f32,
+    pub buttons: Vec<Rect>,
 }
 
-/// The title and lines of `draw_center_screen`, without the dim.
-pub fn draw_center_text(view: Vec2, title: &str, lines: &[&str]) {
-    let mut y = SCREEN_TITLE_Y;
-    draw_text_centered(view, title, y, TextStyle::Title, TITLE_COLOR);
-    y += 32.0;
-    for line in lines {
-        draw_text_centered(view, line, y, TextStyle::Body, WHITE);
-        y += 18.0;
+pub fn menu_layout(view: Vec2, lines: usize, n: usize) -> MenuLayout {
+    let w = ui::BUTTON_W + 2.0 * MENU_PAD_X;
+    let text_top = MENU_TITLE_Y + MENU_RULE_H + 10.0;
+    let text_h = lines as f32 * MENU_LINE + if lines > 0 { 8.0 } else { 0.0 };
+    let buttons_h = n as f32 * (ui::BUTTON_H + ui::BUTTON_GAP) - ui::BUTTON_GAP;
+    let h = text_top + text_h + buttons_h + MENU_BOTTOM;
+    let panel = Rect::new(
+        Anchor::Center.x(view, w, 0.0),
+        ((view.y - h) * 0.5).round(),
+        w,
+        h,
+    );
+    let buttons = ui::button_column(view, panel.y + text_top + text_h, n);
+    MenuLayout {
+        panel,
+        title_y: panel.y + MENU_TITLE_Y,
+        lines_y: panel.y + text_top + 12.0,
+        buttons,
     }
 }
 
-/// Top of the button column under a centre screen with `lines` lines of text.
-pub fn center_screen_buttons(lines: usize) -> f32 {
-    SCREEN_TITLE_Y + 20.0 + 24.0 * lines as f32
+/// A panel menu over the dimmed run: title, lines of text and buttons, opening with `overlay`.
+pub fn draw_menu(
+    view: Vec2,
+    title: &str,
+    lines: &[&str],
+    labels: &[&str],
+    focus: &Focus,
+    overlay: &Overlay,
+) {
+    let m = menu_layout(view, lines.len(), labels.len());
+    let (alpha, dy) = motion::open(overlay.t);
+    kit::dim(view, alpha);
+    let p = m.panel;
+    kit::panel(Rect::new(p.x, p.y + dy, p.w, p.h), false, alpha, kit::seed_of(title));
+    let cx = p.center().x;
+    kit::title(title, cx, m.title_y + dy, alpha);
+    for (k, line) in lines.iter().enumerate() {
+        let y = m.lines_y + dy + k as f32 * MENU_LINE;
+        kit::text_centered(line, cx, y, TextStyle::Body, kit::fade(kit::pal().desc, alpha));
+    }
+    ui::draw_buttons(&m.buttons, labels, focus, overlay);
 }
 
-/// Cards take the view's width up to this, less a margin on each side.
-const CARD_MAX_W: f32 = 520.0;
-const CARD_MARGIN: f32 = 12.0;
+/// Cards take the view's width up to this, less a margin on each side (room for the cursors).
+const CARD_MAX_W: f32 = 500.0;
+const CARD_MARGIN: f32 = 26.0;
 /// Tall enough for the name and two lines of description.
 const CARD_H: f32 = 70.0;
-const CARD_GAP: f32 = 6.0;
+const CARD_GAP: f32 = 8.0;
 const CARDS_Y: f32 = 94.0;
+const CARDS_TITLE_Y: f32 = 64.0;
+/// The level-up flash: peak alpha and how long it takes to fade.
+const FLASH_ALPHA: f32 = 0.35;
+const FLASH_TIME: f32 = 0.14;
 
 /// Hit rects of the level-up cards, one per choice slot.
 pub fn level_up_cards(view: Vec2) -> [Rect; 3] {
@@ -264,72 +306,147 @@ pub fn level_up_cards(view: Vec2) -> [Rect; 3] {
     })
 }
 
-/// Level-up screen: up to three stacked upgrade cards, the highlighted one outlined.
-pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus) {
-    draw_dim(view);
-    draw_text_centered(
-        view,
-        tr(Key::LevelUpTitle),
-        78.0,
-        TextStyle::Title,
-        TITLE_COLOR,
-    );
-    let cards = level_up_cards(view);
-    for (slot, choice) in game.choices.iter().enumerate() {
-        let Some(choice) = *choice else { continue };
-        let (name, lv, desc) = card_text(game, choice);
-        let num = (slot + 1).to_string();
-        let lit = focus.is_highlighted(slot);
-        let icon = Some(Icon::of_choice(choice));
-        draw_card(cards[slot], &num, icon, name, &lv, &desc, lit);
+/// Opens a card screen: the gold flash of a level-up (`flash`), the dim and the title.
+fn draw_card_screen(view: Vec2, title: &str, overlay: &Overlay, flash: bool) {
+    let (alpha, dy) = motion::open(overlay.t);
+    kit::dim(view, alpha);
+    if flash {
+        let a = FLASH_ALPHA * (1.0 - overlay.t / FLASH_TIME).max(0.0);
+        draw_rectangle(0.0, 0.0, view.x, view.y, Color::new(1.0, 0.86, 0.6, a));
     }
-    draw_text_centered(
-        view,
-        tr(Key::LevelUpHelp),
-        CARDS_Y + 3.0 * (CARD_H + CARD_GAP) + 22.0,
-        TextStyle::Body,
-        WHITE,
-    );
+    kit::title(title, view.x * 0.5, CARDS_TITLE_Y + dy, alpha);
 }
 
-/// Card icons are drawn at twice their pixel size, centred in the card's height.
-const CARD_ICON_SCALE: f32 = 2.0;
-const CARD_ICON_X: f32 = 26.0;
-const CARD_TEXT_X: f32 = CARD_ICON_X + ICON_SIZE * CARD_ICON_SCALE + 8.0;
+/// Card `slot` of a dealt row, moved and faded by the deal; the focus cursors follow it.
+fn dealt(rect: Rect, slot: usize, overlay: &Overlay) -> (Rect, f32) {
+    let (alpha, dy) = motion::deal(overlay.dealt, slot);
+    (Rect::new(rect.x, rect.y + dy, rect.w, rect.h), alpha)
+}
 
-/// A card: `num` in the corner, then the icon, the name with a tag on the right and a
-/// description below.
-fn draw_card(
-    rect: Rect,
-    num: &str,
-    icon: Option<Icon>,
-    name: &str,
-    tag: &str,
-    desc: &str,
-    lit: bool,
-) {
-    let Rect { x, y, w, h } = rect;
-    let border = if lit { TITLE_COLOR } else { GRAY };
-    draw_rectangle(x, y, w, h, Color::new(0.08, 0.04, 0.1, 0.95));
-    draw_rectangle_lines(x, y, w, h, 2.0, border);
-    draw_ui_text(num, x + 10.0, y + 22.0, TextStyle::Body, GRAY);
-    if let Some(icon) = icon {
-        let size = ICON_SIZE * CARD_ICON_SCALE;
-        let iy = (y + (h - size) * 0.5).round();
-        draw_icon(icon, x + CARD_ICON_X, iy, CARD_ICON_SCALE);
+/// Cursors and sparks around the highlighted card once it has landed.
+fn draw_card_focus(cards: &[Rect], focus: &Focus, overlay: &Overlay) {
+    let Some(i) = focus.highlight().filter(|&i| i < cards.len()) else {
+        return;
+    };
+    let (_, alpha) = dealt(cards[i], i, overlay);
+    kit::cursors(overlay.cursor_rect(cards[i]), overlay.t, alpha);
+    kit::sparks(cards[i], overlay.t, alpha);
+}
+
+/// Level-up screen: up to three upgrade cards dealt in one after another.
+pub fn draw_level_up(game: &Game, view: Vec2, focus: &Focus, overlay: &Overlay) {
+    draw_card_screen(view, tr(Key::LevelUpTitle), overlay, true);
+    let cards = level_up_cards(view);
+    let mut count = 0;
+    for (slot, choice) in game.choices.iter().enumerate() {
+        let Some(choice) = *choice else { continue };
+        count += 1;
+        let (name, tag, desc) = card_text(game, choice);
+        let rim = if matches!(tag, Tag::New) {
+            Rim::New
+        } else {
+            Rim::Plain
+        };
+        let card = Card {
+            num: slot + 1,
+            icon: Some((Icon::of_choice(choice), rim)),
+            name,
+            tag,
+            desc: &desc,
+        };
+        let (rect, alpha) = dealt(cards[slot], slot, overlay);
+        card.draw(rect, focus.is_highlighted(slot), overlay.t, alpha);
     }
-    draw_ui_text(name, x + CARD_TEXT_X, y + 22.0, TextStyle::Body, WHITE);
-    let tag_w = measure_ui_text(tag, TextStyle::Body).width;
-    draw_ui_text(tag, x + w - tag_w - 10.0, y + 22.0, TextStyle::Body, GRAY);
-    let (first, second) = wrap_two(desc, w - CARD_TEXT_X - 10.0);
-    draw_ui_text(first, x + CARD_TEXT_X, y + 44.0, TextStyle::Body, LIGHTGRAY);
-    draw_ui_text(
-        second,
-        x + CARD_TEXT_X,
-        y + 62.0,
-        TextStyle::Body,
-        LIGHTGRAY,
-    );
+    draw_card_focus(&cards[..count], focus, overlay);
+}
+
+/// What a card shows on the right of its name.
+enum Tag {
+    None,
+    /// Never owned.
+    New,
+    /// Pips: the level owned and the next one this pick gives.
+    Level(u32, u32),
+    Text(String),
+}
+
+/// One upgrade card.
+struct Card<'a> {
+    /// Hotkey (1-3), shown on the icon slot.
+    num: usize,
+    icon: Option<(Icon, Rim)>,
+    name: &'a str,
+    tag: Tag,
+    desc: &'a str,
+}
+
+/// Card icons are drawn at twice their pixel size in a slot, centred in the card's height.
+const CARD_ICON_SCALE: f32 = 2.0;
+const CARD_SLOT: f32 = ICON_SIZE * CARD_ICON_SCALE + 6.0;
+const CARD_SLOT_X: f32 = 16.0;
+const CARD_TEXT_X: f32 = CARD_SLOT_X + CARD_SLOT + 10.0;
+const CARD_PAD_R: f32 = 16.0;
+
+impl Card<'_> {
+    /// The card in `rect`: a panel (lit and warm when highlighted), the icon in its slot with
+    /// the hotkey, the name with its tag on the right and the description below.
+    fn draw(&self, rect: Rect, lit: bool, t: f32, alpha: f32) {
+        let Rect { x, y, w, h } = rect;
+        kit::panel(rect, lit, alpha, kit::seed_of(self.name));
+        let slot = Rect::new(
+            x + CARD_SLOT_X,
+            (y + (h - CARD_SLOT) * 0.5).round(),
+            CARD_SLOT,
+            CARD_SLOT,
+        );
+        if let Some((icon, rim)) = self.icon {
+            let rim = if lit && rim == Rim::Plain { Rim::Lit } else { rim };
+            kit::slot(slot, rim, alpha);
+            draw_icon_alpha(icon, slot.x + 3.0, slot.y + 3.0, CARD_ICON_SCALE, alpha);
+            let num = self.num.to_string();
+            let nx = slot.right() - 6.0;
+            let ny = slot.bottom() - 6.0;
+            draw_rectangle(nx - 2.0, ny - 2.0, 10.0, 11.0, kit::fade(BLACK, alpha * 0.85));
+            let color = if lit { kit::pal().gold_lit } else { kit::pal().dim };
+            draw_ui_text(&num, nx, ny + 8.0, TextStyle::Small, kit::fade(color, alpha));
+        }
+        let name_color = if lit { kit::pal().gold_lit } else { kit::pal().gold };
+        // Name and description are centred between the slot and the tag column.
+        let cx = (x + CARD_TEXT_X + x + w - CARD_PAD_R) * 0.5;
+        kit::text_centered(self.name, cx, y + 24.0, TextStyle::Body, kit::fade(name_color, alpha));
+        let right = x + w - CARD_PAD_R;
+        match &self.tag {
+            Tag::None => {}
+            Tag::New => {
+                let s = tr(Key::LevelUpNew);
+                let tw = measure_ui_text(s, TextStyle::Body).width;
+                kit::text(s, right - tw, y + 24.0, TextStyle::Body, kit::fade(kit::pal().ruby, alpha));
+            }
+            Tag::Level(lv, max) => {
+                let pw = kit::pips_width(*max);
+                kit::pips(vec2(right - pw, y + 15.0), *lv, true, *max, t, alpha);
+            }
+            Tag::Text(s) => {
+                let tw = measure_ui_text(s, TextStyle::Body).width;
+                kit::text(s, right - tw, y + 24.0, TextStyle::Body, kit::fade(kit::pal().desc, alpha));
+            }
+        }
+        let (first, second) = wrap_two(self.desc, w - CARD_TEXT_X - CARD_PAD_R);
+        let color = kit::fade(if lit { kit::pal().label_lit } else { kit::pal().desc }, alpha);
+        kit::text_centered(first, cx, y + 44.0, TextStyle::Body, color);
+        kit::text_centered(second, cx, y + 60.0, TextStyle::Body, color);
+    }
+}
+
+/// `draw_icon` faded by `alpha`.
+fn draw_icon_alpha(icon: Icon, x: f32, y: f32, scale: f32, alpha: f32) {
+    let (tex, src) = sprite(SpriteId::Icons, icon.frame());
+    let params = DrawTextureParams {
+        source: Some(src),
+        dest_size: Some(Vec2::splat(ICON_SIZE * scale)),
+        ..Default::default()
+    };
+    draw_texture_ex(&tex, x.round(), y.round(), Color::new(1.0, 1.0, 1.0, alpha), params);
 }
 
 /// Splits `text` at a space into two lines when it is wider than `width`: the first
@@ -352,15 +469,15 @@ fn wrap_two(text: &str, width: f32) -> (&str, &str) {
 
 /// Name, level tag and description of a level-up card. A new Art or Sin shows what
 /// it does; an owned Art shows what its next level adds.
-fn card_text(game: &Game, choice: Choice) -> (&'static str, String, String) {
+fn card_text(game: &Game, choice: Choice) -> (&'static str, Tag, String) {
     match choice {
         Choice::Sin(i) => {
             let def = &SINS[i];
             let lv = game.upgrades.sins[i];
             let tag = if lv == 0 {
-                tr(Key::LevelUpNew).to_string()
+                Tag::New
             } else {
-                trf(Key::LevelUpLevel, &[&lv, &def.max_level])
+                Tag::Level(lv.into(), def.max_level.into())
             };
             (tr(def.name), tag, tr(def.desc).to_string())
         }
@@ -368,13 +485,11 @@ fn card_text(game: &Game, choice: Choice) -> (&'static str, String, String) {
             let def = &ARTS[i];
             let lv = game.upgrades.arts[i];
             if lv == 0 {
-                let new = tr(Key::LevelUpNew).to_string();
-                return (tr(def.name), new, tr(def.desc).to_string());
+                return (tr(def.name), Tag::New, tr(def.desc).to_string());
             }
-            let tag = trf(Key::LevelUpLevel, &[&lv, &ART_MAX_LEVEL]);
             (
                 tr(def.name),
-                tag,
+                Tag::Level(lv.into(), ART_MAX_LEVEL.into()),
                 gain_text(def, &def.gains[lv as usize - 1]),
             )
         }
@@ -389,15 +504,8 @@ pub fn offering_cards(view: Vec2) -> [Rect; 2] {
 
 /// Abyssal Offering screen: what it holds on the first card, the sacrifice (a minor
 /// reward) on the second.
-pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
-    draw_dim(view);
-    draw_text_centered(
-        view,
-        tr(Key::OfferingTitle),
-        78.0,
-        TextStyle::Title,
-        TITLE_COLOR,
-    );
+pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus, overlay: &Overlay) {
+    draw_card_screen(view, tr(Key::OfferingTitle), overlay, false);
     let Some(reward) = game.reward else { return };
     let (line, icon, name, tag, desc) = match reward {
         Reward::Evolution(i) => {
@@ -406,76 +514,72 @@ pub fn draw_offering(game: &Game, view: Vec2, ready: bool, focus: &Focus) {
                 .evolution
                 .as_ref()
                 .expect("only Arts with one evolve");
-            let (name, desc) = (tr(evo.name), tr(evo.desc));
-            let icon = Some(Icon::Evolution(i));
-            (
-                line,
-                icon,
-                name.to_string(),
-                String::new(),
-                desc.to_string(),
-            )
+            let icon = Some((Icon::Evolution(i), Rim::Evolved));
+            (line, icon, tr(evo.name), Tag::None, tr(evo.desc).to_string())
         }
         Reward::Union(u) => {
             let def = &UNIONS[u];
             let [a, b] = def.arts.map(|i| tr(ARTS[i].name));
             (
                 trf(Key::OfferingUnited, &[&a, &b]),
-                Some(Icon::Union(u)),
-                tr(def.name).to_string(),
-                String::new(),
+                Some((Icon::Union(u), Rim::Union)),
+                tr(def.name),
+                Tag::None,
                 tr(def.desc).to_string(),
             )
         }
         // Not taken yet: show the level it would reach and what that gives.
         Reward::Gift(choice) => {
             let (name, tag, desc) = card_text(game, choice);
-            (
-                tr(Key::OfferingGift).to_string(),
-                Some(Icon::of_choice(choice)),
-                name.to_string(),
-                tag,
-                desc,
-            )
+            let rim = if matches!(tag, Tag::New) {
+                Rim::New
+            } else {
+                Rim::Plain
+            };
+            let icon = Some((Icon::of_choice(choice), rim));
+            (tr(Key::OfferingGift).to_string(), icon, name, tag, desc)
         }
-        Reward::Heal => {
-            let hp = trf(Key::OfferingHealDesc, &[&OFFERING_HEAL]);
-            (
-                tr(Key::OfferingHeal).to_string(),
-                None,
-                hp,
-                String::new(),
-                String::new(),
-            )
-        }
+        Reward::Heal => (
+            tr(Key::OfferingHeal).to_string(),
+            None,
+            tr(Key::OfferingAccept),
+            Tag::None,
+            trf(Key::OfferingHealDesc, &[&OFFERING_HEAL]),
+        ),
     };
-    draw_text_centered(view, &line, CARDS_Y + 22.0, TextStyle::Body, WHITE);
-    let [accept, sacrifice] = offering_cards(view);
-    let accept_tag = tr(Key::OfferingAccept);
-    let tag = if tag.is_empty() {
-        accept_tag.to_string()
-    } else {
-        tag
+    let (alpha, dy) = motion::open(overlay.t);
+    let line_color = kit::fade(kit::pal().label, alpha);
+    kit::text_centered(&line, view.x * 0.5, CARDS_Y + 22.0 + dy, TextStyle::Body, line_color);
+    let cards = offering_cards(view);
+    let tag = match tag {
+        Tag::None => Tag::Text(tr(Key::OfferingAccept).to_string()),
+        tag => tag,
     };
-    draw_card(
-        accept,
-        "1",
+    let accept = Card {
+        num: 1,
         icon,
-        &name,
-        &tag,
-        &desc,
-        focus.is_highlighted(0),
-    );
+        name,
+        tag,
+        desc: &desc,
+    };
+    let (rect, a) = dealt(cards[0], 0, overlay);
+    accept.draw(rect, focus.is_highlighted(0), overlay.t, a);
     let gain = trf(
         Key::OfferingSacrificeDesc,
         &[&SACRIFICE_HEAL, &SACRIFICE_XP],
     );
-    let lit = focus.is_highlighted(1);
-    let sacrifice_name = tr(Key::OfferingSacrifice);
-    draw_card(sacrifice, "2", None, sacrifice_name, "", &gain, lit);
+    let sacrifice = Card {
+        num: 2,
+        icon: None,
+        name: tr(Key::OfferingSacrifice),
+        tag: Tag::None,
+        desc: &gain,
+    };
+    let (rect, a) = dealt(cards[1], 1, overlay);
+    sacrifice.draw(rect, focus.is_highlighted(1), overlay.t, a);
+    // The cursors wait until the Offering takes input.
     if ready {
-        let y = CARDS_Y + 3.0 * (CARD_H + CARD_GAP) + 22.0;
-        draw_text_centered(view, tr(Key::OfferingHelp), y, TextStyle::Body, WHITE);
+        draw_card_focus(&cards, focus, overlay);
     }
 }
 

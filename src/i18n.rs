@@ -75,8 +75,6 @@ keys! {
     HudRight => "LV {}   KILLS {}", "NV {}   BAJAS {}";
     BossCaptain => "Captain of the Watch", "Capitán de la Guardia";
     LevelUpTitle => "Dominion grows", "El dominio crece";
-    LevelUpLevel => "Lv {} / {}", "Nv {} / {}";
-    LevelUpHelp => "Click, 1/2/3 or arrows + Enter", "Clic, 1/2/3 o flechas + Enter";
     MenuPlay => "Play", "Jugar";
     MenuSettings => "Settings", "Ajustes";
     MenuCredits => "Credits", "Créditos";
@@ -235,7 +233,6 @@ keys! {
     OfferingAccept => "Accept", "Aceptar";
     OfferingSacrifice => "Sacrifice it", "Sacrificarla";
     OfferingSacrificeDesc => "Destroy it for +{} HP and {} XP", "Destruirla por +{} PV y {} de XP";
-    OfferingHelp => "Click, 1/2 or arrows + Enter", "Clic, 1/2 o flechas + Enter";
 }
 
 /// The string for `key` in the current language.
@@ -294,7 +291,7 @@ mod tests {
     fn switching_language_and_formatting() {
         set_lang(Lang::Es);
         assert_eq!(tr(Key::Paused), "Pausa");
-        assert_eq!(trf(Key::LevelUpLevel, &[&2, &5]), "Nv 2 / 5");
+        assert_eq!(trf(Key::VictoryStats, &[&2, &5]), "Bajas 2   Nivel 5");
         set_lang(Lang::En);
         assert_eq!(trf(Key::VictoryStats, &[&3, &5]), "Kills 3   Level 5");
         for lang in Lang::ALL {

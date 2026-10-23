@@ -5,14 +5,17 @@
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle};
 use crate::audio::{self, Sfx};
 use crate::i18n::{tr, Key};
+use crate::kit::{self, ButtonLook};
+use crate::motion::{self, Glide};
 use crate::screen::Layout;
 use macroquad::prelude::*;
 
 pub const ACCENT: Color = Color::new(0.88, 0.19, 0.29, 1.0);
 const PANEL: Color = Color::new(0.08, 0.04, 0.1, 0.95);
 pub const BUTTON_W: f32 = 220.0;
-pub const BUTTON_H: f32 = 28.0;
-pub const BUTTON_GAP: f32 = 6.0;
+/// The kit's button sprite is this tall.
+pub const BUTTON_H: f32 = 26.0;
+pub const BUTTON_GAP: f32 = 8.0;
 
 /// One frame of UI input, already in logical frame coordinates.
 #[derive(Clone, Copy, Default, Debug)]
@@ -189,6 +192,38 @@ impl Action {
     }
 }
 
+/// Motion state of an open overlay (pause, level-up, ...): how long it has been up, when its
+/// cards were last dealt, whether the mouse is held (pressed look) and the gliding cursor.
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Overlay {
+    pub t: f32,
+    pub dealt: f32,
+    pub held: bool,
+    cursor: Glide,
+}
+
+impl Overlay {
+    /// Advances the clocks and glides the cursor to the highlighted item of `items`.
+    pub fn update(&mut self, input: &UiInput, focus: &Focus, items: &[Rect], dt: f32) {
+        self.t += dt;
+        self.dealt += dt;
+        self.held = input.mouse_down && focus.hovered.is_some();
+        if let Some(r) = focus.highlight().and_then(|i| items.get(i)) {
+            self.cursor.update(r.y, motion::GLIDE, dt);
+        }
+    }
+
+    /// Deals the cards again (a new level-up roll).
+    pub fn redeal(&mut self) {
+        self.dealt = 0.0;
+    }
+
+    /// `rect` moved to the cursor's gliding y.
+    pub fn cursor_rect(&self, rect: Rect) -> Rect {
+        Rect::new(rect.x, self.cursor.value.unwrap_or(rect.y).round(), rect.w, rect.h)
+    }
+}
+
 fn draw_frame(rect: Rect, highlighted: bool) {
     let border = if highlighted { ACCENT } else { GRAY };
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, PANEL);
@@ -207,10 +242,12 @@ pub struct Button<'a> {
 
 impl Button<'_> {
     pub fn draw(&self, highlighted: bool) {
-        draw_frame(self.rect, highlighted);
-        let w = measure_ui_text(self.label, TextStyle::Body).width;
-        let x = (self.rect.x + (self.rect.w - w) * 0.5).round();
-        draw_ui_text(self.label, x, baseline(self.rect), TextStyle::Body, WHITE);
+        let look = if highlighted {
+            ButtonLook::Lit
+        } else {
+            ButtonLook::Idle
+        };
+        kit::button(self.rect, look, self.label, 1.0);
     }
 }
 
@@ -229,9 +266,24 @@ pub fn button_column(view: Vec2, top: f32, n: usize) -> Vec<Rect> {
         .collect()
 }
 
-pub fn draw_buttons(rects: &[Rect], labels: &[&str], focus: &Focus) {
+/// The buttons of an overlay, faded and offset by its opening, with the gliding cursor and
+/// sparks on the highlighted one; the hovered one looks pressed while the mouse is held.
+pub fn draw_buttons(rects: &[Rect], labels: &[&str], focus: &Focus, overlay: &Overlay) {
+    let (alpha, dy) = motion::open(overlay.t);
     for (i, (&rect, label)) in rects.iter().zip(labels).enumerate() {
-        Button { rect, label }.draw(focus.is_highlighted(i));
+        let look = match focus.is_highlighted(i) {
+            true if overlay.held => ButtonLook::Pressed,
+            true => ButtonLook::Lit,
+            false => ButtonLook::Idle,
+        };
+        let r = Rect::new(rect.x, rect.y + dy, rect.w, rect.h);
+        kit::button(r, look, label, alpha);
+    }
+    if let Some(i) = focus.highlight().filter(|&i| i < rects.len()) {
+        let r = overlay.cursor_rect(rects[i]);
+        let r = Rect::new(r.x, r.y + dy, r.w, r.h);
+        kit::cursors(r, overlay.t, alpha);
+        kit::sparks(rects[i], overlay.t, alpha);
     }
 }
 

@@ -11,10 +11,13 @@ mod enemies;
 mod game;
 mod hud;
 mod i18n;
+mod kit;
+mod motion;
 mod save;
 mod scenes;
 mod screen;
 mod spatial;
+mod stone;
 mod ui;
 mod upgrades;
 

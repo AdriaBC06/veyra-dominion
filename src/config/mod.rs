@@ -25,6 +25,10 @@ pub const DEFAULT_VIEW_W: f32 = 640.0;
 pub const WINDOW_W: i32 = 1280;
 pub const WINDOW_H: i32 = 720;
 
+/// UI blood (design.md 7.14): frames and buttons gather blood as the run's kills climb,
+/// `1 - e^(-kills / UI_BLOOD_KILLS)` of the full amount.
+pub const UI_BLOOD_KILLS: f32 = 900.0;
+
 /// Fixed simulation step (60 Hz).
 pub const TICK_DT: f32 = 1.0 / 60.0;
 /// Longest frame time fed to the accumulator, avoids the spiral of death.
