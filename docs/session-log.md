@@ -144,3 +144,11 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Added: `src/bot.rs` (autopilot, F12 in game: smart / god); the probe's `BALANCE_BOT=smart`, `BALANCE_GOD=1`, ground-XP column and build print.
   - Open: builds are bimodal (they snowball or stall with the Arts they get); Black Mass alone outlevels Hellflare alone again; Tail Lash / Halo / Scent / Gaze can't be judged alone by the fleeing bot. All of that is for V29.
   - Gotchas: the enemy_fx build writes `.gif`s next to the strips (delete them); 10 probe runs are too noisy with bimodal builds, use 20; with two sessions in the tree, `git pull --rebase` can't run while the other's changes are unstaged.
+- **S16 (2026-10-23)** — V19 boss framework + Captain of the Watch (user approved the sprite), CP7.
+  - Done: `boss.rs` phase machine over one `Enemies` row (`Behavior::Boss`, found by uid); `config/bosses.rs` (`BossDef`, `Phase`, `Attack`, `Muster`); victory = the boss's death, `EventKind::Boss` at `MAP_TIME` (was `VICTORY_TIME`); horde ×0.5 while he lives; HUD bar; Shift+F4 calls him. Details in design.md 7.8 "V19".
+  - Decisions (user): all four extra attacks (bash, torch volley, double charge, raised guard) plus troops on each phase change; Captain drawn as a giant (52×66); the first 32×40 draft lives in `docs/archive/discarded-art/` for a later big enemy.
+  - Probe (smart, god, 20 runs, 6000 HP): killed 10/20, median fight 137 s (25–267); lv ≥ 40 at 10:00 → 9/10 kill. Mortal: 3/20 reach him, all kill him. The autopilot now closes to 100 px of a boss.
+  - CP7: release binary 3.80 MB (3.55 MB stripped), up from 3.66 MB; stress mean tick 0.29–0.30 ms.
+  - Open (V29): snowballed builds kill him before phase III; sounds reuse Horn/Gust/armoured hits; enemies aren't y-sorted against Veyra (the boss draws under her).
+  - Gotchas: the boss flickered left/right with her straight above (fixed with a 12 px turn deadzone); a float-summed spawn count needs ±1 in tests; boss tests live in `boss.rs` (Game API only).
+  - Still pending from S14b: in-game review of Thralls / Infernal Court (V17f).

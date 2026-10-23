@@ -26,7 +26,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V18b Progression rebalance (10:00 Ashford timeline, stepped XP curve, soul tiers and drop chances, HP per minute; plan in design.md 7.8)
 - **S16 — First boss**
   - [x] V19 Boss framework + first boss *(user approval)*
-  - [ ] **CP7 Combat depth**
+  - [x] **CP7 Combat depth**
 - **S17 — Pacts**
   - [ ] V20 Tribute and Infernal Pacts
 - **S18 — Familiars**
