@@ -37,7 +37,7 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 ## Running and debug keys
 
 - `cargo run` (dev profile is optimised enough). Use `XDG_DATA_HOME=<tmp dir>` for test runs so they don't land in the real lifetime stats.
-- F2 Arts/Sins panel (levels, slots, force evolutions) · F3 debug overlay · F4 spawn one of each enemy · F5 make elites · F6 kill visible · F7 level up Arts · F8 drop an Offering · F9 EN/ES · F10 scale mode · F11 fullscreen.
+- F2 Arts/Sins panel (levels, slots, force evolutions) · F3 debug overlay · F4 spawn one of each enemy · F5 make elites · F6 kill visible · F7 level up Arts · F8 drop an Offering · F9 EN/ES · F10 scale mode · F11 fullscreen · F12 autopilot (off → smart bot → god bot).
 
 ## Gotchas
 

@@ -4,6 +4,7 @@ mod audio;
 #[cfg(test)]
 mod balance;
 mod blood;
+mod bot;
 mod config;
 mod enemies;
 mod game;

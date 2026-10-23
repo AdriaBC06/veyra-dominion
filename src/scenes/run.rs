@@ -7,6 +7,7 @@ use crate::assets::{
 };
 use crate::audio::{self, Jingle, Sfx};
 use crate::blood::BloodLayer;
+use crate::bot::{self, Autopilot};
 use crate::config::*;
 use crate::enemies::MODE_WINDUP;
 use crate::game::{Cue, Game, InputState, SimEvent};
@@ -53,6 +54,9 @@ pub struct Run {
     blood: BloodLayer,
     /// Seconds the Offering screen has been up.
     offering_t: f32,
+    /// F12: the bot plays (debug); a run it touched stays out of the lifetime stats.
+    pub autopilot: Autopilot,
+    pub autopiloted: bool,
 }
 
 const PAUSE_MENU: [Key; 3] = [Key::MenuResume, Key::MenuSettings, Key::MenuTitle];
@@ -70,6 +74,8 @@ impl Run {
             update_ms: 0.0,
             blood: BloodLayer::default(),
             offering_t: 0.0,
+            autopilot: Autopilot::Off,
+            autopiloted: false,
         }
     }
 
@@ -115,6 +121,10 @@ impl Run {
                     self.set_state(State::Debug);
                     return None;
                 }
+                if is_key_pressed(KeyCode::F12) {
+                    self.autopilot = self.autopilot.next();
+                    self.autopiloted |= self.autopilot != Autopilot::Off;
+                }
                 self.simulate(input, view, mouse_move);
             }
             State::Debug => self.debug_panel(input, view),
@@ -136,13 +146,32 @@ impl Run {
         {
             sim_input.move_dir = to_mouse;
         }
+        let bot = self.autopilot;
         self.accumulator += get_frame_time().min(MAX_FRAME_DT);
         let mut ticks = 0;
         while self.accumulator >= TICK_DT && ticks < MAX_TICKS_PER_FRAME {
             self.accumulator -= TICK_DT;
             ticks += 1;
+            if bot != Autopilot::Off {
+                sim_input.move_dir = bot::steer(&self.game);
+            }
+            if bot == Autopilot::God {
+                self.game.player.hp = self.game.player.max_hp;
+            }
             match self.game.tick(&sim_input) {
                 SimEvent::None => {}
+                SimEvent::LevelUp if bot != Autopilot::Off => {
+                    audio::cue(Sfx::LevelUp);
+                    while self.game.pending_levels > 0 {
+                        let slot = bot::smart_pick(&self.game);
+                        self.game.choose_upgrade(slot);
+                    }
+                }
+                SimEvent::Offering if bot != Autopilot::Off => {
+                    self.game.accept_offering();
+                    audio::cue(Sfx::Offering);
+                }
+                SimEvent::Victory if bot != Autopilot::Off => self.game.start_endless(),
                 SimEvent::LevelUp => {
                     audio::cue(Sfx::LevelUp);
                     self.state = State::LevelUp;
@@ -388,7 +417,13 @@ impl Run {
     pub fn draw_ui(&self, view: Vec2) {
         let game = &self.game;
         let stats = match self.state {
-            State::Playing => return hud::draw_hud(game, view),
+            State::Playing => {
+                hud::draw_hud(game, view);
+                if self.autopilot != Autopilot::Off {
+                    hud::draw_autopilot(view, self.autopilot.label());
+                }
+                return;
+            }
             State::LevelUp => {
                 hud::draw_hud(game, view);
                 return hud::draw_level_up(game, view, &self.focus);

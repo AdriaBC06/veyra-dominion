@@ -11,8 +11,9 @@ pal({
   a: "#2a2622",                                            // scorched earth
   g: "#8a8a88", G: "#6a6a6c", h: "#b4b4b0",                // smoke
   s: "#60a8e8", S: "#c4ecff", T: "#f2fbff",                // soul (soul.png hues)
-  f: "#7fb2d8", F: "#d6eef8",                              // faint soul
-  H: "#60a8e860", I: "#60a8e830",                          // radiant halo
+  f: "#62d896", F: "#dcfae6",                              // faint soul: green
+  R: "#e0a030", V: "#ffe08a", X: "#fffaea",                // radiant soul: gold
+  H: "#e0a03060", I: "#e0a03030",                          // radiant halo
   b: "#a8cce8", c: "#eaf6ff",                              // blessing: cold white-blue
   o: "#b8924a70",                                          // fire glow on the ground
   m: "#8a8a8890", n: "#b4b4b080",                          // thin smoke
@@ -119,7 +120,8 @@ anim("zealot_blast", { w: 44, h: 28, fps: 14, frames: 5, loop: false }, (c) => {
 })
 
 // ------------------------------------------------------------------ souls
-// soul.png (8x8) is the middle tier. Faint: smaller and paler. Radiant: bigger, white core, halo.
+// soul.png (8x8, blue) is the middle tier. The colour tells the worth: faint is smaller and
+// green, radiant is bigger and gold, with a white core and a halo.
 sprite("soul_faint", { w: 6, h: 6 }, `
   ..f...
   .fFf..
@@ -130,10 +132,10 @@ anim("soul_radiant", { w: 11, h: 13, fps: 3, frames: 2 }, (c) => {
   const big = c.frame === 1
   c.ellipse(5, 5, big ? 5 : 4, big ? 6 : 5, "I")
   c.ellipse(5, 5, big ? 4 : 3, big ? 5 : 4, "H")
-  c.poly([5, 0, 9, 5, 5, 10, 1, 5], "s")
-  c.poly([5, 2, 7, 5, 5, 8, 3, 5], "S")
-  c.vline(5, 3, 5, "T"); c.hline(4, 5, 3, "T")
-  if (big) { c.px(5, 0, "S"); c.px(9, 5, "S"); c.px(1, 5, "S") }
+  c.poly([5, 0, 9, 5, 5, 10, 1, 5], "R")
+  c.poly([5, 2, 7, 5, 5, 8, 3, 5], "V")
+  c.vline(5, 3, 5, "X"); c.hline(4, 5, 3, "X")
+  if (big) { c.px(5, 0, "V"); c.px(9, 5, "V"); c.px(1, 5, "V") }
 })
 
 // ------------------------------------------------------------------ bless (5x7, 2 frames)

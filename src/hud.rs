@@ -184,6 +184,12 @@ pub fn draw_debug(game: &Game, fps: i32, update_ms: f32) {
     }
 }
 
+/// F12: which bot is playing, top right under the HUD (developer-only, not translated).
+pub fn draw_autopilot(view: Vec2, label: &str) {
+    let w = measure_ui_text(label, TextStyle::Small).width;
+    draw_ui_text(label, view.x - w - 8.0, 76.0, TextStyle::Small, LIME);
+}
+
 const SCREEN_TITLE_Y: f32 = 96.0;
 
 /// Dims the frame and shows a title with lines of text below it.

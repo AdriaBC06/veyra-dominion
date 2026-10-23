@@ -90,7 +90,7 @@ impl App {
     /// Adds the current run to the lifetime stats (if it started) and replaces it.
     fn end_run(&mut self) {
         let game = &self.run.game;
-        if game.time > 0.0 {
+        if game.time > 0.0 && !self.run.autopiloted {
             self.save.record_run(game.time, game.kills);
             self.save.store();
         }
