@@ -352,18 +352,23 @@ impl Card<'_> {
 
 /// `draw_icon` faded by `alpha`.
 fn draw_icon_alpha(icon: Icon, x: f32, y: f32, scale: f32, alpha: f32) {
+    draw_icon_tinted(icon, x, y, scale, Color::new(1.0, 1.0, 1.0, alpha));
+}
+
+/// `icon` at `scale` multiplied by `tint` (a dark tint makes a silhouette).
+pub fn draw_icon_tinted(icon: Icon, x: f32, y: f32, scale: f32, tint: Color) {
     let (tex, src) = sprite(SpriteId::Icons, icon.frame());
     let params = DrawTextureParams {
         source: Some(src),
         dest_size: Some(Vec2::splat(ICON_SIZE * scale)),
         ..Default::default()
     };
-    draw_texture_ex(&tex, x.round(), y.round(), Color::new(1.0, 1.0, 1.0, alpha), params);
+    draw_texture_ex(&tex, x.round(), y.round(), tint, params);
 }
 
 /// Splits `text` at a space into two lines when it is wider than `width`: the first
 /// takes as many words as fit.
-fn wrap_two(text: &str, width: f32) -> (&str, &str) {
+pub fn wrap_two(text: &str, width: f32) -> (&str, &str) {
     let fits = |t: &str| measure_ui_text(t, TextStyle::Desc).width <= width;
     if fits(text) {
         return (text, "");

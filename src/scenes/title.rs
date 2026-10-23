@@ -8,8 +8,9 @@ use crate::i18n::{tr, Key};
 use crate::ui::{self, Action, Focus, Overlay, UiInput};
 use macroquad::prelude::*;
 
-const ITEMS: [(Key, Nav); 4] = [
+const ITEMS: [(Key, Nav); 5] = [
     (Key::MenuPlay, Nav::NewRun),
+    (Key::MenuGrimoire, Nav::Grimoire),
     (Key::MenuSettings, Nav::Settings),
     (Key::MenuCredits, Nav::Credits),
     (Key::MenuQuit, Nav::Quit),
@@ -18,7 +19,7 @@ const ITEMS: [(Key, Nav); 4] = [
 const LOGO_Y: f32 = 26.0;
 /// Gap between VEYRA and DOMINION.
 const DOMINION_GAP: f32 = 5.0;
-const BUTTONS_Y: f32 = 120.0;
+const BUTTONS_Y: f32 = 106.0;
 /// The kit's stone buttons, narrower than the panel ones to fit left of the portrait.
 const BUTTON: Vec2 = vec2(168.0, ui::BUTTON_H);
 /// Margin around the logo in its glow sprite.

@@ -2,9 +2,10 @@
 //! Unknown keys and bad values are ignored (the default is kept), so old and newer
 //! files both load. Writes go to a temporary file that is renamed over the old one.
 
-use crate::config::{WINDOW_H, WINDOW_W};
+use crate::config::{ARTS, UNIONS, WINDOW_H, WINDOW_W};
 use crate::i18n::Lang;
 use crate::screen::ScaleMode;
+use crate::upgrades::Upgrades;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -54,6 +55,75 @@ pub struct SaveData {
     pub total_kills: u64,
     /// Longest run in seconds.
     pub best_time: f32,
+    /// Grimoire entries fused at least once (`evolved=`), in `Entry` order.
+    pub evolved: Vec<Entry>,
+    /// Fused entries already shown in the Grimoire (`seen=`); the rest are marked new.
+    pub seen: Vec<Entry>,
+}
+
+/// A Grimoire entry: Art `i`'s evolution or union `u`.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum Entry {
+    Evolution(usize),
+    Union(usize),
+}
+
+impl Entry {
+    /// Every entry, evolutions in `ARTS` order then unions.
+    pub fn all() -> impl Iterator<Item = Entry> {
+        (0..ARTS.len())
+            .filter(|&i| ARTS[i].evolution.is_some())
+            .map(Entry::Evolution)
+            .chain((0..UNIONS.len()).map(Entry::Union))
+    }
+
+    /// Fused in the build `upgrades`.
+    pub fn fused(self, upgrades: &Upgrades) -> bool {
+        match self {
+            Entry::Evolution(i) => upgrades.evolved[i],
+            Entry::Union(u) => upgrades.united[u],
+        }
+    }
+
+    /// Its id in the save file: the Art's kind, or both kinds joined by `+` for a union,
+    /// so reordering `ARTS` keeps old saves valid.
+    fn id(self) -> String {
+        let kind = |i: usize| format!("{:?}", ARTS[i].kind);
+        match self {
+            Entry::Evolution(i) => kind(i),
+            Entry::Union(u) => {
+                let [a, b] = UNIONS[u].arts;
+                format!("{}+{}", kind(a), kind(b))
+            }
+        }
+    }
+}
+
+/// Comma-separated entry ids, in `Entry` order.
+fn entry_list(entries: &[Entry]) -> String {
+    entries.iter().map(|e| e.id()).collect::<Vec<_>>().join(",")
+}
+
+/// Known ids from a comma-separated list, sorted and without repeats.
+fn parse_entries(value: &str) -> Vec<Entry> {
+    let mut out: Vec<Entry> = value
+        .split(',')
+        .filter_map(|id| Entry::all().find(|e| e.id() == id.trim()))
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Adds `entry` to the sorted `list`; false if it was there already.
+fn insert(list: &mut Vec<Entry>, entry: Entry) -> bool {
+    match list.binary_search(&entry) {
+        Ok(_) => false,
+        Err(at) => {
+            list.insert(at, entry);
+            true
+        }
+    }
 }
 
 impl SaveData {
@@ -61,6 +131,31 @@ impl SaveData {
         self.runs += 1;
         self.total_kills += kills as u64;
         self.best_time = self.best_time.max(time);
+    }
+
+    pub fn has_evolved(&self, entry: Entry) -> bool {
+        self.evolved.binary_search(&entry).is_ok()
+    }
+
+    /// Fused but not yet shown in the Grimoire.
+    pub fn is_new(&self, entry: Entry) -> bool {
+        self.has_evolved(entry) && self.seen.binary_search(&entry).is_err()
+    }
+
+    /// Unlocks every entry fused in `upgrades`; true if any is new (the save needs writing).
+    pub fn record_fusions(&mut self, upgrades: &Upgrades) -> bool {
+        let mut changed = false;
+        for entry in Entry::all().filter(|e| e.fused(upgrades)) {
+            changed |= insert(&mut self.evolved, entry);
+        }
+        changed
+    }
+
+    /// Marks every unlocked entry as seen; true if any was new.
+    pub fn mark_seen(&mut self) -> bool {
+        let before = self.seen.len();
+        self.seen = self.evolved.clone();
+        self.seen.len() != before
     }
 }
 
@@ -152,6 +247,8 @@ impl SaveData {
         let _ = writeln!(s, "runs={}", self.runs);
         let _ = writeln!(s, "total_kills={}", self.total_kills);
         let _ = writeln!(s, "best_time={}", self.best_time);
+        let _ = writeln!(s, "evolved={}", entry_list(&self.evolved));
+        let _ = writeln!(s, "seen={}", entry_list(&self.seen));
         s
     }
 
@@ -162,12 +259,16 @@ impl SaveData {
                 "runs" => set(&mut s.runs, value),
                 "total_kills" => set(&mut s.total_kills, value),
                 "best_time" => set(&mut s.best_time, value),
+                "evolved" => s.evolved = parse_entries(value),
+                "seen" => s.seen = parse_entries(value),
                 _ => {}
             }
         }
         if !s.best_time.is_finite() || s.best_time < 0.0 {
             s.best_time = 0.0;
         }
+        // only fused entries can have been seen
+        s.seen.retain(|e| s.evolved.binary_search(e).is_ok());
         s
     }
 
@@ -234,6 +335,7 @@ pub fn write_atomic(path: &Path, text: &str) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{ALLURE, HELLFLARE, INFERNAL_COURT};
 
     #[test]
     fn settings_round_trip() {
@@ -281,6 +383,49 @@ mod tests {
         assert_eq!(SaveData::from_text("runs=4\n").runs, 4);
         let newer = format!("version={}\nruns=9\nfuture_key=x\n", SAVE_VERSION + 1);
         assert_eq!(SaveData::from_text(&newer).runs, 9);
+    }
+
+    #[test]
+    fn grimoire_round_trip_records_fusions_and_marks_seen() {
+        let mut u = Upgrades::default();
+        let mut s = SaveData::default();
+        assert!(!s.record_fusions(&u), "nothing fused yet");
+        u.evolve(HELLFLARE);
+        u.united[INFERNAL_COURT] = true;
+        assert!(s.record_fusions(&u));
+        assert!(!s.record_fusions(&u), "already unlocked");
+        let court = Entry::Union(INFERNAL_COURT);
+        assert!(s.has_evolved(Entry::Evolution(HELLFLARE)) && s.is_new(court));
+        assert!(!s.has_evolved(Entry::Evolution(ALLURE)));
+        assert!(s.to_text().contains("evolved=Hellflare,Allure+Thralls\n"));
+        assert_eq!(SaveData::from_text(&s.to_text()), s);
+        assert!(s.mark_seen() && !s.mark_seen());
+        assert!(!s.is_new(court) && s.has_evolved(court));
+        assert_eq!(SaveData::from_text(&s.to_text()), s);
+    }
+
+    #[test]
+    fn grimoire_lists_ignore_unknown_ids_and_unfused_seen() {
+        let s = SaveData::from_text(
+            "evolved= Allure+Thralls,Nope,Hellflare,Hellflare\nseen=Hellflare,Allure\n",
+        );
+        assert_eq!(
+            s.evolved,
+            [Entry::Evolution(HELLFLARE), Entry::Union(INFERNAL_COURT)]
+        );
+        assert_eq!(s.seen, [Entry::Evolution(HELLFLARE)]);
+        // older saves have neither key
+        let old = SaveData::from_text("runs=3\n");
+        assert!(old.evolved.is_empty() && old.seen.is_empty());
+        assert_eq!(SaveData::from_text("evolved=\n").evolved, []);
+    }
+
+    #[test]
+    fn grimoire_ids_are_unique() {
+        let ids: Vec<String> = Entry::all().map(Entry::id).collect();
+        for (i, id) in ids.iter().enumerate() {
+            assert!(!ids[..i].contains(id), "{id} repeats");
+        }
     }
 
     #[test]

@@ -1,10 +1,11 @@
-//! Scene system: the app is in exactly one scene (title, run, settings or credits)
-//! and scenes ask for a change by returning a `Nav`. The run is kept while
-//! Settings is open from the pause menu. Every change goes through the ember wipe.
-//! The title, credits and settings (outside a run) sit on the painted title backdrop.
+//! Scene system: the app is in exactly one scene (title, run, settings, Grimoire or
+//! credits) and scenes ask for a change by returning a `Nav`. The run is kept while
+//! Settings or the Grimoire is open from the pause menu. Every change goes through the ember wipe.
+//! The title, credits, settings and the Grimoire (outside a run) sit on the painted title backdrop.
 
 mod backdrop;
 mod credits;
+mod grimoire;
 mod run;
 mod settings;
 mod title;
@@ -19,9 +20,10 @@ use crate::screen::Screen;
 use crate::ui::UiInput;
 use backdrop::Backdrop;
 use credits::Credits;
+use grimoire::GrimoireScene;
 use macroquad::prelude::*;
-pub use run::LOW_HP;
 use run::Run;
+pub use run::LOW_HP;
 use settings::SettingsScene;
 use title::Title;
 use wipe::Wipe;
@@ -31,9 +33,10 @@ use wipe::Wipe;
 pub enum Nav {
     Title,
     NewRun,
-    /// Back to the paused run (from Settings).
+    /// Back to the paused run (from Settings or the Grimoire).
     ResumeRun,
     Settings,
+    Grimoire,
     Credits,
     Quit,
 }
@@ -42,6 +45,7 @@ enum Scene {
     Title(Title),
     Run,
     Settings(SettingsScene),
+    Grimoire(GrimoireScene),
     Credits(Credits),
 }
 
@@ -132,9 +136,19 @@ impl App {
         }
     }
 
+    /// Unlocks the Grimoire entries the run has fused, unless the bot or the F2 panel did it.
+    fn record_fusions(&mut self) {
+        let run = &self.run;
+        if !run.autopiloted && !run.forced && self.save.record_fusions(&run.game.upgrades) {
+            self.save.store();
+        }
+    }
+
     fn navigate(&mut self, nav: Nav) {
-        if matches!(self.scene, Scene::Settings(_)) {
-            self.store_settings();
+        match self.scene {
+            Scene::Settings(_) => self.store_settings(),
+            Scene::Grimoire(_) if self.save.mark_seen() => self.save.store(),
+            _ => {}
         }
         let in_run = matches!(self.scene, Scene::Run);
         if matches!(nav, Nav::Title | Nav::NewRun) {
@@ -156,6 +170,7 @@ impl App {
             }
             Nav::ResumeRun => Scene::Run,
             Nav::Settings => Scene::Settings(SettingsScene::new(in_run)),
+            Nav::Grimoire => Scene::Grimoire(GrimoireScene::new(in_run, &self.save)),
             Nav::Credits => Scene::Credits(Credits::new()),
             Nav::Quit => return,
         };
@@ -166,6 +181,7 @@ impl App {
         match &self.scene {
             Scene::Title(_) | Scene::Credits(_) => true,
             Scene::Settings(s) => !s.in_run(),
+            Scene::Grimoire(g) => !g.in_run(),
             Scene::Run => false,
         }
     }
@@ -176,6 +192,7 @@ impl App {
         let in_run = match &self.scene {
             Scene::Run => true,
             Scene::Settings(s) => s.in_run(),
+            Scene::Grimoire(g) => g.in_run(),
             _ => false,
         };
         let kills = if in_run { self.run.game.kills } else { 0 };
@@ -193,6 +210,9 @@ impl App {
         } else {
             self.scene_update(&input, view)
         };
+        if matches!(self.scene, Scene::Run) {
+            self.record_fusions();
+        }
         if nav == Some(Nav::Quit) {
             return false;
         }
@@ -205,11 +225,11 @@ impl App {
 
         let s = &self.settings;
         self.audio.set_volumes(s.master, s.music, s.sfx);
-        // Settings keeps whatever was playing (title, or the paused run's theme).
+        // Settings and the Grimoire keep whatever was playing (title, or the paused run's theme).
         match self.scene {
             Scene::Title(_) | Scene::Credits(_) => self.audio.play_music(Track::Title),
             Scene::Run => self.audio.play_music(Track::Ashford),
-            Scene::Settings(_) => {}
+            Scene::Settings(_) | Scene::Grimoire(_) => {}
         }
         self.audio.play_queued(get_time());
 
@@ -228,6 +248,7 @@ impl App {
                 &mut self.screen,
                 &mut self.save,
             ),
+            Scene::Grimoire(g) => g.update(input, view),
             Scene::Credits(c) => c.update(input, view),
         }
     }
@@ -246,6 +267,10 @@ impl App {
             Scene::Title(title) => title.draw(view, t),
             Scene::Run => self.run.draw_ui(view),
             Scene::Settings(s) => s.draw(view, &self.settings, &self.screen, &self.save),
+            Scene::Grimoire(g) => {
+                let build = g.in_run().then_some(&self.run.game.upgrades);
+                g.draw(view, &self.save, build);
+            }
             Scene::Credits(c) => c.draw(view),
         }
         if self.debug {

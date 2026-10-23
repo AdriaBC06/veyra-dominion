@@ -77,6 +77,11 @@ keys! {
     MenuPlay => "Play", "Jugar";
     MenuSettings => "Settings", "Ajustes";
     MenuCredits => "Credits", "Créditos";
+    MenuGrimoire => "Grimoire", "Grimorio";
+    GrimoireUnknown => "???", "???";
+    GrimoireReady => "Ready", "Lista";
+    GrimoireRevealed => "revealed", "reveladas";
+    GrimoireRite => "Rite {}", "Rito {}";
     MenuQuit => "Quit", "Salir";
     MenuResume => "Resume", "Continuar";
     MenuTitle => "Title screen", "Menú principal";

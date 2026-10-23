@@ -60,9 +60,16 @@ pub struct Run {
     /// F12: the bot plays (debug); a run it touched stays out of the lifetime stats.
     pub autopilot: Autopilot,
     pub autopiloted: bool,
+    /// The F2 panel forced an evolution or union: the Grimoire ignores this run.
+    pub forced: bool,
 }
 
-const PAUSE_MENU: [Key; 3] = [Key::MenuResume, Key::MenuSettings, Key::MenuTitle];
+const PAUSE_MENU: [Key; 4] = [
+    Key::MenuResume,
+    Key::MenuGrimoire,
+    Key::MenuSettings,
+    Key::MenuTitle,
+];
 const GAME_OVER_MENU: [Key; 2] = [Key::MenuRestart, Key::MenuTitle];
 const VICTORY_MENU: [Key; 3] = [Key::MenuEndless, Key::MenuRestart, Key::MenuTitle];
 
@@ -80,6 +87,7 @@ impl Run {
             hud: HudFx::default(),
             autopilot: Autopilot::Off,
             autopiloted: false,
+            forced: false,
         }
     }
 
@@ -277,7 +285,8 @@ impl Run {
         let count = self.game.choices.iter().flatten().count().max(1);
         let cards = hud::level_up_cards(view);
         let action = self.focus.update(input, &cards[..count]);
-        self.overlay.update(input, &self.focus, &cards[..count], ui_dt());
+        self.overlay
+            .update(input, &self.focus, &cards[..count], ui_dt());
         let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3];
         let by_key = keys
             .iter()
@@ -347,9 +356,9 @@ impl Run {
         } else if item < 2 * n {
             let art = item - n;
             if up && ARTS[art].evolution.is_some() {
-                self.game.debug_evolve(art);
+                self.forced |= self.game.debug_evolve(art);
             } else if up {
-                self.game.debug_unite(hud::debug_union(art));
+                self.forced |= self.game.debug_unite(hud::debug_union(art));
             }
         } else {
             self.game.debug_sin_level(item - 2 * n, up);
@@ -373,6 +382,7 @@ impl Run {
                 self.set_state(State::Playing);
             }
             Key::MenuSettings => return Some(Nav::Settings),
+            Key::MenuGrimoire => return Some(Nav::Grimoire),
             Key::MenuRestart => return Some(Nav::NewRun),
             _ => return Some(Nav::Title),
         }

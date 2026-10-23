@@ -106,7 +106,7 @@ pub fn set_blood(level: f32) {
     BLOOD.with(|b| b.set(level.clamp(0.0, 1.0)));
 }
 
-fn blood_level() -> f32 {
+pub fn blood_level() -> f32 {
     BLOOD.with(Cell::get)
 }
 
@@ -783,7 +783,7 @@ pub enum Rim {
     New,
     Evolved,
     Union,
-    /// Not drawn yet: Grimoire silhouettes (V19c); kept so the frames stay in order.
+    /// Not drawn: kept so the frames stay in order (the Grimoire draws its own roundels).
     #[allow(dead_code)]
     Locked,
     Lit,
