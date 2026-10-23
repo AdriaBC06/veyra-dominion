@@ -33,6 +33,8 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S16c — Living Ashford** *(user approval)*
   - [ ] V19d Coherent map: layout, houses, villagers who flee, breakables and drops, razing
   - [ ] V19e Minimap + full map (M)
+- **S16d — Veyra sprite** *(user approval)*
+  - [ ] V19f In-game Veyra sprite redone to match the title portrait
 - **S17 — Pacts**
   - [ ] V20 Tribute and Infernal Pacts
 - **S18 — Familiars**
@@ -78,6 +80,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 | V19c | Grimoire of Evolutions: every evolution/union with recipe icons, silhouettes until fused once, `evolved=`/`seen=` in the save, from title and pause | Save tests green + user approves | `feat: grimoire of evolutions` |
 | V19d | Authored, irregular Ashford layout that blocks (houses, walls, river + bridges, ridges, dense woods; small props never block): solid grid, push-out, flow-field chasers, bot navigation; y-sorted baked props; fleeing civilians pool; breakables with drop table (coins, food heal, coffers, relics); burning houses | Stress test with full map green + user approves | `feat: living ashford` |
 | V19e | Minimap (baked landmarks, density-grid enemy dots, boss icon + edge arrow) and full map on M (pauses) | Stress tick unchanged + user approves | `feat: minimap and full map` |
+| V19f | New in-game Veyra sprite (all layers and animations) matching the title portrait; method agreed with the user first (7.6) | User approves | `feat: new veyra sprite` |
 | V20 | Tribute currency, end-of-run payout screen, Altar + Pacts (refund) | Meta tests green | `feat: tribute and infernal pacts` |
 | V21 | Summoning Circles + Familiars (4 Lesser), equip, ranks, duplicate refund, rate display | Distribution tests green | `feat: summoning circles and familiars` |
 | V22 | Greater + Abyssal Familiars | Visible + tested | `feat: greater and abyssal familiars` |
