@@ -2,7 +2,7 @@
 //! pools of what they throw. Pure logic, driven by `Game::tick`.
 
 use crate::config::*;
-use crate::enemies::Enemies;
+use crate::enemies::{Enemies, MODE_GUARD};
 use crate::game::Player;
 use crate::spatial::SpatialHash;
 use crate::upgrades::{PlayerStats, Upgrades};
@@ -591,9 +591,9 @@ impl Arts {
                     return;
                 }
                 // Elites can't be seduced; they only burn.
-                if charms > 0 && !enemies.elite[j] {
+                if charms > 0 && !enemies.unswayed(j) {
                     // Seduced, not burned: she wants it alive and fighting for her.
-                    if court && !enemies.elite[j] && thralls.len() < MAX_THRALLS {
+                    if court && thralls.len() < MAX_THRALLS {
                         let kind = enemies.kind[j];
                         let def = &ENEMY_DEFS[kind as usize];
                         let mut t =
@@ -912,7 +912,9 @@ impl Arts {
                 let inside =
                     along >= -r && along <= len + r && off.perp_dot(dir).abs() <= width + r;
                 if enemies.hp[j] > 0.0 && inside {
-                    enemies.frozen_until[j] = enemies.frozen_until[j].max(until);
+                    if !enemies.boss(j) {
+                        enemies.frozen_until[j] = enemies.frozen_until[j].max(until);
+                    }
                     if s.damage > 0.0 {
                         strike(enemies, j, s.damage, time, &mut cues.hits);
                     }
@@ -1491,7 +1493,7 @@ impl Arts {
                 }
                 strike(enemies, j, s.damage, time, &mut cues.hits);
                 enemies.halo_until[j] = time + HALO_IMMUNE;
-                if !ENEMY_DEFS[enemies.kind[j] as usize].heavy && !enemies.elite[j] {
+                if !ENEMY_DEFS[enemies.kind[j] as usize].heavy && !enemies.unswayed(j) {
                     let push = (p - center).normalize_or(Vec2::X) * HALO_KNOCKBACK;
                     enemies.set_pos(j, p + push);
                 }
@@ -1585,15 +1587,17 @@ fn strike(enemies: &mut Enemies, j: usize, damage: f32, time: f32, hits: &mut [b
     hits[(def.family == Family::Armored || def.armor > 0.0) as usize] = true;
 }
 
-/// A fireball flying along `vel` meets enemy `j`'s shield: shields face Veyra, so
-/// whatever comes from her side glances off.
+/// A fireball flying along `vel` meets enemy `j`'s shield (a barn door, or a boss guarding):
+/// shields face Veyra, so whatever comes from her side glances off.
 fn shielded(enemies: &Enemies, j: usize, vel: Vec2, from: Vec2) -> bool {
-    ENEMY_DEFS[enemies.kind[j] as usize].shield && vel.x * (from.x - enemies.x[j]) < 0.0
+    let guard = ENEMY_DEFS[enemies.kind[j] as usize].shield || enemies.mode[j] == MODE_GUARD;
+    guard && vel.x * (from.x - enemies.x[j]) < 0.0
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::enemies::MODE_WALK;
     use crate::game::{Cue, Game, InputState};
     use crate::upgrades::Choice;
 
@@ -2408,6 +2412,22 @@ mod tests {
         fireball(&mut g, vec2(100.0, 0.0), vec2(-300.0, 0.0));
         tick(&mut g, 30);
         assert!(g.enemies.hp[0] < full, "hit from behind");
+    }
+
+    #[test]
+    fn a_guarding_boss_stops_fireballs_from_the_front() {
+        let mut g = game_with(HELLFLARE, 1);
+        g.arts.hold();
+        g.enemies.spawn(CAPTAIN, vec2(60.0, 0.0), 1.0);
+        g.enemies.mode[0] = MODE_GUARD;
+        let full = g.enemies.hp[0];
+        fireball(&mut g, vec2(20.0, 0.0), vec2(300.0, 0.0));
+        tick(&mut g, 30);
+        assert_eq!(g.enemies.hp[0], full, "glanced off the raised shield");
+        g.enemies.mode[0] = MODE_WALK;
+        fireball(&mut g, vec2(20.0, 0.0), vec2(300.0, 0.0));
+        tick(&mut g, 30);
+        assert!(g.enemies.hp[0] < full, "hit with the shield down");
     }
 
     #[test]

@@ -112,6 +112,13 @@ pub fn draw_icon(icon: Icon, x: f32, y: f32, scale: f32) {
 const HP_COLOR: Color = Color::new(0.78, 0.16, 0.22, 1.0);
 const XP_COLOR: Color = Color::new(0.45, 0.72, 0.95, 1.0);
 const BAR_BG: Color = Color::new(0.0, 0.0, 0.0, 0.55);
+/// The boss bar wears the Watch's royal blue.
+const BOSS_COLOR: Color = Color::new(0.27, 0.38, 0.63, 1.0);
+const BOSS_BAR_W: f32 = 300.0;
+const BOSS_BAR_H: f32 = 6.0;
+/// Bar top and name baseline, up from the bottom edge of the view.
+const BOSS_BAR_UP: f32 = 14.0;
+const BOSS_NAME_UP: f32 = 19.0;
 
 fn draw_bar(x: f32, y: f32, w: f32, h: f32, frac: f32, color: Color) {
     draw_rectangle(x, y, w, h, BAR_BG);
@@ -153,6 +160,31 @@ pub fn draw_hud(game: &Game, view: Vec2) {
     for (n, i) in sins.enumerate() {
         draw_icon(Icon::Sin(i), x(n), HUD_ICONS_Y + HUD_ICON_STEP, 1.0);
     }
+    draw_boss_bar(game, view);
+}
+
+/// While a boss lives: its name over a health bar along the bottom, notched where its
+/// later phases begin.
+fn draw_boss_bar(game: &Game, view: Vec2) {
+    let Some(b) = &game.boss else {
+        return;
+    };
+    let w = BOSS_BAR_W.min(view.x - 40.0);
+    let x = Anchor::Center.x(view, w, 0.0);
+    let y = view.y - BOSS_BAR_UP;
+    draw_text_centered(
+        view,
+        tr(b.def.name),
+        view.y - BOSS_NAME_UP,
+        TextStyle::Body,
+        WHITE,
+    );
+    draw_bar(x, y, w, BOSS_BAR_H, b.health(), BOSS_COLOR);
+    for phase in &b.def.phases[1..] {
+        let nx = (x + w * phase.below).round();
+        draw_line(nx, y, nx, y + BOSS_BAR_H, 1.0, BLACK);
+    }
+    draw_rectangle_lines(x, y, w, BOSS_BAR_H, 1.0, BLACK);
 }
 
 /// F3 overlay: frame timing and entity counts.

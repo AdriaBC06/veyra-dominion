@@ -33,6 +33,8 @@ pub enum SpriteId {
     Curate,
     Ratcatcher,
     Zealot,
+    Captain,
+    CaptainCharge,
     Stone,
     TorchSpin,
     FirePatch,
@@ -99,7 +101,7 @@ pub enum SpriteId {
     Icons,
 }
 
-const SPRITE_COUNT: usize = 86;
+const SPRITE_COUNT: usize = 88;
 
 /// Sizes the area-grown Arts are baked at (`assets/arts.px.js`): tier k is 1 + k/4
 /// times the base sprite.
@@ -362,6 +364,8 @@ const SHEETS: [Sheet; SPRITE_COUNT] = [
     enemy!(Curate, "curate"),
     enemy!(Ratcatcher, "ratcatcher"),
     enemy!(Zealot, "zealot"),
+    enemy!(Captain, "captain"),
+    enemy!(CaptainCharge, "captain_charge"),
     sheet!(Stone, "enemy_fx/sprites/stone", 1, false),
     fx!(TorchSpin, "torch_spin"),
     fx!(FirePatch, "fire_patch"),
@@ -877,6 +881,7 @@ mod tests {
         assert_eq!(size(SpriteId::Villager), (14, 20));
         assert_eq!(size(SpriteId::Knight), (18, 26));
         assert_eq!(size(SpriteId::Brute), (32, 40));
+        assert_eq!(size(SpriteId::CaptainCharge), (52, 66));
         let thrall = [crate::config::THRALL_DEF];
         for def in crate::config::ENEMY_DEFS.iter().chain(&thrall) {
             let (w, h) = def.size;

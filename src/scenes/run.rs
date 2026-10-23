@@ -7,6 +7,7 @@ use crate::assets::{
 };
 use crate::audio::{self, Jingle, Sfx};
 use crate::blood::BloodLayer;
+use crate::boss::{Boss, BossMode};
 use crate::bot::{self, Autopilot};
 use crate::config::*;
 use crate::enemies::MODE_WINDUP;
@@ -103,7 +104,11 @@ impl Run {
             }
             State::Playing => {
                 if is_key_pressed(KeyCode::F4) {
-                    self.game.debug_spawn_all();
+                    if is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift) {
+                        self.game.spawn_boss(&CAPTAIN_DEF);
+                    } else {
+                        self.game.debug_spawn_all();
+                    }
                 }
                 if is_key_pressed(KeyCode::F5) {
                     self.game.debug_make_elites();
@@ -232,6 +237,10 @@ impl Run {
                 Cue::Arrival => Sfx::Horn,
                 Cue::Throw => Sfx::Gust,
                 Cue::Blast => Sfx::BatBlast,
+                Cue::Charge => Sfx::Gust,
+                Cue::Bash => Sfx::KillArmored,
+                Cue::Guard => Sfx::HitArmored,
+                Cue::Horn => Sfx::Horn,
             });
         }
         self.heartbeat();
@@ -379,6 +388,7 @@ impl Run {
         draw_fires(game);
         draw_bursts(game, true);
         draw_support_auras(game);
+        draw_boss_telegraph(game);
         draw_enemies(game);
         draw_blesses(game);
         draw_thralls(game);
@@ -537,18 +547,23 @@ fn draw_enemies(game: &Game) {
             game.time * ENEMY_ANIM_FPS
         };
         let mut frame = (walk + e.phase[i]) as usize % 2;
+        let mut sprite_id = def.sprite;
+        let mut flip = px > pos.x;
         // Telegraphs: a charger winding up blinks white, a primed bomber faster.
-        let blink = match (def.behavior, e.mode[i]) {
+        let mut blink = match (def.behavior, e.mode[i]) {
             (Behavior::Charger { .. }, MODE_WINDUP) => {
                 ((game.time * 12.0) as u32).is_multiple_of(2)
             }
             (Behavior::Bomber { .. }, MODE_WINDUP) => ((game.time * 20.0) as u32).is_multiple_of(2),
             _ => false,
         };
+        if let Some(b) = game.boss.as_ref().filter(|b| b.uid == e.uid[i]) {
+            (sprite_id, flip, blink, frame) = boss_look(b, game.time, frame);
+        }
         if e.flash[i] > 0.0 || blink {
             frame += FLASH_FRAME_OFFSET;
         }
-        let (_, src) = sprite(def.sprite, frame);
+        let (_, src) = sprite(sprite_id, frame);
         draw_shadow(pos, src.w * 0.32, (src.w * 0.09).max(1.5), 1.0);
         let lift = if matches!(def.behavior, Behavior::Flyer { .. }) {
             FLYER_HEIGHT + (TAU * 1.5 * game.time + e.phase[i] * 3.0).sin().round()
@@ -556,7 +571,6 @@ fn draw_enemies(game: &Game) {
             0.0
         };
         let corner = pos - vec2((src.w * 0.5).floor(), src.h - 1.0 + lift);
-        let flip = px > pos.x;
         if e.elite[i] {
             draw_elite_outline(
                 def.sprite,
@@ -575,7 +589,59 @@ fn draw_enemies(game: &Game) {
         } else {
             WHITE
         };
-        draw_sprite_tinted(def.sprite, frame, corner, flip, tint);
+        draw_sprite_tinted(sprite_id, frame, corner, flip, tint);
+    }
+}
+
+/// How the boss's body is drawn: braced behind the shield (the charge pose) while winding
+/// up, rushing, bashing or guarding; facing its own `facing`; standing still while it
+/// acts; the wind-ups blink white like a hound's.
+fn boss_look(b: &Boss, time: f32, walk: usize) -> (SpriteId, bool, bool, usize) {
+    let braced = matches!(
+        b.mode,
+        BossMode::Windup | BossMode::Charge | BossMode::Bash | BossMode::Guard
+    );
+    let sprite = if braced {
+        SpriteId::CaptainCharge
+    } else {
+        SpriteId::Captain
+    };
+    let flip = b.facing > 0.0;
+    let blink = matches!(b.mode, BossMode::Windup | BossMode::Bash)
+        && ((time * 12.0) as u32).is_multiple_of(2);
+    let frame = match b.mode {
+        BossMode::Walk | BossMode::Charge | BossMode::Guard => walk,
+        _ => 0,
+    };
+    (sprite, flip, blink, frame)
+}
+
+/// The boss's wind-ups marked on the ground: the lane a charge will sweep (it stops
+/// tracking her when the lane goes solid) and the circle a shield bash will hit.
+fn draw_boss_telegraph(game: &Game) {
+    let Some(b) = &game.boss else {
+        return;
+    };
+    let def = b.def;
+    let mut color = Color::from_hex(BOSS_TELEGRAPH);
+    match b.mode {
+        BossMode::Windup => {
+            let locked = b.timer <= def.charge_lock;
+            color.a = if locked { 0.45 } else { 0.18 };
+            let half = ENEMY_DEFS[def.kind].radius();
+            let from = b.pos;
+            let to = from + b.dir * def.charge_speed * def.charge_time;
+            let side = b.dir.perp() * half;
+            let [p0, p1, p2, p3] = [from + side, to + side, to - side, from - side];
+            draw_triangle(p0, p1, p2, color);
+            draw_triangle(p0, p2, p3, color);
+        }
+        BossMode::Bash => {
+            color.a = 0.3;
+            let at = b.pos + b.dir * ENEMY_DEFS[def.kind].radius();
+            draw_circle(at.x, at.y, def.bash_radius, color);
+        }
+        _ => {}
     }
 }
 

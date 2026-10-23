@@ -1,0 +1,64 @@
+{
+ "frames": {
+  "captain_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 52,
+    "h": 66
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 52,
+    "h": 66
+   },
+   "sourceSize": {
+    "w": 52,
+    "h": 66
+   },
+   "duration": 200
+  },
+  "captain_1": {
+   "frame": {
+    "x": 52,
+    "y": 0,
+    "w": 52,
+    "h": 66
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 52,
+    "h": 66
+   },
+   "sourceSize": {
+    "w": 52,
+    "h": 66
+   },
+   "duration": 200
+  }
+ },
+ "meta": {
+  "app": "pxl",
+  "image": "captain.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 104,
+   "h": 66
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "captain",
+    "from": 0,
+    "to": 1,
+    "direction": "forward"
+   }
+  ]
+ }
+}

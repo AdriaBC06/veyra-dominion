@@ -1,6 +1,6 @@
 //! Enemy kinds, behaviours, spawning and the run timeline (docs/design.md 7.8).
 
-use super::{POOL_RADIUS_SCALE, THRALL_HP};
+use super::{BossDef, CAPTAIN_DEF, POOL_RADIUS_SCALE, THRALL_HP};
 use crate::assets::SpriteId;
 
 // --- Enemies & spawning ---------------------------------------------------
@@ -63,6 +63,8 @@ pub enum Behavior {
         damage: f32,
         enemy_damage: f32,
     },
+    /// Moved by its `boss::Boss` (phases, attacks), never by the horde's steering.
+    Boss,
 }
 
 /// What a `Ranged` enemy throws.
@@ -99,7 +101,7 @@ pub struct EnemyDef {
     pub speed: f32,
     pub contact_damage: f32,
     pub soul_xp: u32,
-    /// Chance that a kill drops its soul at 0:00 and at `VICTORY_TIME` (linear between,
+    /// Chance that a kill drops its soul at 0:00 and at `MAP_TIME` (linear between,
     /// held after): cheap fodder stops paying as the run goes on.
     pub drop: (f32, f32),
     /// Spawn weight once unlocked: `weight_start + weight_growth_per_min * minutes`
@@ -157,6 +159,7 @@ pub const RATCATCHER: usize = 8;
 pub const KNIGHT: usize = 9;
 pub const ZEALOT: usize = 10;
 pub const BRUTE: usize = 11;
+pub const CAPTAIN: usize = 12;
 
 /// Defaults the table rows fill in.
 const BASE: EnemyDef = EnemyDef {
@@ -182,7 +185,7 @@ const BASE: EnemyDef = EnemyDef {
 };
 
 /// Ashford's roster, in order of arrival (docs/design.md 7.8, V18 bestiary).
-pub const ENEMY_DEFS: [EnemyDef; 12] = [
+pub const ENEMY_DEFS: [EnemyDef; 13] = [
     EnemyDef {
         name: "Rat",
         sprite: SpriteId::Rat,
@@ -386,7 +389,26 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         heavy: true,
         ..BASE
     },
+    // Ashford's boss (V19): the body of `CAPTAIN_DEF`, never in the spawn mix.
+    EnemyDef {
+        name: "Captain of the Watch",
+        sprite: SpriteId::Captain,
+        size: (52, 66),
+        burst: [0xc8d2da, 0x9aa6b0, 0x4660a0, 0xb8c4d4],
+        hp: CAPTAIN_HP,
+        speed: 34.0,
+        contact_damage: 22.0,
+        soul_xp: 400,
+        behavior: Behavior::Boss,
+        family: Family::Armored,
+        armor: 2.0,
+        heavy: true,
+        ..BASE
+    },
 ];
+
+/// The Captain's health (before Pride); see `config/bosses.rs` for the rest of him.
+pub const CAPTAIN_HP: f32 = 6000.0;
 
 /// A summoned thrall (Thralls Art): a seduced villager. Only its sprite, size (body
 /// radius), burst and blood are used; it serves Veyra, so it gives no souls.
@@ -401,12 +423,13 @@ pub const THRALL_DEF: EnemyDef = EnemyDef {
     ..BASE
 };
 
-/// Run length for victory, in seconds.
-pub const VICTORY_TIME: f32 = 600.0;
+/// Map length in seconds: the boss arrives then, and the per-minute curves (HP growth,
+/// soul drops) stop there.
+pub const MAP_TIME: f32 = 600.0;
 /// Enemy HP grows by this fraction per minute of the run (x2 at 10:00), so a
 /// weak build meets a damage check instead of only more bodies.
 pub const HP_GROWTH_PER_MIN: f32 = 0.1;
-/// In endless mode, enemy HP grows by this fraction per minute past VICTORY_TIME.
+/// In endless mode, enemy HP grows by this fraction per minute since the victory.
 pub const ENDLESS_HP_GROWTH_PER_MIN: f32 = 0.5;
 
 pub enum EventKind {
@@ -418,7 +441,8 @@ pub enum EventKind {
     Elite,
     /// A pressure event: `n` enemies of a kind at once, in a formation.
     Wave(usize, u16, Formation),
-    Victory,
+    /// The boss arrives; killing it wins the map.
+    Boss(&'static BossDef),
 }
 
 /// How a `Wave` arrives.
@@ -468,8 +492,8 @@ pub const EVENTS: &[Event] = &[
     retire(540.0, HOUND),
     elite(540.0),
     Event {
-        time: VICTORY_TIME,
-        kind: EventKind::Victory,
+        time: MAP_TIME,
+        kind: EventKind::Boss(&CAPTAIN_DEF),
     },
 ];
 

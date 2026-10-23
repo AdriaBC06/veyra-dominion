@@ -1,6 +1,7 @@
 //! The autopilot (F12 in a run, and the balance probe): kites the horde, gathers souls
 //! and picks upgrades for a focused build. Simulation side: reads `Game`, returns input.
 
+use crate::boss::BossMode;
 use crate::config::*;
 use crate::game::Game;
 use crate::upgrades::Choice;
@@ -32,6 +33,7 @@ pub fn steer(g: &Game) -> Vec2 {
             away += d / l2 * 3.0;
         }
     }
+    away += dodge_boss(g) * 3.0;
     // Close threats dominate; with room to breathe she goes for the souls.
     let urgency = (away.length() * 35.0).clamp(0.0, 1.0);
     let away = away.normalize_or_zero();
@@ -54,6 +56,40 @@ pub fn steer(g: &Game) -> Vec2 {
         .map_or(Vec2::ZERO, |q| (q - p).normalize_or_zero());
     (away * urgency + tangent * 0.5 * urgency + goal * (1.2 - urgency * 0.6)).normalize_or_zero()
 }
+
+/// Fights the boss like a player would: closes to `BOT_BOSS_RANGE` so her Arts reach it,
+/// but steps sideways off a charge lane and back from a bash.
+fn dodge_boss(g: &Game) -> Vec2 {
+    let Some(b) = &g.boss else {
+        return Vec2::ZERO;
+    };
+    let p = g.player.pos;
+    let d = p - b.pos;
+    let def = b.def;
+    let dist = d.length().max(4.0);
+    let mut away = d / (dist * dist);
+    if dist > BOT_BOSS_RANGE {
+        away -= d / dist / 256.0;
+    }
+    match b.mode {
+        BossMode::Windup | BossMode::Charge => {
+            let along = d.dot(b.dir);
+            let side = d.perp_dot(b.dir);
+            let lane = ENEMY_DEFS[def.kind].radius() + PLAYER_RADIUS + 10.0;
+            let reach = def.charge_speed * def.charge_time;
+            if along > -lane && along < reach && side.abs() < lane {
+                let out = -b.dir.perp() * if side >= 0.0 { 1.0 } else { -1.0 };
+                away += out / 64.0;
+            }
+        }
+        BossMode::Bash => away += d.normalize_or_zero() / 64.0,
+        _ => {}
+    }
+    away
+}
+
+/// How close the autopilot keeps to a boss.
+const BOT_BOSS_RANGE: f32 = 100.0;
 
 /// A focused build, closer to a player who knows the game: level the Arts she has,
 /// take the Sins that evolve them, fill up to four Arts, then other Sins.

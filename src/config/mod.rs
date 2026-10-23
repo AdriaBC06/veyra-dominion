@@ -2,10 +2,12 @@
 
 mod art_tuning;
 mod arts;
+mod bosses;
 mod enemies;
 
 pub use art_tuning::*;
 pub use arts::*;
+pub use bosses::*;
 pub use enemies::*;
 
 use crate::i18n::Key;

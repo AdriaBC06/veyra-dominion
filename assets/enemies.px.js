@@ -352,3 +352,89 @@ anim("zealot", { w: 12, h: 19, outline: "k", fps: 8 }, `
   .....qqqqqQQ`,
   frame(grid(4, 15, "..sz..S.\n.sz....s\nsz.....sz\nPP.....PP")),
   frame(grid(4, 15, "...sS...\n...sz...\n...zs...\n..PPP...")))
+
+// ================================================================== V19 boss
+// ------------------------------------------------------------------ Captain of the Watch (52x66)
+// The boss: a giant knight-captain, over twice a knight's height. Plumed barbute, full plate over
+// the royal blue tabard, a blue cloak behind, a tower-high kite shield in front (the side facing
+// Veyra) with the Watch's pale tower, a greatsword raised over the back shoulder. `charge` lowers
+// him behind the shield, sword swept back, crest streaming.
+function captain(c, step, charge) {
+  const lean = charge ? 4 : 0, dy = charge ? 4 : 0
+  // cloak behind, flaring at the hem, a fold down the middle
+  c.poly([27, 20, 37, 19, 47, 56, 44, 61, 35, 58, 29, 60], "N")
+  c.poly([30, 20, 37, 19, 45, 52, 39, 54], "n")
+  c.line(36, 26, 41, 55, "N")
+  // legs: cuisses, knee cops, greaves and sabatons; the stride swaps them
+  const legs = step ? [[14, 0, 0], [27, 1, 0]] : [[19, 1, 1], [23, 0, 0]]
+  for (const [x, back, up] of legs) {
+    const y = 46 - up, [d, m, l] = back ? ["L", "l", "I"] : ["l", "I", "i"]
+    c.rect(x, y, 7, 11, m)
+    c.vline(x + 6, y, 11, d); c.vline(x, y, 11, l)
+    c.rect(x, y + 4, 7, 3, l); c.hline(x, y + 6, 7, d); c.px(x + 2, y + 5, "j")
+    c.rect(x - 2, y + 11, 10, 6 + up, m)
+    c.hline(x - 2, y + 11, 9, l); c.hline(x - 2, y + 16 + up, 10, d)
+    c.px(x - 2, y + 12, back ? "l" : "j")
+  }
+  // fauld and tabard skirt in royal blue, a darker back half
+  c.rect(15, 37, 18, 12, "o"); c.rect(26, 37, 7, 12, "n")
+  c.hline(15, 48, 18, "N"); c.vline(24, 41, 7, "n"); c.vline(19, 42, 6, "n")
+  // breastplate: rounded, lit from the top left, a ridge down the middle
+  const by = dy / 2
+  c.ellipse(24 - lean, 29 + by, 10, 9, "L")
+  c.ellipse(23 - lean, 28 + by, 9, 8, "l")
+  c.ellipse(22 - lean, 27 + by, 7, 6, "I")
+  c.ellipse(20 - lean, 25 + by, 4, 3, "i")
+  c.px(18 - lean, 23 + by, "j"); c.px(19 - lean, 23 + by, "j"); c.px(18 - lean, 24 + by, "j")
+  c.vline(23 - lean, 21 + by, 13, "l")
+  c.hline(14 - lean + 1, 36, 19, "Y"); c.hline(14 - lean + 1, 37, 19, "K"); c.rect(21 - lean, 36, 3, 2, "e")
+  // back pauldron and sword arm
+  if (charge) {
+    c.circ(31, 25 + by, 4, "l"); c.circ(30, 24 + by, 2, "I")
+    c.line(30, 29 + by, 35, 33 + by, "I", 3)
+    c.rect(35, 32 + by, 3, 3, "l")
+    c.line(36, 30 + by, 36, 37 + by, "Y")
+    c.line(38, 33 + by, 49, 35 + by, "j", 2); c.line(38, 35 + by, 48, 36 + by, "i")
+    c.px(49, 36 + by, "i")
+  } else {
+    c.circ(32, 23, 4, "l"); c.circ(31, 22, 2, "I")
+    c.line(33, 26, 37, 19, "I", 3)
+    c.rect(36, 15, 4, 4, "l")
+    c.line(33, 16, 43, 19, "Y"); c.px(43, 18, "Y"); c.px(33, 17, "Y")
+    c.line(39, 15, 47, -1, "j", 2); c.line(40, 16, 48, 0, "i")
+    c.line(37, 14, 38, 12, "e")
+  }
+  // gorget and helm: a barbute with a T slit, rivets, a blue horsehair crest sweeping back
+  const hx = 16 - lean, hy = 4 + dy
+  c.rect(hx + 2, hy + 15, 10, 3, "l"); c.hline(hx + 2, hy + 15, 10, "I")
+  c.circ(hx + 7, hy + 7, 7, "l")
+  c.circ(hx + 6, hy + 6, 6, "I")
+  c.rect(hx, hy + 7, 13, 8, "I")
+  c.rect(hx + 10, hy + 7, 3, 8, "l"); c.vline(hx + 13, hy + 6, 9, "L")
+  c.circ(hx + 4, hy + 4, 3, "i"); c.px(hx + 3, hy + 2, "j"); c.px(hx + 4, hy + 2, "j"); c.px(hx + 2, hy + 3, "j")
+  c.hline(hx + 1, hy + 8, 6, "k"); c.vline(hx + 4, hy + 8, 6, "k")
+  c.hline(hx + 1, hy + 7, 6, "i")
+  for (const [x, y] of [[9, 9], [9, 12], [11, 4]]) c.px(hx + x, hy + y, "j")
+  c.hline(hx + 1, hy + 14, 11, "l")
+  c.line(hx + 4, hy - 1, hx + 11, hy - 3, "o", 3)
+  c.line(hx + 11, hy - 3, hx + 19 + lean, hy + 4 - lean * 1.5, "n", 3)
+  c.line(hx + 17 + lean, hy + 2 - lean, hx + 22 + lean, hy + 9 - lean * 1.5, "N", 2)
+  c.line(hx + 4, hy - 2, hx + 10, hy - 4, "X")
+  // front pauldron, arm hidden behind the shield
+  const sx = 2 - lean * 0.5, sy = 21 + dy / 2
+  // kite shield: steel rim, blue field darker on the turned half, the pale tower of the Watch
+  c.poly([sx, sy, sx + 19, sy, sx + 19, sy + 21, sx + 10, sy + 35, sx + 9, sy + 35, sx, sy + 21], "i")
+  c.poly([sx + 2, sy + 2, sx + 17, sy + 2, sx + 17, sy + 21, sx + 9.5, sy + 32, sx + 2, sy + 21], "n")
+  c.poly([sx + 10, sy + 2, sx + 17, sy + 2, sx + 17, sy + 21, sx + 10, sy + 31.5], "N")
+  c.hline(sx + 2, sy + 2, 15, "o"); c.vline(sx + 2, sy + 2, 19, "o")
+  c.vline(sx + 19, sy, 21, "I"); c.line(sx + 19, sy + 21, sx + 10, sy + 35, "I")
+  // tower: battlements, body, a dark door and window
+  c.rect(sx + 6, sy + 10, 7, 13, "X")
+  c.rect(sx + 5, sy + 7, 9, 4, "X")
+  for (const x of [5, 7, 9, 11, 13]) c.px(sx + x, sy + 6, "X")
+  c.rect(sx + 9, sy + 18, 2, 5, "N"); c.px(sx + 9, sy + 12, "N"); c.px(sx + 9, sy + 13, "N")
+  c.vline(sx + 12, sy + 10, 13, "j")
+  c.circ(sx + 18, sy + 1, 4, "I"); c.circ(sx + 17, sy, 2, "i"); c.px(sx + 16, sy - 1, "j")
+}
+anim("captain", { w: 50, h: 64, outline: "k", fps: 5, frames: 2 }, (c) => captain(c, c.frame, false))
+anim("captain_charge", { w: 50, h: 64, outline: "k", fps: 10, frames: 2 }, (c) => captain(c, c.frame, true))

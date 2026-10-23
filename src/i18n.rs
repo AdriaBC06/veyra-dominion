@@ -73,6 +73,7 @@ keys! {
     GameOverTitle => "Banished", "Desterrada";
     GameOverStats => "Survived {}   Kills {}", "Resististe {}   Bajas {}";
     HudRight => "LV {}   KILLS {}", "NV {}   BAJAS {}";
+    BossCaptain => "Captain of the Watch", "Capitán de la Guardia";
     LevelUpTitle => "Dominion grows", "El dominio crece";
     LevelUpLevel => "Lv {} / {}", "Nv {} / {}";
     LevelUpHelp => "Click, 1/2/3 or arrows + Enter", "Clic, 1/2/3 o flechas + Enter";

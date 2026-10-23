@@ -2,6 +2,7 @@
 
 use crate::arts::{Arts, Fallen, World};
 use crate::assets::{SpriteId, FLASH_FRAME_OFFSET};
+use crate::boss::Boss;
 use crate::config::*;
 use crate::enemies::{Action, Enemies};
 #[cfg(test)]
@@ -25,7 +26,7 @@ pub enum SimEvent {
     /// `pending_levels > 0` and `choices` are ready; call `choose_upgrade`.
     LevelUp,
     PlayerDied,
-    /// Survived until VICTORY_TIME; `start_endless` keeps the run going.
+    /// The map's boss fell; `start_endless` keeps the run going.
     Victory,
     /// An Abyssal Offering was opened; `reward` says what it offers. Call
     /// `accept_offering` or `sacrifice_offering`.
@@ -127,10 +128,15 @@ pub enum Cue {
     Throw,
     /// A Zealot blew himself up.
     Blast,
+    /// A boss rushed, bashed, raised its shield or blew the horn.
+    Charge,
+    Bash,
+    Guard,
+    Horn,
 }
 
-/// Every distinct cue fits (27 so far).
-const MAX_CUES: usize = 30;
+/// Every distinct cue fits (31 so far).
+const MAX_CUES: usize = 34;
 
 pub struct Player {
     pub pos: Vec2,
@@ -219,6 +225,10 @@ pub struct Game {
     pub shots: Vec<Shot>,
     pub fires: Vec<Fire>,
     pub blasts: Vec<Blast>,
+    /// The map's boss while it lives.
+    pub boss: Option<Boss>,
+    /// When endless mode began (the boss's death).
+    endless_from: f32,
     /// Enemies released by dying Ratcatchers this tick: (kind, where, how many).
     splits: Vec<(usize, Vec2, u8)>,
     /// What the open Abyssal Offering holds, while its screen is up.
@@ -291,6 +301,8 @@ impl Game {
             shots: Vec::with_capacity(MAX_SHOTS),
             fires: Vec::with_capacity(MAX_FIRES),
             blasts: Vec::with_capacity(MAX_BLASTS),
+            boss: None,
+            endless_from: 0.0,
             splits: Vec::with_capacity(MAX_SPLITS),
             reward: None,
             fades: Vec::with_capacity(MAX_FADES),
@@ -331,9 +343,7 @@ impl Game {
     pub fn tick(&mut self, input: &InputState) -> SimEvent {
         self.time += TICK_DT;
         let alive = self.dying.is_none();
-        if self.run_events() && alive {
-            return SimEvent::Victory;
-        }
+        self.run_events();
         let idle = InputState::default();
         self.move_player(if alive { input } else { &idle });
         let center = self.player.pos;
@@ -343,6 +353,11 @@ impl Game {
         let speed = 1.0 + self.stats.curse * PRIDE_SPEED_SHARE;
         self.enemies
             .steer(TICK_DT, center, &self.hash, self.time, speed);
+        if let Some(boss) = &mut self.boss {
+            if let Some(Some(cue)) = boss.update(&mut self.enemies, center, TICK_DT, speed) {
+                self.cue(cue);
+            }
+        }
         self.resolve_actions(alive);
         self.use_arts(alive);
         self.drip_bleeding();
@@ -353,6 +368,7 @@ impl Game {
         }
         self.remove_dead_enemies();
         self.release_splits();
+        let won = self.boss_fell() && alive;
         let mut opened = false;
         if alive {
             self.update_souls();
@@ -366,6 +382,8 @@ impl Game {
             if *t >= DEATH_TIME {
                 return SimEvent::PlayerDied;
             }
+        } else if won {
+            return SimEvent::Victory;
         } else if opened {
             return SimEvent::Offering;
         } else if self.pending_levels > 0 {
@@ -538,6 +556,17 @@ impl Game {
                     });
                     self.cue(Cue::Throw);
                 }
+                Action::Strike {
+                    pos,
+                    radius,
+                    damage,
+                } => {
+                    let reach = radius + PLAYER_RADIUS;
+                    if alive && self.player.pos.distance_squared(pos) <= reach * reach {
+                        self.hurt(damage);
+                    }
+                }
+                Action::Call(m) => self.spawn_wave(m.kind, m.n as usize, m.formation),
                 Action::Blast {
                     pos,
                     radius,
@@ -780,7 +809,8 @@ impl Game {
             } else {
                 self.drop_kill_soul(self.enemies.kind[i] as usize, self.enemies.pos(i), xp);
             }
-            if self.enemies.elite[i] && self.offerings.len() < MAX_OFFERINGS {
+            let prize = self.enemies.elite[i] || self.enemies.boss(i);
+            if prize && self.offerings.len() < MAX_OFFERINGS {
                 self.offerings.push(Offering {
                     pos: self.enemies.pos(i),
                 });
@@ -854,7 +884,7 @@ impl Game {
     /// Drops a slain `kind`'s soul if its drop chance for this phase of the run is due.
     fn drop_kill_soul(&mut self, kind: usize, pos: Vec2, xp: u32) {
         let (start, end) = ENEMY_DEFS[kind].drop;
-        let k = (self.time / VICTORY_TIME).clamp(0.0, 1.0);
+        let k = (self.time / MAP_TIME).clamp(0.0, 1.0);
         let owed = &mut self.drop_owed[kind];
         *owed += start + (end - start) * k;
         if *owed >= 1.0 {
@@ -940,9 +970,8 @@ impl Game {
         SPAWN_RATE_START + (SPAWN_RATE_END - SPAWN_RATE_START) * k
     }
 
-    /// Fires due timeline events; returns true when the victory beat is reached.
-    fn run_events(&mut self) -> bool {
-        let mut victory = false;
+    /// Fires due timeline events.
+    fn run_events(&mut self) {
         while let Some(ev) = EVENTS.get(self.next_event) {
             if ev.time > self.time {
                 break;
@@ -961,31 +990,51 @@ impl Game {
                     self.spawn_wave(kind, n as usize, formation);
                     self.cue(Cue::Arrival);
                 }
-                EventKind::Victory => victory = !self.endless,
+                EventKind::Boss(def) => self.spawn_boss(def),
             }
         }
         if self.endless {
-            let since = self.time - VICTORY_TIME;
+            let since = self.time - self.endless_from;
             if since > 0.0 && (since % ENDLESS_ELITE_EVERY) < TICK_DT {
                 self.spawn_elite();
             }
         }
-        victory
+    }
+
+    /// The boss walks in from the spawn ring, its horn calling the first rally.
+    pub fn spawn_boss(&mut self, def: &'static BossDef) {
+        if self.boss.is_some() {
+            return;
+        }
+        let pos = self.ring_point(gen_range(0.0, TAU));
+        let pride = 1.0 + self.stats.curse;
+        self.boss = Some(Boss::spawn(def, &mut self.enemies, pos, pride));
+        self.cue(Cue::Arrival);
+    }
+
+    /// The boss's body left the horde this tick: it is dead (bosses never leave alive).
+    fn boss_fell(&mut self) -> bool {
+        let fell = (self.boss.as_ref()).is_some_and(|b| self.enemies.find(b.uid).is_none());
+        if fell {
+            self.boss = None;
+        }
+        fell
     }
 
     pub fn start_endless(&mut self) {
         self.endless = true;
+        self.endless_from = self.time;
     }
 
     /// Enemy HP multiplier: grows with every minute of the run, then faster in endless
     /// mode. Pride (`curse`) adds to it either way.
     fn hp_scale(&self) -> f32 {
         let pride = 1.0 + self.stats.curse;
-        let run = 1.0 + HP_GROWTH_PER_MIN * self.time.clamp(0.0, VICTORY_TIME) / 60.0;
+        let run = 1.0 + HP_GROWTH_PER_MIN * self.time.clamp(0.0, MAP_TIME) / 60.0;
         if !self.endless {
             return pride * run;
         }
-        let past = (self.time - VICTORY_TIME).max(0.0) / 60.0;
+        let past = (self.time - self.endless_from).max(0.0) / 60.0;
         pride * run * (1.0 + ENDLESS_HP_GROWTH_PER_MIN * past)
     }
 
@@ -1073,7 +1122,12 @@ impl Game {
     }
 
     fn spawn_enemies(&mut self) {
-        self.spawn_acc += Self::spawn_rate(self.time) * (1.0 + self.stats.curse) * TICK_DT;
+        let boss = if self.boss.is_some() {
+            BOSS_SPAWN_SCALE
+        } else {
+            1.0
+        };
+        self.spawn_acc += Self::spawn_rate(self.time) * (1.0 + self.stats.curse) * boss * TICK_DT;
         while self.spawn_acc >= 1.0 {
             let Some(kind) = self.roll_kind() else {
                 self.spawn_acc = 0.0;
@@ -1099,6 +1153,9 @@ impl Game {
     pub fn debug_spawn_all(&mut self) {
         let hp_scale = self.hp_scale();
         for (kind, def) in ENEMY_DEFS.iter().enumerate() {
+            if def.behavior == Behavior::Boss {
+                continue;
+            }
             let angle = kind as f32 * TAU / ENEMY_DEFS.len() as f32 + gen_range(0.0, 0.5);
             let center = self.player.pos + Vec2::from_angle(angle) * self.spawn_ring * 0.6;
             for _ in 0..def.group.1.max(2) {
@@ -1116,7 +1173,7 @@ impl Game {
         let e = &mut self.enemies;
         let near = DEBUG_ELITE_RADIUS * DEBUG_ELITE_RADIUS;
         for i in 0..e.len() {
-            if e.pos(i).distance_squared(self.player.pos) <= near {
+            if !e.boss(i) && e.pos(i).distance_squared(self.player.pos) <= near {
                 e.make_elite(i);
             }
         }
@@ -1286,7 +1343,7 @@ mod tests {
         // Derived from the sprites, these match the hand-tuned radii they replace.
         let radii = [RAT, VILLAGER, KNIGHT, BRUTE].map(|k| ENEMY_DEFS[k].radius());
         assert_eq!(radii, [5.0, 6.0, 7.0, 11.0]);
-        assert_eq!(largest_radius(), 11.0);
+        assert_eq!(largest_radius(), ENEMY_DEFS[CAPTAIN].radius());
         assert!(ENEMY_DEFS
             .iter()
             .all(|d| (6..=10).contains(&d.burst_count())));
@@ -1745,7 +1802,7 @@ mod tests {
         let mut g = quiet();
         kill(&mut g);
         assert_eq!(g.souls.len(), 1, "the first kill always pays");
-        g.time = VICTORY_TIME;
+        g.time = MAP_TIME;
         for _ in 0..100 {
             kill(&mut g);
         }
@@ -1971,19 +2028,45 @@ mod tests {
     }
 
     #[test]
-    fn victory_at_ten_minutes_then_endless_scales_hp() {
+    fn the_boss_at_ten_minutes_then_endless_scales_hp_from_the_win() {
         let mut g = Game::new();
-        g.time = VICTORY_TIME - TICK_DT * 0.5;
+        g.time = MAP_TIME;
         g.player.hp = f32::INFINITY;
         g.run_events();
-        assert_eq!(g.tick(&InputState::default()), SimEvent::Victory);
+        assert!(
+            g.boss.is_some(),
+            "no victory on the clock, the Captain comes"
+        );
+        g.time = MAP_TIME + 90.0;
         g.start_endless();
-        for _ in 0..60 {
-            assert_ne!(g.tick(&InputState::default()), SimEvent::Victory);
-        }
-        g.time = VICTORY_TIME + 120.0;
-        let run = 1.0 + HP_GROWTH_PER_MIN * VICTORY_TIME / 60.0;
+        g.time += 120.0;
+        let run = 1.0 + HP_GROWTH_PER_MIN * MAP_TIME / 60.0;
         assert_eq!(g.hp_scale(), run * (1.0 + 2.0 * ENDLESS_HP_GROWTH_PER_MIN));
+    }
+
+    #[test]
+    fn the_horde_thins_while_a_boss_fights() {
+        let spawned = |boss: bool| {
+            let mut g = Game::new();
+            g.time = MAP_TIME;
+            g.arrived[VILLAGER] = Some(0.0);
+            if boss {
+                g.spawn_boss(&CAPTAIN_DEF);
+            }
+            let n = g.enemies.len();
+            for _ in 0..600 {
+                g.spawn_enemies();
+            }
+            g.enemies.len() - n
+        };
+        let (alone, fighting) = (spawned(false), spawned(true));
+        // Within one enemy: the accumulator sums floats.
+        let full = Game::spawn_rate(MAP_TIME) * 10.0;
+        assert!((alone as f32 - full).abs() <= 1.0, "{alone} of {full}");
+        assert!(
+            (fighting as f32 - full * BOSS_SPAWN_SCALE).abs() <= 1.0,
+            "{fighting}"
+        );
     }
 
     #[test]
@@ -1997,7 +2080,7 @@ mod tests {
         g.upgrades.sins = SINS.map(|d| d.max_level);
         g.stats = g.upgrades.stats();
         g.arts.refresh(&g.upgrades);
-        g.time = VICTORY_TIME;
+        g.time = MAP_TIME;
         // Devouring Musk heals up to max_hp, so both are endless.
         g.player.hp = f32::INFINITY;
         g.player.max_hp = f32::INFINITY;

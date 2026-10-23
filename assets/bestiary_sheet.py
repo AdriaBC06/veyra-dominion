@@ -16,7 +16,8 @@ def frames(png):
     w=im.width//n
     return [im.crop((i*w,0,(i+1)*w,im.height)) for i in range(n)]
 enemies=[('Rat','rat'),('Villager','villager'),('Crow','crow'),('Hound','hound'),('Torchbearer','torchbearer'),('Shepherd','shepherd'),
- ('Barricader','barricader'),('Curate','curate'),('Ratcatcher','ratcatcher'),('Knight','knight'),('Zealot','zealot'),('Brute','brute')]
+ ('Barricader','barricader'),('Curate','curate'),('Ratcatcher','ratcatcher'),('Knight','knight'),('Zealot','zealot'),('Brute','brute'),
+ ('Captain of the Watch (boss)','captain'),('Captain charging','captain_charge')]
 fx=[('stone',FX+'/sprites/stone.png'),('torch_spin',FX+'/anims/torch_spin.png'),('fire_patch',FX+'/anims/fire_patch.png'),
  ('soul_faint',FX+'/sprites/soul_faint.png'),('soul',R+'soul.png'),('soul_radiant',FX+'/anims/soul_radiant.png'),('bless',FX+'/anims/bless.png'),
  ('zealot_blast',FX+'/anims/zealot_blast.png')]

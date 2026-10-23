@@ -12,6 +12,8 @@ pub const MODE_WALK: u8 = 0;
 pub const MODE_WINDUP: u8 = 1;
 pub const MODE_DASH: u8 = 2;
 pub const MODE_REST: u8 = 3;
+/// A boss behind its raised shield (`Attack::Guard`): fireballs glance off the front.
+pub const MODE_GUARD: u8 = 4;
 
 /// Something an enemy did that reaches beyond the horde.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -30,6 +32,10 @@ pub enum Action {
         damage: f32,
         enemy_damage: f32,
     },
+    /// A boss's blow lands on a circle at `pos` (a charge, a shield bash).
+    Strike { pos: Vec2, radius: f32, damage: f32 },
+    /// A boss called these troops in.
+    Call(Muster),
 }
 
 pub struct Enemies {
@@ -105,7 +111,7 @@ impl Enemies {
             mode: Vec::with_capacity(n),
             max_hp: Vec::with_capacity(n),
             bless_until: Vec::with_capacity(n),
-            actions: Vec::with_capacity(MAX_SHOTS),
+            actions: Vec::with_capacity(MAX_SHOTS + BOSS_ACTIONS),
             frozen_vuln: 0.0,
             next_uid: 0,
             counts: [0; ENEMY_DEFS.len()],
@@ -191,6 +197,21 @@ impl Enemies {
     pub fn max_radius(&self) -> f32 {
         let alive = ENEMY_DEFS.iter().zip(self.counts).filter(|(_, n)| *n > 0);
         alive.map(|(d, _)| d.radius()).fold(0.0, f32::max)
+    }
+
+    /// A boss's body: also never frozen or healed.
+    pub fn boss(&self, i: usize) -> bool {
+        ENEMY_DEFS[self.kind[i] as usize].behavior == Behavior::Boss
+    }
+
+    /// Elites and bosses: never charmed, turned into thralls or knocked back.
+    pub fn unswayed(&self, i: usize) -> bool {
+        self.elite[i] || self.boss(i)
+    }
+
+    /// Where the enemy with stable id `uid` is, if it is still in the horde.
+    pub fn find(&self, uid: u32) -> Option<usize> {
+        self.uid.iter().position(|&u| u == uid)
     }
 
     pub fn charmed(&self, i: usize, time: f32) -> bool {
@@ -373,6 +394,7 @@ impl Enemies {
             Behavior::Support { keep, .. } => {
                 (self.keep_away(i, dir, dist, keep, speed, time), true)
             }
+            Behavior::Boss => (Vec2::ZERO, false),
             Behavior::Bomber {
                 prime_range,
                 fuse,
@@ -436,7 +458,7 @@ impl Enemies {
             let p = self.pos(i);
             hash.query_radius(p, radius, |j, _| {
                 let free = !self.charmed(j, time) && self.hp[j] > 0.0;
-                if j != i && free && self.hp[j] < self.max_hp[j] {
+                if j != i && free && !self.boss(j) && self.hp[j] < self.max_hp[j] {
                     self.hp[j] = (self.hp[j] + heal * self.max_hp[j]).min(self.max_hp[j]);
                     self.bless_until[j] = time + BLESS_SHOW;
                 }
