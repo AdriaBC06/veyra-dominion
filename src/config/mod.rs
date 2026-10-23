@@ -74,10 +74,38 @@ pub const SOUL_COLLECT_RADIUS: f32 = 6.0;
 /// When full, a new soul's XP merges into the nearest existing one.
 pub const MAX_SOULS: usize = 600;
 pub const SOUL_BOB_HZ: f32 = 2.0;
+/// A soul's look tells its worth: faint below `SOUL_FAINT_BELOW` XP, radiant from
+/// `SOUL_RADIANT_FROM` (merged souls follow the same rule).
+pub const SOUL_FAINT_BELOW: u32 = 3;
+pub const SOUL_RADIANT_FROM: u32 = 10;
+
+/// XP curve in steps (VS-like, docs/design.md 7.8): each level costs `XP_STEPS[i].1`
+/// more than the one before from level `XP_STEPS[i].0` on, and the first level of a
+/// step past the first is a wall (`XP_WALL` extra).
+pub const XP_FIRST: u32 = 8;
+pub const XP_STEPS: [(u32, u32); 3] = [(1, 7), (20, 10), (40, 14)];
+pub const XP_WALL: [u32; 3] = [0, 200, 1000];
 
 /// XP needed to go from `level` to `level + 1`.
 pub const fn xp_to_next(level: u32) -> u32 {
-    8 + 6 * level
+    let mut need = XP_FIRST;
+    let mut i = 0;
+    while i < XP_STEPS.len() {
+        let (from, step) = XP_STEPS[i];
+        let to = if i + 1 < XP_STEPS.len() {
+            XP_STEPS[i + 1].0
+        } else {
+            u32::MAX
+        };
+        if level > from {
+            need += step * ((if level < to { level } else { to }) - from);
+        }
+        if level == from {
+            need += XP_WALL[i];
+        }
+        i += 1;
+    }
+    need
 }
 
 // --- Sins -----------------------------------------------------------------

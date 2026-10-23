@@ -252,7 +252,11 @@ pub struct Game {
     view: Vec2,
     pub(crate) spawn_acc: f32,
     next_event: usize,
-    unlocked: [bool; ENEMY_DEFS.len()],
+    /// When each kind arrived, `None` before its unlock and after its retirement.
+    arrived: [Option<f32>; ENEMY_DEFS.len()],
+    /// Per kind, the drop chances owed so far: a kill drops its soul each time this
+    /// reaches 1, so drops are spread evenly instead of rolled (and the first kill pays).
+    drop_owed: [f32; ENEMY_DEFS.len()],
 }
 
 fn splat(splats: &mut Vec<Splat>, pos: Vec2, radius: f32) {
@@ -307,7 +311,8 @@ impl Game {
             view: Vec2::new(DEFAULT_VIEW_W, LOGICAL_H),
             spawn_acc: 0.0,
             next_event: 0,
-            unlocked: [false; ENEMY_DEFS.len()],
+            arrived: [None; ENEMY_DEFS.len()],
+            drop_owed: [1.0; ENEMY_DEFS.len()],
         }
     }
 
@@ -714,7 +719,9 @@ impl Game {
         if f.kind.is_some() {
             self.kills += 1;
             self.cue(Cue::Kill(def.family));
-            self.drop_soul(f.pos, def.soul_xp);
+            if let Some(kind) = f.kind {
+                self.drop_kill_soul(kind as usize, f.pos, def.soul_xp);
+            }
         }
     }
 
@@ -768,7 +775,11 @@ impl Game {
                 splat(&mut self.splats, self.enemies.pos(i), def.pool_radius());
             }
             self.cue(Cue::Kill(family));
-            self.drop_soul(self.enemies.pos(i), xp);
+            if self.enemies.elite[i] {
+                self.drop_soul(self.enemies.pos(i), xp);
+            } else {
+                self.drop_kill_soul(self.enemies.kind[i] as usize, self.enemies.pos(i), xp);
+            }
             if self.enemies.elite[i] && self.offerings.len() < MAX_OFFERINGS {
                 self.offerings.push(Offering {
                     pos: self.enemies.pos(i),
@@ -838,6 +849,18 @@ impl Game {
             }
             true
         });
+    }
+
+    /// Drops a slain `kind`'s soul if its drop chance for this phase of the run is due.
+    fn drop_kill_soul(&mut self, kind: usize, pos: Vec2, xp: u32) {
+        let (start, end) = ENEMY_DEFS[kind].drop;
+        let k = (self.time / VICTORY_TIME).clamp(0.0, 1.0);
+        let owed = &mut self.drop_owed[kind];
+        *owed += start + (end - start) * k;
+        if *owed >= 1.0 {
+            *owed -= 1.0;
+            self.drop_soul(pos, xp);
+        }
     }
 
     fn drop_soul(&mut self, pos: Vec2, xp: u32) {
@@ -927,12 +950,17 @@ impl Game {
             self.next_event += 1;
             match ev.kind {
                 EventKind::Unlock(kind) => {
-                    self.unlocked[kind] = true;
+                    self.arrived[kind] = Some(ev.time);
                     if ev.time > 0.0 {
                         self.cue(Cue::Arrival);
                     }
                 }
+                EventKind::Retire(kind) => self.arrived[kind] = None,
                 EventKind::Elite => self.spawn_elite(),
+                EventKind::Wave(kind, n, formation) => {
+                    self.spawn_wave(kind, n as usize, formation);
+                    self.cue(Cue::Arrival);
+                }
                 EventKind::Victory => victory = !self.endless,
             }
         }
@@ -949,22 +977,49 @@ impl Game {
         self.endless = true;
     }
 
-    /// Enemy HP multiplier: 1 during the run, growing after victory in endless mode.
-    /// Pride (`curse`) adds to it either way.
+    /// Enemy HP multiplier: grows with every minute of the run, then faster in endless
+    /// mode. Pride (`curse`) adds to it either way.
     fn hp_scale(&self) -> f32 {
         let pride = 1.0 + self.stats.curse;
+        let run = 1.0 + HP_GROWTH_PER_MIN * self.time.clamp(0.0, VICTORY_TIME) / 60.0;
         if !self.endless {
-            return pride;
+            return pride * run;
         }
-        pride * (1.0 + ENDLESS_HP_GROWTH_PER_MIN * (self.time - VICTORY_TIME).max(0.0) / 60.0)
+        let past = (self.time - VICTORY_TIME).max(0.0) / 60.0;
+        pride * run * (1.0 + ENDLESS_HP_GROWTH_PER_MIN * past)
     }
 
-    fn spawn_weight(&self, kind: usize) -> f32 {
-        if !self.unlocked[kind] {
-            return 0.0;
+    /// A pressure event: `n` enemies of `kind` at once, in `formation` around her.
+    fn spawn_wave(&mut self, kind: usize, n: usize, formation: Formation) {
+        let hp_scale = self.hp_scale();
+        let side = gen_range(0.0, TAU);
+        for j in 0..n {
+            if self.enemies.len() >= MAX_ENEMIES {
+                return;
+            }
+            let t = (j as f32 + 0.5) / n as f32;
+            let pos = match formation {
+                Formation::Ring => self.ring_point(side + t * TAU),
+                Formation::Line => {
+                    let across = Vec2::from_angle(side).perp();
+                    self.ring_point(side) + across * (t - 0.5) * WAVE_LINE_LEN
+                }
+                Formation::Pack => {
+                    self.ring_point(side)
+                        + Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, WAVE_PACK_SPREAD)
+                }
+            };
+            self.enemies.spawn(kind, pos, hp_scale);
         }
+    }
+
+    /// A kind's spawn weight grows from its arrival (0 while it isn't in play).
+    fn spawn_weight(&self, kind: usize) -> f32 {
+        let Some(since) = self.arrived[kind] else {
+            return 0.0;
+        };
         let def = &ENEMY_DEFS[kind];
-        (def.weight_start + def.weight_growth_per_min * self.time / 60.0).max(0.0)
+        (def.weight_start + def.weight_growth_per_min * (self.time - since) / 60.0).max(0.0)
     }
 
     /// Weighted pick among unlocked kinds.
@@ -990,7 +1045,7 @@ impl Game {
     /// toughest kinds lead the charge).
     fn spawn_elite(&mut self) {
         let weight = |k: usize| {
-            if self.unlocked[k] {
+            if self.arrived[k].is_some() {
                 ENEMY_DEFS[k].hp
             } else {
                 0.0
@@ -1414,10 +1469,21 @@ mod tests {
     }
 
     #[test]
-    fn xp_curve() {
-        assert_eq!(xp_to_next(1), 14);
-        for n in 1..50 {
-            assert_eq!(xp_to_next(n), 8 + 6 * n);
+    fn xp_curve_steps_and_walls() {
+        assert_eq!(xp_to_next(1), XP_FIRST);
+        let (step, step20, step40) = (XP_STEPS[0].1, XP_STEPS[1].1, XP_STEPS[2].1);
+        for n in 1..60 {
+            let rise = xp_to_next(n + 1) as i64 - xp_to_next(n) as i64;
+            let expected = match n + 1 {
+                20 => (step + XP_WALL[1]) as i64,
+                21 => step20 as i64 - XP_WALL[1] as i64,
+                40 => (step20 + XP_WALL[2]) as i64,
+                41 => step40 as i64 - XP_WALL[2] as i64,
+                m if m < 20 => step as i64,
+                m if m < 40 => step20 as i64,
+                _ => step40 as i64,
+            };
+            assert_eq!(rise, expected, "level {n} to {}", n + 1);
         }
     }
 
@@ -1607,42 +1673,106 @@ mod tests {
     #[test]
     fn spawn_curve() {
         assert_eq!(Game::spawn_rate(0.0), 1.0);
-        assert_eq!(Game::spawn_rate(150.0), 13.0);
-        assert_eq!(Game::spawn_rate(300.0), 25.0);
-        assert_eq!(Game::spawn_rate(900.0), 25.0);
+        assert_eq!(
+            Game::spawn_rate(SPAWN_RAMP_SECS * 0.5),
+            (SPAWN_RATE_START + SPAWN_RATE_END) * 0.5
+        );
+        assert_eq!(Game::spawn_rate(SPAWN_RAMP_SECS), SPAWN_RATE_END);
+        assert_eq!(Game::spawn_rate(SPAWN_RAMP_SECS * 2.0), SPAWN_RATE_END);
         assert_eq!(Game::spawn_rate(-5.0), 1.0);
     }
 
     #[test]
-    fn knights_only_after_two_minutes() {
+    fn knights_only_after_five_minutes() {
         let mut g = Game::new();
         g.run_events();
         assert!(g.cues.is_empty(), "the opening unlocks are silent");
-        g.time = 119.0;
+        g.time = 299.0;
+        g.run_events();
+        g.cues.clear();
         g.run_events();
         assert_eq!(g.spawn_weight(KNIGHT), 0.0);
-        assert!(g.spawn_weight(RAT) > 0.0 && g.spawn_weight(VILLAGER) > 0.0);
+        assert!(g.spawn_weight(VILLAGER) > 0.0);
         for _ in 0..200 {
             assert_ne!(g.roll_kind(), Some(KNIGHT));
         }
-        g.cues.clear();
-        g.time = 121.0;
+        g.time = 301.0;
         g.run_events();
-        assert!(g.spawn_weight(KNIGHT) > 0.0);
+        assert_eq!(
+            g.spawn_weight(KNIGHT),
+            ENEMY_DEFS[KNIGHT].weight_start + ENEMY_DEFS[KNIGHT].weight_growth_per_min / 60.0
+        );
         assert_eq!(g.cues, [Cue::Arrival]);
+    }
+
+    #[test]
+    fn rats_retire_after_four_minutes() {
+        let mut g = Game::new();
+        g.time = 239.0;
+        g.run_events();
+        assert!(g.spawn_weight(RAT) > 0.0);
+        g.time = 241.0;
+        g.run_events();
+        assert_eq!(g.spawn_weight(RAT), 0.0);
+        for _ in 0..200 {
+            assert_ne!(g.roll_kind(), Some(RAT));
+        }
+    }
+
+    #[test]
+    fn waves_arrive_whole_in_formation() {
+        for formation in [Formation::Ring, Formation::Line, Formation::Pack] {
+            let mut g = quiet();
+            g.spawn_wave(BARRICADER, 24, formation);
+            assert_eq!(g.enemies.len(), 24);
+            assert!((0..24).all(|i| g.enemies.kind[i] as usize == BARRICADER));
+            if formation == Formation::Ring {
+                for i in 0..24 {
+                    let d = g.enemies.pos(i).distance(g.player.pos);
+                    assert!((d - g.spawn_ring).abs() < 0.01);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn fodder_pays_less_as_the_run_goes_on() {
+        let kill = |g: &mut Game| {
+            g.enemies.spawn(VILLAGER, vec2(200.0, 0.0), 1.0);
+            g.enemies.hp[0] = 0.0;
+            g.remove_dead_enemies();
+        };
+        let mut g = quiet();
+        kill(&mut g);
+        assert_eq!(g.souls.len(), 1, "the first kill always pays");
+        g.time = VICTORY_TIME;
+        for _ in 0..100 {
+            kill(&mut g);
+        }
+        let paid = g.souls.len() - 1;
+        let expected = 100.0 * ENEMY_DEFS[VILLAGER].drop.1;
+        assert!(
+            (paid as f32 - expected).abs() <= 1.0,
+            "{paid} souls, expected {expected}"
+        );
+        assert!(
+            ENEMY_DEFS[KNIGHT].drop == (1.0, 1.0),
+            "dangerous kinds always pay"
+        );
     }
 
     #[test]
     fn timeline_is_sorted_and_brings_scheduled_elites() {
         assert!(EVENTS.windows(2).all(|w| w[0].time <= w[1].time));
         let mut g = quiet();
-        g.time = 60.5;
+        g.time = 90.5;
         g.run_events();
         let elites = (0..g.enemies.len()).filter(|&i| g.enemies.elite[i]).count();
         assert_eq!(elites, 1);
         let i = g.enemies.len() - 1;
         let kind = g.enemies.kind[i] as usize;
-        assert_eq!(g.enemies.hp[i], ENEMY_DEFS[kind].hp * ELITE_HP);
+        let hp = ENEMY_DEFS[kind].hp * g.hp_scale() * ELITE_HP;
+        assert!((g.enemies.hp[i] - hp).abs() < 0.01);
     }
 
     /// No spawns, no Arts: only what a test puts in.
@@ -1841,7 +1971,7 @@ mod tests {
     }
 
     #[test]
-    fn victory_at_five_minutes_then_endless_scales_hp() {
+    fn victory_at_ten_minutes_then_endless_scales_hp() {
         let mut g = Game::new();
         g.time = VICTORY_TIME - TICK_DT * 0.5;
         g.player.hp = f32::INFINITY;
@@ -1852,7 +1982,8 @@ mod tests {
             assert_ne!(g.tick(&InputState::default()), SimEvent::Victory);
         }
         g.time = VICTORY_TIME + 120.0;
-        assert_eq!(g.hp_scale(), 1.0 + 2.0 * ENDLESS_HP_GROWTH_PER_MIN);
+        let run = 1.0 + HP_GROWTH_PER_MIN * VICTORY_TIME / 60.0;
+        assert_eq!(g.hp_scale(), run * (1.0 + 2.0 * ENDLESS_HP_GROWTH_PER_MIN));
     }
 
     #[test]

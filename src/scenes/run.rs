@@ -915,7 +915,17 @@ fn draw_souls(game: &Game) {
     for (i, s) in game.souls.iter().enumerate() {
         let bob = (TAU * SOUL_BOB_HZ * game.time + i as f32).sin();
         draw_shadow(s.pos, 2.5, 1.0, 0.6);
-        draw_sprite(SpriteId::Soul, 0, s.pos - vec2(4.0, 9.0 + bob), false);
+        // Each sprite centred on the soul, its bottom row 1 px above the ground point.
+        let (sprite, frame, w, h) = if s.xp < SOUL_FAINT_BELOW {
+            (SpriteId::SoulFaint, 0, 6.0, 6.0)
+        } else if s.xp < SOUL_RADIANT_FROM {
+            (SpriteId::Soul, 0, 8.0, 8.0)
+        } else {
+            let frame = assets::anim_frame(SpriteId::SoulRadiant, game.time, true);
+            (SpriteId::SoulRadiant, frame, 11.0, 13.0)
+        };
+        let corner = s.pos - vec2((w * 0.5_f32).floor(), h + 1.0 + bob);
+        draw_sprite(sprite, frame, corner, false);
     }
 }
 

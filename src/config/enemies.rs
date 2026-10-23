@@ -11,8 +11,8 @@ pub const SPAWN_RING_MARGIN: f32 = 32.0;
 pub const RELOCATE_MARGIN: f32 = 200.0;
 /// Enemies per second, ramping linearly from start to end over SPAWN_RAMP_SECS.
 pub const SPAWN_RATE_START: f32 = 1.0;
-pub const SPAWN_RATE_END: f32 = 25.0;
-pub const SPAWN_RAMP_SECS: f32 = 300.0;
+pub const SPAWN_RATE_END: f32 = 12.0;
+pub const SPAWN_RAMP_SECS: f32 = 600.0;
 /// Members of a spawn group appear scattered this far around the group's ring point.
 pub const SPAWN_GROUP_SPREAD: f32 = 14.0;
 /// Soft separation: neighbours closer than this push each other apart.
@@ -99,7 +99,11 @@ pub struct EnemyDef {
     pub speed: f32,
     pub contact_damage: f32,
     pub soul_xp: u32,
-    /// Spawn weight once unlocked: `weight_start + weight_growth_per_min * minutes`.
+    /// Chance that a kill drops its soul at 0:00 and at `VICTORY_TIME` (linear between,
+    /// held after): cheap fodder stops paying as the run goes on.
+    pub drop: (f32, f32),
+    /// Spawn weight once unlocked: `weight_start + weight_growth_per_min * minutes`
+    /// since it arrived.
     pub weight_start: f32,
     pub weight_growth_per_min: f32,
     /// Inclusive range of enemies spawned together.
@@ -165,6 +169,7 @@ const BASE: EnemyDef = EnemyDef {
     speed: 50.0,
     contact_damage: 8.0,
     soul_xp: 1,
+    drop: (1.0, 1.0),
     weight_start: 0.0,
     weight_growth_per_min: 0.0,
     group: (1, 1),
@@ -187,6 +192,7 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         speed: 75.0,
         contact_damage: 5.0,
         soul_xp: 1,
+        drop: (0.8, 0.3),
         weight_start: 60.0,
         weight_growth_per_min: -4.0,
         group: (3, 5),
@@ -200,8 +206,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         speed: 52.0,
         contact_damage: 8.0,
         soul_xp: 2,
+        drop: (0.9, 0.35),
         weight_start: 40.0,
-        weight_growth_per_min: 4.0,
+        weight_growth_per_min: 3.0,
         group: (1, 2),
         ..BASE
     },
@@ -214,8 +221,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         speed: 100.0,
         contact_damage: 4.0,
         soul_xp: 1,
+        drop: (0.8, 0.4),
         weight_start: 10.0,
-        weight_growth_per_min: 0.0,
+        weight_growth_per_min: 1.0,
         group: (4, 6),
         behavior: Behavior::Flyer { turn: 2.2 },
         family: Family::Beast,
@@ -229,9 +237,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 24.0,
         speed: 70.0,
         contact_damage: 9.0,
-        soul_xp: 3,
-        weight_start: 8.0,
-        weight_growth_per_min: 2.0,
+        soul_xp: 5,
+        weight_start: 10.0,
+        weight_growth_per_min: 3.0,
         group: (2, 3),
         behavior: Behavior::Charger {
             range: 90.0,
@@ -251,9 +259,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 22.0,
         speed: 48.0,
         contact_damage: 8.0,
-        soul_xp: 4,
-        weight_start: 4.0,
-        weight_growth_per_min: 1.5,
+        soul_xp: 7,
+        weight_start: 6.0,
+        weight_growth_per_min: 2.0,
         behavior: Behavior::Ranged {
             keep: 120.0,
             range: 190.0,
@@ -271,9 +279,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 16.0,
         speed: 50.0,
         contact_damage: 6.0,
-        soul_xp: 4,
-        weight_start: 4.0,
-        weight_growth_per_min: 1.5,
+        soul_xp: 7,
+        weight_start: 6.0,
+        weight_growth_per_min: 2.0,
         behavior: Behavior::Ranged {
             keep: 150.0,
             range: 220.0,
@@ -291,9 +299,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 60.0,
         speed: 36.0,
         contact_damage: 10.0,
-        soul_xp: 8,
-        weight_start: 3.0,
-        weight_growth_per_min: 1.5,
+        soul_xp: 14,
+        weight_start: 5.0,
+        weight_growth_per_min: 1.2,
         shield: true,
         ..BASE
     },
@@ -305,8 +313,8 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 34.0,
         speed: 44.0,
         contact_damage: 6.0,
-        soul_xp: 10,
-        weight_start: 2.0,
+        soul_xp: 16,
+        weight_start: 3.0,
         weight_growth_per_min: 0.5,
         behavior: Behavior::Support {
             keep: 90.0,
@@ -323,8 +331,8 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 50.0,
         speed: 38.0,
         contact_damage: 10.0,
-        soul_xp: 6,
-        weight_start: 3.0,
+        soul_xp: 10,
+        weight_start: 4.0,
         weight_growth_per_min: 1.0,
         split: Some((RAT, 5)),
         ..BASE
@@ -337,9 +345,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 70.0,
         speed: 42.0,
         contact_damage: 14.0,
-        soul_xp: 8,
-        weight_start: 0.0,
-        weight_growth_per_min: 8.0,
+        soul_xp: 14,
+        weight_start: 6.0,
+        weight_growth_per_min: 3.0,
         family: Family::Armored,
         armor: 4.0,
         ..BASE
@@ -352,9 +360,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 26.0,
         speed: 72.0,
         contact_damage: 8.0,
-        soul_xp: 5,
-        weight_start: 3.0,
-        weight_growth_per_min: 1.0,
+        soul_xp: 9,
+        weight_start: 5.0,
+        weight_growth_per_min: 2.0,
         behavior: Behavior::Bomber {
             prime_range: 36.0,
             fuse: 0.9,
@@ -372,9 +380,9 @@ pub const ENEMY_DEFS: [EnemyDef; 12] = [
         hp: 260.0,
         speed: 30.0,
         contact_damage: 24.0,
-        soul_xp: 25,
-        weight_start: 0.0,
-        weight_growth_per_min: 3.0,
+        soul_xp: 45,
+        weight_start: 2.0,
+        weight_growth_per_min: 1.0,
         heavy: true,
         ..BASE
     },
@@ -394,16 +402,34 @@ pub const THRALL_DEF: EnemyDef = EnemyDef {
 };
 
 /// Run length for victory, in seconds.
-pub const VICTORY_TIME: f32 = 300.0;
+pub const VICTORY_TIME: f32 = 600.0;
+/// Enemy HP grows by this fraction per minute of the run (x2 at 10:00), so a
+/// weak build meets a damage check instead of only more bodies.
+pub const HP_GROWTH_PER_MIN: f32 = 0.1;
 /// In endless mode, enemy HP grows by this fraction per minute past VICTORY_TIME.
 pub const ENDLESS_HP_GROWTH_PER_MIN: f32 = 0.5;
 
 pub enum EventKind {
     /// Enemy kind (index into `ENEMY_DEFS`) starts spawning.
     Unlock(usize),
+    /// Enemy kind stops spawning (the ones on the field stay).
+    Retire(usize),
     /// An elite of one of the unlocked kinds arrives (tougher kinds are likelier).
     Elite,
+    /// A pressure event: `n` enemies of a kind at once, in a formation.
+    Wave(usize, u16, Formation),
     Victory,
+}
+
+/// How a `Wave` arrives.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Formation {
+    /// A closed ring on the spawn ring, all round her.
+    Ring,
+    /// A wall `WAVE_LINE_LEN` long across one side, closing in.
+    Line,
+    /// A tight pack from one side.
+    Pack,
 }
 
 pub struct Event {
@@ -411,24 +437,36 @@ pub struct Event {
     pub kind: EventKind,
 }
 
-/// Timeline beats, sorted by time.
+/// Ashford's 10:00 timeline (docs/design.md 7.8): arrivals and retirements from the
+/// roster table, pressure events and elites. Sorted by time.
 pub const EVENTS: &[Event] = &[
     unlock(0.0, RAT),
     unlock(0.0, VILLAGER),
-    unlock(30.0, CROW),
-    unlock(60.0, HOUND),
-    elite(60.0),
-    unlock(75.0, TORCHBEARER),
-    unlock(105.0, SHEPHERD),
-    unlock(120.0, KNIGHT),
-    elite(120.0),
-    unlock(135.0, BARRICADER),
-    unlock(150.0, CURATE),
-    unlock(165.0, RATCATCHER),
-    unlock(180.0, BRUTE),
+    unlock(45.0, CROW),
+    unlock(90.0, HOUND),
+    elite(90.0),
+    unlock(120.0, TORCHBEARER),
+    wave(150.0, CROW, 30, Formation::Pack),
+    unlock(180.0, SHEPHERD),
     elite(180.0),
-    unlock(195.0, ZEALOT),
-    elite(240.0),
+    unlock(210.0, BARRICADER),
+    retire(240.0, RAT),
+    unlock(240.0, CURATE),
+    wave(240.0, VILLAGER, 40, Formation::Ring),
+    unlock(270.0, RATCATCHER),
+    elite(270.0),
+    unlock(300.0, KNIGHT),
+    wave(330.0, HOUND, 16, Formation::Line),
+    unlock(360.0, ZEALOT),
+    elite(360.0),
+    unlock(390.0, BRUTE),
+    retire(420.0, VILLAGER),
+    wave(420.0, RAT, 60, Formation::Pack),
+    elite(450.0),
+    retire(480.0, CROW),
+    wave(510.0, BARRICADER, 24, Formation::Ring),
+    retire(540.0, HOUND),
+    elite(540.0),
     Event {
         time: VICTORY_TIME,
         kind: EventKind::Victory,
@@ -448,6 +486,24 @@ const fn unlock(time: f32, kind: usize) -> Event {
         kind: EventKind::Unlock(kind),
     }
 }
+
+const fn retire(time: f32, kind: usize) -> Event {
+    Event {
+        time,
+        kind: EventKind::Retire(kind),
+    }
+}
+
+const fn wave(time: f32, kind: usize, n: u16, formation: Formation) -> Event {
+    Event {
+        time,
+        kind: EventKind::Wave(kind, n, formation),
+    }
+}
+
+/// A `Line` wave's length, and how far apart the members of a `Pack` start.
+pub const WAVE_LINE_LEN: f32 = 360.0;
+pub const WAVE_PACK_SPREAD: f32 = 40.0;
 
 // --- Behaviour tuning (see `Behavior`) -------------------------------------
 /// Elites: multipliers on their kind's health, damage, speed and soul; they also
