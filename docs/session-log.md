@@ -183,3 +183,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Decisions: no round blotches on the ground; trees/bushes not animated; only square + round hay; fences without auto outline, one post rule. F2-forced fusions not in the Grimoire is by design (noted in PLAN).
   - Next: water/river banks, bridges, walls, plaza cobbles, then the authored layout + solid grid + flow field.
   - Gotchas: pxl `anim` takes no `rdelay` (that is a stamp option) and needs `w`/`h` as options; `shade` steps along the ramp down to `k`, so shading already-dark strands turns them black.
+- **S16c cont. (2026-10-24)** — V19d done and approved (`feat: ashford map`).
+  - Done: Ashford layout + map file, village/terrain sheets, `map.rs` (grid, push-out, flow field, spawns, camera), `map_art.rs` (dual-grid terrain, glints, y-sort, fades), walls stop stones/Hellflare, bot avoids walls; Shift+F12 speed, Ctrl+F12 skip a minute.
+  - Fixes from review: bank/rock faces broke at tile edges (tiles now read the next cells), river repeated (64 px wobble, 16 variants, glints placed at run time), props drew over Veyra (sorted by her ground point, any prop covering her fades), bridge faded (now flat).
+  - Numbers: stress 0.42 ms on the map; probe median 382 s on map vs 513 s open, boss never killed: retune after the user plays.
+  - Gotchas: captures used a hand-made `VEYRA_MAPSHOT` hack (start in Run at a cell, optional fast-forward, save at frame 40), removed. Veyra's `player.pos` is her body; her ground is `VEYRA_DROP` lower.

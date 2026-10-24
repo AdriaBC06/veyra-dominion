@@ -33,7 +33,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V19c Grimoire of Evolutions (title + pause)
   - [x] V19g First-time setup (language, blood, display, volume) + Blood setting
 - **S16c — Ashford map** *(user approval)*
-  - [ ] V19d Authored Ashford layout, village art, blocking grid, flow field, wall/projectile rules, y-sort
+  - [x] V19d Authored Ashford layout, village art, blocking grid, flow field, wall/projectile rules, y-sort
 - **S16h — Living village** *(user approval)*
   - [ ] V19h Fleeing villagers, breakables + drops, building damage/collapse into rubble, fire
 - **S16i — Nightfall** *(user approval)*

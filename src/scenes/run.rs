@@ -15,9 +15,11 @@ use crate::game::{BurstPixel, Cue, Game, InputState, SimEvent, Splat};
 use crate::hud::{self, HudFx};
 use crate::i18n::{tr, trf, Key};
 use crate::kit;
+use crate::map_art::MapArt;
 use crate::screen::Screen;
 use crate::ui::{Action, Focus, Overlay, UiInput};
 use macroquad::prelude::*;
+use std::cell::RefCell;
 use std::f32::consts::TAU;
 
 /// Mouse movement ignores a cursor this close to Veyra (logical pixels).
@@ -47,6 +49,10 @@ pub struct Run {
     pub game: Game,
     state: State,
     accumulator: f32,
+    /// Shift+F12: the simulation runs this many times as fast (developer key).
+    speed: u32,
+    /// Ctrl+F12: the next frame plays this much game time at once, with the bot.
+    skip: f32,
     focus: Focus,
     /// Seconds until the next low-HP heartbeat.
     heartbeat: f32,
@@ -67,6 +73,11 @@ pub struct Run {
     pub autopiloted: bool,
     /// The F2 panel forced an evolution or union: the Grimoire ignores this run.
     pub forced: bool,
+    map_art: MapArt,
+    /// Draw order of the upright things (enemies by index, `u32::MAX` Veyra) and their base
+    /// lines, rebuilt every frame without allocating.
+    order: RefCell<Vec<(f32, u32)>>,
+    order_y: RefCell<Vec<f32>>,
 }
 
 const PAUSE_MENU: [Key; 4] = [
@@ -80,10 +91,16 @@ const VICTORY_MENU: [Key; 3] = [Key::MenuEndless, Key::MenuRestart, Key::MenuTit
 
 impl Run {
     pub fn new() -> Self {
+        let game = Game::on_map(ASHFORD_MAP);
         Self {
-            game: Game::new(),
+            map_art: MapArt::new(&game.map, ASHFORD_MAP),
+            order: RefCell::new(Vec::with_capacity(MAX_ENEMIES + 1)),
+            order_y: RefCell::new(Vec::with_capacity(MAX_ENEMIES + 1)),
+            game,
             state: State::Playing,
             accumulator: 0.0,
+            speed: 1,
+            skip: 0.0,
             focus: Focus::default(),
             heartbeat: 0.0,
             update_ms: 0.0,
@@ -147,8 +164,16 @@ impl Run {
                     return None;
                 }
                 if is_key_pressed(KeyCode::F12) {
-                    self.autopilot = self.autopilot.next();
-                    self.autopiloted |= self.autopilot != Autopilot::Off;
+                    if is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift) {
+                        self.speed = if self.speed >= 8 { 1 } else { self.speed * 2 };
+                    } else if is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl) {
+                        // the skipped minute is the bot's: the run no longer counts
+                        self.skip = 60.0;
+                        self.autopiloted = true;
+                    } else {
+                        self.autopilot = self.autopilot.next();
+                        self.autopiloted |= self.autopilot != Autopilot::Off;
+                    }
                 }
                 self.simulate(input, view, mouse_move);
             }
@@ -163,7 +188,9 @@ impl Run {
     fn simulate(&mut self, input: &UiInput, view: Vec2, mouse_move: bool) {
         let started = get_time();
         let mut sim_input = read_input();
-        let to_mouse = input.mouse - view * 0.5;
+        // She is off centre when the camera is held inside the map.
+        let centre = self.game.map.view_centre(self.game.player.pos, view);
+        let to_mouse = input.mouse - view * 0.5 - (self.game.player.pos - centre);
         if mouse_move
             && sim_input.move_dir == Vec2::ZERO
             && input.mouse_down
@@ -171,10 +198,20 @@ impl Run {
         {
             sim_input.move_dir = to_mouse;
         }
-        let bot = self.autopilot;
-        self.accumulator += get_frame_time().min(MAX_FRAME_DT);
+        let skipping = self.skip > 0.0;
+        let bot = match self.autopilot {
+            Autopilot::Off if skipping => Autopilot::Smart,
+            bot => bot,
+        };
+        let max_ticks = if skipping {
+            self.accumulator += std::mem::take(&mut self.skip);
+            u32::MAX
+        } else {
+            self.accumulator += get_frame_time().min(MAX_FRAME_DT) * self.speed as f32;
+            MAX_TICKS_PER_FRAME * self.speed
+        };
         let mut ticks = 0;
-        while self.accumulator >= TICK_DT && ticks < MAX_TICKS_PER_FRAME {
+        while self.accumulator >= TICK_DT && ticks < max_ticks {
             self.accumulator -= TICK_DT;
             ticks += 1;
             if bot != Autopilot::Off {
@@ -220,14 +257,18 @@ impl Run {
                 }
             }
         }
-        if ticks == MAX_TICKS_PER_FRAME {
+        if ticks == max_ticks || skipping {
             self.accumulator = 0.0;
+        }
+        if skipping {
+            // a minute of sounds at once would be a roar
+            self.game.cues.clear();
         }
         for s in self.game.splats.drain(..) {
             self.shed.push(s);
             bake(&mut self.blood, s, self.gore);
         }
-        self.blood.sync(self.game.player.pos - view * 0.5, view);
+        self.blood.sync(self.game.map.view_centre(self.game.player.pos, view) - view * 0.5, view);
         for cue in self.game.cues.drain(..) {
             audio::cue(match cue {
                 Cue::Fire => Sfx::Fire,
@@ -408,7 +449,7 @@ impl Run {
         for &s in &self.shed {
             bake(&mut self.blood, s, gore);
         }
-        self.blood.sync(self.game.player.pos - view * 0.5, view);
+        self.blood.sync(self.game.map.view_centre(self.game.player.pos, view) - view * 0.5, view);
     }
 
     /// Draws the world around Veyra with the world camera.
@@ -417,10 +458,14 @@ impl Run {
         let game = &self.game;
         let alpha = self.accumulator / TICK_DT;
         let player_pos = game.player.prev_pos.lerp(game.player.pos, alpha);
-        let origin = (player_pos - view * 0.5).round();
+        let origin = (game.map.view_centre(player_pos, view) - view * 0.5).round();
         set_camera(&screen.camera(origin));
         clear_background(BLACK);
-        draw_ground(origin, view);
+        if game.map.is_open() {
+            draw_ground(origin, view);
+        } else {
+            self.map_art.draw_terrain(&game.map, origin, view, game.time);
+        }
         self.blood.draw(origin, view);
         draw_gates(game);
         draw_mass_circle(game, player_pos.round());
@@ -431,12 +476,44 @@ impl Run {
         draw_bursts(game, true);
         draw_support_auras(game);
         draw_boss_telegraph(game);
-        draw_enemies(game);
+        let pos = player_pos.round();
+        let t = game.time + alpha * TICK_DT;
+        {
+            // Props, the horde and Veyra by their base line, so she walks behind houses.
+            let mut order = self.order.borrow_mut();
+            let mut ys = self.order_y.borrow_mut();
+            order.clear();
+            ys.clear();
+            let e = &game.enemies;
+            order.extend((0..e.len()).map(|i| (e.y[i], i as u32)));
+            // she hovers: her place in the order is the ground under her, where her shadow is
+            let ground = pos.y + VEYRA_DROP;
+            order.push((ground, u32::MAX));
+            order.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
+            ys.extend(order.iter().map(|o| o.0));
+            let body = Rect::new(
+                pos.x - VEYRA_BODY.x * 0.5,
+                ground - HOVER_HEIGHT - VEYRA_BODY.y,
+                VEYRA_BODY.x,
+                VEYRA_BODY.y,
+            );
+            self.map_art.draw_sorted(origin, view, game.time, body, &ys, |k| {
+                let i = order[k].1;
+                if i == u32::MAX {
+                    draw_embers(game, pos, false);
+                    draw_bats(game, pos, false);
+                    draw_veyra(game, pos, t);
+                    draw_embers(game, pos, true);
+                    draw_bats(game, pos, true);
+                } else {
+                    draw_enemy(game, i as usize);
+                }
+            });
+        }
         draw_blesses(game);
         draw_thralls(game);
         draw_fades(game);
         draw_bursts(game, false);
-        let pos = player_pos.round();
         draw_scent_motes(game, pos);
         draw_allure_wave(game, pos);
         draw_siren_bursts(game);
@@ -446,11 +523,6 @@ impl Run {
         draw_eye_marks(game);
         draw_bomb_blasts(game);
         draw_enemy_blasts(game);
-        draw_embers(game, pos, false);
-        draw_bats(game, pos, false);
-        draw_veyra(game, pos, game.time + alpha * TICK_DT);
-        draw_embers(game, pos, true);
-        draw_bats(game, pos, true);
         draw_gazes(game);
         draw_lashes(game, pos);
         draw_chains(game);
@@ -471,7 +543,10 @@ impl Run {
         let stats = match self.state {
             State::Playing => {
                 hud::draw_hud(game, &self.hud, view);
-                if self.autopilot != Autopilot::Off {
+                if self.speed > 1 {
+                    let label = format!("{} x{} (Shift+F12)", self.autopilot.label(), self.speed);
+                    hud::draw_autopilot(view, label.trim_start());
+                } else if self.autopilot != Autopilot::Off {
                     hud::draw_autopilot(view, self.autopilot.label());
                 }
                 return;
@@ -576,10 +651,10 @@ fn draw_shadow(pos: Vec2, half_w: f32, half_h: f32, opacity: f32) {
 }
 
 /// Enemies are drawn with their feet at their position, facing Veyra.
-fn draw_enemies(game: &Game) {
+fn draw_enemy(game: &Game, i: usize) {
     let e = &game.enemies;
     let px = game.player.pos.x;
-    for i in 0..e.len() {
+    {
         let pos = e.pos(i).round();
         let def = &ENEMY_DEFS[e.kind[i] as usize];
         // Frozen ones (Gaze of Desire) hold their step.

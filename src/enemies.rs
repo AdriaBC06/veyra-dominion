@@ -1,6 +1,7 @@
 //! Enemy horde stored as structure-of-arrays for a cache-friendly hot loop.
 
 use crate::config::*;
+use crate::map::Map;
 use crate::spatial::SpatialHash;
 use macroquad::math::{vec2, Vec2};
 use macroquad::rand::gen_range;
@@ -244,12 +245,15 @@ impl Enemies {
     /// Moves every enemy according to its behaviour plus soft separation, using the
     /// position snapshot in `hash` for neighbours, and queues their shots and blasts in
     /// `actions`. Charmed enemies hunt the horde and never attack her; frozen ones stay
-    /// put. `time` is the game time; `speed_scale` multiplies every speed (Pride).
+    /// put. Walkers find their way round `map`'s obstacles and are pushed out of them;
+    /// fliers cross everything. `time` is the game time; `speed_scale` multiplies every
+    /// speed (Pride).
     pub fn steer(
         &mut self,
         dt: f32,
         target: Vec2,
         hash: &SpatialHash,
+        map: &Map,
         time: f32,
         speed_scale: f32,
     ) {
@@ -274,7 +278,7 @@ impl Enemies {
             let (desired, separate) = match goal {
                 None => (Vec2::ZERO, true),
                 Some(g) if charmed => ((g - p).normalize_or_zero() * speed, true),
-                Some(g) => self.behave(i, def.behavior, p, g, speed, dt, time),
+                Some(g) => self.behave(i, def.behavior, p, g, map, speed, dt, time),
             };
             let mut push = Vec2::ZERO;
             if separate {
@@ -296,7 +300,17 @@ impl Enemies {
                     n < SEPARATION_MAX_NEIGHBOURS
                 });
             }
-            self.set_pos(i, p + (desired + push * SEPARATION_PUSH) * dt);
+            let moved = p + (desired + push * SEPARATION_PUSH) * dt;
+            if matches!(def.behavior, Behavior::Flyer { .. } | Behavior::Boss) {
+                self.set_pos(i, moved);
+                continue;
+            }
+            let held = map.push_out(moved, def.radius());
+            // A dash ends against a wall.
+            if self.mode[i] == MODE_DASH && held != moved {
+                self.timer[i] = 0.0;
+            }
+            self.set_pos(i, held);
         }
         self.support(hash, time);
     }
@@ -310,13 +324,16 @@ impl Enemies {
         behavior: Behavior,
         p: Vec2,
         goal: Vec2,
+        map: &Map,
         speed: f32,
         dt: f32,
         time: f32,
     ) -> (Vec2, bool) {
         let off = goal - p;
         let dist = off.length();
-        let dir = off.normalize_or_zero();
+        // Straight at her (fliers, a charger's aim) or the way round obstacles (walking).
+        let aim = off.normalize_or_zero();
+        let dir = map.steer(p, goal);
         match behavior {
             Behavior::Chase => (dir * speed, true),
             Behavior::Swarm { amp, hz } => {
@@ -333,11 +350,11 @@ impl Enemies {
                 if dist < FLYER_DIVE_RANGE {
                     self.mode[i] = MODE_DASH;
                     self.timer[i] = FLYER_DIVE_TIME;
-                    let v = v.normalize_or(dir) * speed;
+                    let v = v.normalize_or(aim) * speed;
                     (self.vx[i], self.vy[i]) = (v.x, v.y);
                     return (v, false);
                 }
-                let v = v + (dir * speed - v) * (turn * dt).min(1.0);
+                let v = v + (aim * speed - v) * (turn * dt).min(1.0);
                 (self.vx[i], self.vy[i]) = (v.x, v.y);
                 (v, false)
             }
@@ -350,10 +367,10 @@ impl Enemies {
             } => match self.mode[i] {
                 MODE_WINDUP if self.timer[i] <= 0.0 => {
                     // Aimed at the end of the wind-up, so moving away still works.
-                    (self.vx[i], self.vy[i]) = (dir.x, dir.y);
+                    (self.vx[i], self.vy[i]) = (aim.x, aim.y);
                     self.mode[i] = MODE_DASH;
                     self.timer[i] = dash_time;
-                    (dir * dash_speed, false)
+                    (aim * dash_speed, false)
                 }
                 MODE_WINDUP => (Vec2::ZERO, true),
                 MODE_DASH if self.timer[i] <= 0.0 => {
@@ -480,7 +497,7 @@ mod tests {
         }
         for _ in 0..60 {
             hash.rebuild(Vec2::ZERO, &e.x, &e.y);
-            e.steer(TICK_DT, Vec2::ZERO, &hash, 0.0, 1.0);
+            e.steer(TICK_DT, Vec2::ZERO, &hash, &Map::open(), 0.0, 1.0);
         }
         for i in 0..e.len() {
             assert!(e.pos(i).x < 60.0);

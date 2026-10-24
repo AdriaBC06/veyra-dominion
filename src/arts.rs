@@ -4,6 +4,7 @@
 use crate::config::*;
 use crate::enemies::{Enemies, MODE_GUARD};
 use crate::game::Player;
+use crate::map::Map;
 use crate::spatial::SpatialHash;
 use crate::upgrades::{PlayerStats, Upgrades};
 use macroquad::math::{vec2, Vec2};
@@ -314,6 +315,8 @@ pub struct World<'a> {
     pub time: f32,
     /// Size of the view around Veyra, which the Wandering Sigil bounces inside.
     pub view: Vec2,
+    /// Walls stop what a `walls` Art throws; thralls are pushed out of them.
+    pub map: &'a Map,
 }
 
 pub struct Arts {
@@ -1330,7 +1333,7 @@ impl Arts {
                     s.speed
                 };
                 let dir = (g - th.pos).normalize_or_zero();
-                th.pos += dir * speed * TICK_DT;
+                th.pos = w.map.push_out(th.pos + dir * speed * TICK_DT, body);
                 if dir.x.abs() > 0.2 {
                     th.facing = dir.x.signum();
                 }
@@ -1459,6 +1462,10 @@ impl Arts {
             }
             pr.pos += pr.vel * TICK_DT;
             pr.life -= TICK_DT;
+            if ARTS[HELLFLARE].walls && w.map.blocks_shot(pr.pos) {
+                pr.fade = SHOT_FADE;
+                continue;
+            }
             let mut hit = None;
             w.hash.query_radius(pr.pos, query, |j, _| {
                 if hit.is_none() && touches(enemies, j, pr.pos, PROJ_RADIUS) {
@@ -1524,6 +1531,10 @@ impl Arts {
             }
             b.pos += b.vel * TICK_DT;
             b.life -= TICK_DT;
+            if ARTS[HELLFLARE].walls && w.map.blocks_shot(b.pos) {
+                b.fade = SHOT_FADE;
+                return true;
+            }
             let mut hit = None;
             w.hash.query_radius(b.pos, query, |j, _| {
                 if hit.is_none()

@@ -23,6 +23,8 @@ pal({
   y: "#6e5a36", Y: "#8c7446", z: "#a48c58",
   c: "#3e4a5c", o: "#5a3a3a", O: "#6e5f4a",
   M: "#1e2418",                                            // contact shadow on grass
+  // water: deep, body, shallows, glint, foam (digits: every letter is taken)
+  "1": "#16202c", "2": "#1e3040", "3": "#2a4454", "4": "#5a7a86", "5": "#8aa2a6",
   // ground (ground.png hues), flowers, crops, moss
   R: "#32402d", U: "#3c4c34", V: "#4a5a3e", X: "#5a6a46",
   d: "#463a2f", a: "#544638", l: "#625442",
@@ -217,7 +219,6 @@ for (let i = 0; i < 2; i++) sprite("ground_dirt_" + i, { w: 32, h: 32 }, (c) => 
   }
   for (let n = 0; n < 2; n++) tuft(c, r() * 32 | 0, r() * 32 | 0, r)
 })
-sheet("ground", ["ground_grass_0", "ground_grass_1", "ground_grass_2", "ground_grass_3", "ground_dirt_0", "ground_dirt_1"])
 
 // ------------------------------------------------------------------ village props
 
@@ -551,6 +552,206 @@ sprite("rock_small", { w: 14, h: 10, outline: "k" }, (c) => {
   c.px(5, 2, "m"); c.px(6, 2, "m")
 })
 
-sheet("village", ["house_*", "chapel", "well", "lamp", "brazier", "barrel", "crate", "hay_*", "cart",
+// ------------------------------------------------------------------ terrain (dual grid)
+// Each 16 px tile sits on the shared corner of four map cells, offset half a cell: its index is
+// TL + 2 TR + 4 BL + 8 BR (bit set = the terrain is in that cell). The edge is the 0.5 contour of
+// the corner values blended across the tile plus a wobble that repeats every 64 px, so every
+// index comes in variants `<name>_<index>_<variant>`, variant = (tile x & 3) + 4 (tile y & 3)
+// + 16 * the two cells past the tile (see `dual`), and a tile always meets its neighbours.
+// Tiles are drawn over the ground; outside stays clear.
+const TAU = Math.PI * 2
+function wobble(x, y, s) {
+  return 0.11 * Math.sin(TAU * (2 * x + 2 * y) / 64 + s) + 0.07 * Math.sin(TAU * (6 * x - 2 * y) / 64 + 2 * s)
+    + 0.04 * Math.sin(TAU * (4 * x + 10 * y) / 64 + 3 * s) + 0.07 * Math.sin(TAU * (3 * x + y) / 64 + 4 * s)
+    + 0.04 * Math.sin(TAU * (x - 5 * y) / 64 + 5 * s)
+}
+const ox = (n) => (n & 3) * 16, oy = (n) => (n >> 2 & 3) * 16
+// The field at tile pixel (x, y). Rows above or below the tile read the cells past it (the
+// variant's top bits `n >> 4`), so a face that reaches over the tile's edge meets the next tile.
+function field(i, n, x, y, s) {
+  let tl = i & 1, tr = i >> 1 & 1, bl = i >> 2 & 1, br = i >> 3 & 1, ty = y
+  const far = n >> 4
+  if (y < 0) { bl = tl; br = tr; tl = far & 1; tr = far >> 1 & 1; ty = y + 16 }
+  else if (y >= 16) { tl = bl; tr = br; bl = far & 1; br = far >> 1 & 1; ty = y - 16 }
+  const u = (x + 0.5) / 16, v = (ty + 0.5) / 16
+  return (tl * (1 - u) + tr * u) * (1 - v) + (bl * (1 - u) + br * u) * v + wobble(x + ox(n), y + oy(n), s)
+}
+// `far`: 4 when the tiles read the two cells above them (water) or below them (ridge).
+function dual(name, fn, far = 1) {
+  for (let i = 1; i < 16; i++) for (let n = 0; n < 16 * far; n++) fn(name + "_" + i + "_" + n, i, n)
+}
+const hash = (a, b) => (((a * 73856093) ^ (b * 19349663)) >>> 0) % 997
+
+// River and ponds sit below the grass: the bank on their far side shows an earth face (3/4
+// view), a dark band of its shadow lies on the water, shallows line the other shores and faint
+// ripples cross the deep water. Glints (`glint`) are scattered over it by the game.
+dual("water", (name, i, n) => sprite(name, { w: 16, h: 16 }, (c) => {
+  const f = (x, y) => field(i, n, x, y, 0.7)
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const v = f(x, y), wx = x + ox(n), wy = y + oy(n)
+    if (v < 0.5) { if (v > 0.45) c.px(x, y, "R"); continue }   // grass lip
+    let up = 0
+    while (up < 7 && f(x, y - up - 1) >= 0.5) up++
+    if (up < 4) c.px(x, y, ["a", "a", "d", "d"][up])       // earth face of the near bank
+    else if (up < 6) c.px(x, y, "1")                       // its shadow on the water
+    else if (v < 0.52) c.px(x, y, "1")                     // wet rim under the far shore
+    else if (v < 0.6) c.px(x, y, "3")                      // shallows
+    else c.px(x, y, (wy & 1) && hash((wx + 5 * wy) >> 2, wy) % 13 === 0 ? "1" : "2")
+  }
+  for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++)  // roots and stones in the face
+    if (c.is(x, y, "a") && hash(x + ox(n), y + oy(n)) % 9 === 0) c.px(x, y, hash(x + ox(n), 5) & 1 ? "l" : "d")
+}), 4)
+
+// A glint on the current: a dash that brightens, drifts east and fades.
+anim("glint", { frames: 8, fps: 5, w: 12, h: 1 }, (c) => {
+  const [x, len] = [[0, 0], [1, 1], [2, 2], [3, 3], [5, 4], [7, 3], [9, 2], [11, 1]][c.frame]
+  for (let k = 0; k < len; k++) c.px(x + k, 0, k === len - 1 && len > 2 ? "5" : "4")
+})
+
+// Plaza cobbles: rounded setts in offset courses (4 px, repeats every 16), a kerb of darker
+// setts along the edge and an earth bed just outside it.
+dual("cobble", (name, i, n) => sprite(name, { w: 16, h: 16 }, (c) => {
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const v = field(i, n, x, y, 2.1)
+    if (v < 0.5) { if (v > 0.45) c.px(x, y, "d"); continue }
+    const row = y >> 2, o = (row & 1) * 2, col = ((x + o) & 15) >> 2, cx = (x + o) & 3, cy = y & 3
+    if (cx === 3 || cy === 3) { c.px(x, y, "A"); continue }  // mortar joints
+    const kerb = v < 0.58, tone = hash(col + (n & 3) * 4, row + (n >> 2 & 3) * 4) % 7
+    let k = kerb || tone === 0 ? "B" : "C"
+    if (cx === 0 && cy === 0 && tone === 2 && !kerb) k = "D"   // lit upper-left of the odd sett
+    else if (cx === 2 && cy === 2) k = kerb ? "A" : "B"     // shaded lower-right
+    c.px(x, y, k)
+  }
+}))
+
+// Dirt paths and lanes: packed earth with a darker rut line inside the edge, pebbles, and the
+// grass fraying over the edge in tufts.
+dual("path", (name, i, n) => sprite(name, { w: 16, h: 16 }, (c) => {
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const v = field(i, n, x, y, 4.3)
+    if (v < 0.5) continue
+    c.px(x, y, v < 0.55 ? "d" : "a")
+  }
+  for (let y = 0; y < 15; y++) for (let x = 0; x < 15; x++) {
+    const h = hash(x + ox(n), y + oy(n))
+    if (h % 41 === 0 && c.is(x, y, "a") && c.is(x + 1, y + 1, "a")) { c.px(x, y, "l"); c.px(x + 1, y, "l"); c.px(x, y + 1, "d") }
+    else if (h % 23 === 1 && y > 0 && c.is(x, y, "d")) { c.px(x, y, "V"); c.px(x, y - 1, "X") }   // tufts on the rim
+  }
+}))
+
+// Ridge: a raised outcrop that blocks. Its top is darker grass (tufts only, no speckle) with a
+// lit grass lip; along its south edge a 9 px rock face of blocks with vertical joints (offset
+// per course, lit tops) drops to the grass, with a contact shadow at its foot.
+dual("ridge", (name, i, n) => sprite(name, { w: 16, h: 16 }, (c) => {
+  const f = (x, y) => field(i, n, x, y, 5.9), wx = (x) => x + ox(n)
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const v = f(x, y)
+    if (v < 0.5) {                                        // foot shadow, under the south face
+      const rising = y > 0 ? f(x, y - 1) > v : v > f(x, y + 1)
+      if (v > 0.43 && rising) c.px(x, y, "M")
+      continue
+    }
+    let down = 0
+    while (down < 10 && f(x, y + down + 1) >= 0.5) down++
+    if (down < 9) {                                       // rock face, lip on top
+      const fy = 8 - down, blk = (wx(x) + (fy > 4 ? 3 : 0)) >> 2, top = fy === 1 || fy === 5
+      const joint = (wx(x) + (fy > 4 ? 3 : 0)) % 4 === 0 && hash(blk, fy > 4) % 3 !== 0
+      c.px(x, y, fy === 0 ? "X" : fy >= 7 ? "A" : joint ? "A" : top ? (hash(blk, fy) & 1 ? "D" : "C") : hash(blk, fy > 4) % 3 ? "B" : "C")
+    } else if (down < 10) c.px(x, y, "X")                 // grass lip
+    else c.px(x, y, (hash(wx(x), y + oy(n)) % 17) === 0 ? "U" : "R")
+    if (v < 0.52 && down >= 9) c.px(x, y, "k")            // outline on the top's other sides
+  }
+}), 4)
+
+// Woods floor: the dense border forest's ground (dark mould, leaf litter, ferny tufts) under the
+// trees the layout packs on it; its rim fades into darker grass.
+dual("woods", (name, i, n) => sprite(name, { w: 16, h: 16 }, (c) => {
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const v = field(i, n, x, y, 1.3)
+    if (v < 0.5) { if (v > 0.42) c.px(x, y, "R"); continue }
+    const h = hash(x + ox(n), y + oy(n)) % 11
+    c.px(x, y, v < 0.56 ? "f" : h === 0 ? "n" : h === 1 ? "E" : h < 4 ? "f" : "F")
+  }
+}))
+
+// ------------------------------------------------------------------ bridge
+// Plank bridge across a river running east-west: deck of cross planks, side beams with posts
+// every 16 px, the south end's face and two piles into the water. Its length spans a 48 px
+// river plus both banks.
+sprite("bridge", { w: 32, h: 76 }, (c) => {
+  const r = c.rng(5)
+  c.rect(0, 0, 32, 70, "k")
+  c.rect(4, 1, 24, 68, "w")
+  for (let y = 1; y < 69; y += 4) {                         // planks, uneven ends, lit tops
+    const l = 4 - (r() < 0.3 ? 1 : 0), w = 24 + (r() < 0.3 ? 1 : 0) + (4 - l)
+    c.rect(l, y, w, 3, "w"); c.hline(l, y, w, "x"); c.hline(4, y + 3, 24, "W")
+    if (r() < 0.5) c.px(6 + (r() * 18 | 0), y + 1, "W")      // knot
+  }
+  for (const x of [1, 28]) {                                // side beams seen from above
+    c.rect(x, 0, 3, 70, "W"); c.vline(x, 0, 70, "x")
+    for (let y = 2; y < 70; y += 16) { c.rect(x, y, 3, 4, "x"); c.hline(x, y, 3, "z"); c.hline(x, y + 4, 3, "k") }
+  }
+  c.rect(1, 70, 30, 4, "W"); c.hline(1, 70, 30, "x")        // south face
+  c.rect(0, 70, 1, 5, "k"); c.rect(31, 70, 1, 5, "k"); c.hline(0, 74, 32, "k")
+  for (const x of [4, 25]) { c.rect(x, 74, 3, 2, "b"); c.px(x, 74, "n") }   // piles
+  c.shade([27, 1, 1, 68], 1)                               // deck edge under the east beam
+})
+
+// ------------------------------------------------------------------ dry-stone walls
+// Village and churchyard walls on the 16 px grid. A horizontal piece shows its cap (top face,
+// 6 px) and its front face; a vertical run shows only its cap, 8 px wide at x 4..11, drawn over
+// the horizontal piece it leaves from so the face stops there. `wall_v_end` closes a vertical
+// run with its face; `wall_h_l` / `wall_h_r` start and end a horizontal run at a corner.
+// Fieldstones of uneven length (3-6 px) per course; widths come from a hash of the course so
+// pieces repeat every 16 px and still join.
+function course(row, seed) {
+  const cuts = []
+  for (let x = 0; x < 16;) { cuts.push(x); x += 3 + hash(row * 5 + x, seed) % 4; if (x > 13) break }
+  return cuts
+}
+function wallCap(c, x0, x1, y0, y1) {
+  for (let y = y0; y < y1; y++) {
+    const row = y >> 2, cy = y & 3, cuts = course(row, 3)
+    for (let x = x0; x < x1; x++) {
+      const joint = cy === 3 || cuts.includes(x & 15)
+      const lit = cuts.includes((x - 1) & 15) && cy === 0
+      c.px(x, y, joint ? "A" : lit ? "D" : hash(cuts.filter((q) => q <= (x & 15)).length, row) % 3 ? "C" : "B")
+    }
+  }
+}
+function wallFace(c, x0, x1, y0, y1) {
+  for (let y = y0; y < y1; y++) {
+    const row = (y - y0) / 3 | 0, cy = (y - y0) % 3, cuts = course(row, 11)
+    for (let x = x0; x < x1; x++) c.px(x, y, cy === 2 || cuts.includes(x & 15) ? "k" : cy === 0 ? "B" : "A")
+  }
+  c.hline(x0, y0, x1 - x0, "D")                             // lit lip of the cap
+  for (let x = x0; x < x1; x += 5) if (hash(x, 7) % 3 === 0) c.px(x, y1 - 1, "m")   // moss at the foot
+}
+function wall(name, x0, x1, opts) {
+  sprite(name, { w: 16, h: 16 }, (c) => {
+    if (opts.h) {
+      wallCap(c, x0, x1, 1, 6); wallFace(c, x0, x1, 6, 15)
+      c.hline(x0, 0, x1 - x0, "k"); c.hline(x0, 15, x1 - x0, "k")
+      if (x0 > 0) c.vline(x0 - 1, 0, 16, "k")
+      if (x1 < 16) c.vline(x1, 0, 16, "k")
+    }
+    if (opts.v) {
+      const end = opts.end ? 6 : 16
+      wallCap(c, 4, 12, 0, end)
+      if (opts.end) { wallFace(c, 4, 12, 6, 15); c.hline(4, 15, 8, "k") }
+      c.vline(3, 0, 16, "k"); c.vline(12, 0, 16, "k")
+      if (opts.top) c.hline(4, 0, 8, "k")
+    }
+  })
+}
+wall("wall_h", 0, 16, { h: true })
+wall("wall_h_l", 4, 16, { h: true })
+wall("wall_h_r", 0, 12, { h: true })
+wall("wall_v", 0, 0, { v: true })
+wall("wall_v_top", 0, 0, { v: true, top: true })
+wall("wall_v_end", 0, 0, { v: true, end: true })
+
+sheet("terrain", ["ground_*", "glint", "water_*", "cobble_*", "path_*", "ridge_*", "woods_*"], { pad: 1 })
+sheet("village", ["bridge", "wall_*", "house_*", "chapel", "well", "lamp", "brazier", "barrel", "crate", "hay_*", "cart",
   "stall", "grave_*", "fence_*", "banner", "crop_*", "scarecrow", "trough", "bush*",
   "flowers_*", "grass_tall", "fern", "reeds", "tree_*", "rock*"], { pad: 1 })

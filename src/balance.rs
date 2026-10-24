@@ -29,7 +29,12 @@ struct Outcome {
 /// One run until death, the boss's death or `max_secs`, printing a row per minute.
 fn play(seed: u64, max_secs: f32, verbose: bool) -> Outcome {
     srand(seed);
-    let mut g = Game::new();
+    // BALANCE_OPEN=1 plays on open ground, to compare against Ashford's layout.
+    let mut g = if std::env::var("BALANCE_OPEN").is_ok() {
+        Game::new()
+    } else {
+        Game::on_map(ASHFORD_MAP)
+    };
     let only = only_art();
     if let Some(art) = only {
         // Swap the starting Hellflare for the Art under test.

@@ -5,6 +5,7 @@ use crate::assets::{SpriteId, FLASH_FRAME_OFFSET};
 use crate::boss::Boss;
 use crate::config::*;
 use crate::enemies::{Action, Enemies};
+use crate::map::Map;
 #[cfg(test)]
 use crate::enemies::{MODE_DASH, MODE_WINDUP};
 use crate::spatial::SpatialHash;
@@ -227,6 +228,8 @@ pub struct Game {
     pub blasts: Vec<Blast>,
     /// The map's boss while it lives.
     pub boss: Option<Boss>,
+    /// The blocking grid and the walkers' flow field (open ground in tests).
+    pub map: Map,
     /// When endless mode began (the boss's death).
     endless_from: f32,
     /// Enemies released by dying Ratcatchers this tick: (kind, where, how many).
@@ -302,6 +305,7 @@ impl Game {
             fires: Vec::with_capacity(MAX_FIRES),
             blasts: Vec::with_capacity(MAX_BLASTS),
             boss: None,
+            map: Map::open(),
             endless_from: 0.0,
             splits: Vec::with_capacity(MAX_SPLITS),
             reward: None,
@@ -328,6 +332,14 @@ impl Game {
         }
     }
 
+    /// A run on the authored layout `src` (Veyra on its start cell).
+    pub fn on_map(src: &str) -> Self {
+        let mut g = Self::new();
+        g.map = Map::parse(src);
+        g.map.update_flow(g.player.pos);
+        g
+    }
+
     /// Keeps spawns just outside a view of `size` logical pixels (and the Wandering
     /// Sigil inside it).
     pub fn set_view(&mut self, size: Vec2) {
@@ -346,15 +358,23 @@ impl Game {
         self.run_events();
         let idle = InputState::default();
         self.move_player(if alive { input } else { &idle });
+        self.map.update_flow(self.player.pos);
         let center = self.player.pos;
         self.hash.rebuild(center, &self.enemies.x, &self.enemies.y);
         self.spawn_enemies();
         self.relocate_far_enemies();
         let speed = 1.0 + self.stats.curse * PRIDE_SPEED_SHARE;
         self.enemies
-            .steer(TICK_DT, center, &self.hash, self.time, speed);
+            .steer(TICK_DT, center, &self.hash, &self.map, self.time, speed);
         if let Some(boss) = &mut self.boss {
-            if let Some(Some(cue)) = boss.update(&mut self.enemies, center, TICK_DT, speed) {
+            let cue = boss.update(&mut self.enemies, center, TICK_DT, speed);
+            if let Some(i) = self.enemies.find(boss.uid) {
+                let r = ENEMY_DEFS[self.enemies.kind[i] as usize].radius();
+                let p = self.map.push_out(self.enemies.pos(i), r);
+                self.enemies.set_pos(i, p);
+                boss.pos = p;
+            }
+            if let Some(Some(cue)) = cue {
                 self.cue(cue);
             }
         }
@@ -603,11 +623,16 @@ impl Game {
         let me = self.player.pos;
         let mut damage = 0.0f32;
         let fires = &mut self.fires;
+        let map = &self.map;
         self.shots.retain_mut(|s| {
             s.t += TICK_DT;
             s.pos += s.vel * TICK_DT;
             match s.kind {
                 ShotKind::Stone => {
+                    // Walls are cover; lobbed torches fly over them.
+                    if map.blocks_shot(s.pos) {
+                        return false;
+                    }
                     let reach = PLAYER_RADIUS + STONE_RADIUS;
                     if s.pos.distance_squared(me) <= reach * reach {
                         damage = damage.max(s.damage);
@@ -689,6 +714,7 @@ impl Game {
             hash: &self.hash,
             time: self.time,
             view: self.view,
+            map: &self.map,
         };
         let cues = self.arts.update(&mut world, alive);
         for (on, cue) in [
@@ -1006,7 +1032,10 @@ impl Game {
         if self.boss.is_some() {
             return;
         }
-        let pos = self.ring_point(gen_range(0.0, TAU));
+        let angle = gen_range(0.0, TAU);
+        let pos = self
+            .spawn_point(angle)
+            .unwrap_or_else(|| self.ring_point(angle));
         let pride = 1.0 + self.stats.curse;
         self.boss = Some(Boss::spawn(def, &mut self.enemies, pos, pride));
         self.cue(Cue::Arrival);
@@ -1042,6 +1071,9 @@ impl Game {
     fn spawn_wave(&mut self, kind: usize, n: usize, formation: Formation) {
         let hp_scale = self.hp_scale();
         let side = gen_range(0.0, TAU);
+        let Some(anchor) = self.spawn_point(side) else {
+            return;
+        };
         for j in 0..n {
             if self.enemies.len() >= MAX_ENEMIES {
                 return;
@@ -1058,6 +1090,7 @@ impl Game {
                         + Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, WAVE_PACK_SPREAD)
                 }
             };
+            let pos = self.open_or(pos, anchor);
             self.enemies.spawn(kind, pos, hp_scale);
         }
     }
@@ -1111,14 +1144,40 @@ impl Game {
                 r < 0.0
             })
             .unwrap_or(0);
-        let pos = self.ring_point(gen_range(0.0, TAU));
+        let Some(pos) = self.spawn_point(gen_range(0.0, TAU)) else {
+            return;
+        };
         self.enemies.spawn(kind, pos, self.hp_scale());
         let i = self.enemies.len() - 1;
         self.enemies.make_elite(i);
     }
 
+    /// A point on the spawn ring, which circles the view's centre (Veyra, or the camera held
+    /// inside the map near its edge) so it stays out of sight.
     fn ring_point(&self, angle: f32) -> Vec2 {
-        self.player.pos + Vec2::from_angle(angle) * self.spawn_ring
+        self.map.view_centre(self.player.pos, self.view) + Vec2::from_angle(angle) * self.spawn_ring
+    }
+
+    /// An open, reachable point on the spawn ring near `angle` (any angle after the first
+    /// tries), or `None` when the map leaves no room.
+    fn spawn_point(&self, angle: f32) -> Option<Vec2> {
+        (0..SPAWN_TRIES).find_map(|k| {
+            let a = if k < SPAWN_TRIES / 2 {
+                angle + gen_range(-0.4, 0.4) * k as f32
+            } else {
+                gen_range(0.0, TAU)
+            };
+            Some(self.ring_point(a)).filter(|&p| self.map.reachable(p))
+        })
+    }
+
+    /// `pos` if a walker can stand there, else `fallback`.
+    fn open_or(&self, pos: Vec2, fallback: Vec2) -> Vec2 {
+        if self.map.reachable(pos) {
+            pos
+        } else {
+            fallback
+        }
     }
 
     fn spawn_enemies(&mut self) {
@@ -1136,7 +1195,9 @@ impl Game {
             let (lo, hi) = ENEMY_DEFS[kind].group;
             let size = gen_range(lo as u32, hi as u32 + 1);
             self.spawn_acc -= size as f32;
-            let center = self.ring_point(gen_range(0.0, TAU));
+            let Some(center) = self.spawn_point(gen_range(0.0, TAU)) else {
+                return;
+            };
             let hp_scale = self.hp_scale();
             for _ in 0..size {
                 if self.enemies.len() >= MAX_ENEMIES {
@@ -1144,7 +1205,8 @@ impl Game {
                 }
                 let off =
                     Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(0.0, SPAWN_GROUP_SPREAD);
-                self.enemies.spawn(kind, center + off, hp_scale);
+                let pos = self.open_or(center + off, center);
+                self.enemies.spawn(kind, pos, hp_scale);
             }
         }
     }
@@ -1260,8 +1322,9 @@ impl Game {
             let off = self.enemies.pos(i) - center;
             if off.length_squared() > radius * radius {
                 let angle = (-off).to_angle() + gen_range(-0.5, 0.5);
-                let p = self.ring_point(angle);
-                self.enemies.set_pos(i, p);
+                if let Some(p) = self.spawn_point(angle) {
+                    self.enemies.set_pos(i, p);
+                }
             }
         }
     }
@@ -1275,7 +1338,7 @@ impl Game {
         let blend = 1.0 - (-PLAYER_ACCEL * TICK_DT).exp();
         p.vel = p.vel.lerp(dir * self.stats.speed, blend);
         p.prev_pos = p.pos;
-        p.pos += p.vel * TICK_DT;
+        p.pos = self.map.push_out(p.pos + p.vel * TICK_DT, PLAYER_RADIUS);
         p.since_cast += TICK_DT;
         if p.vel.x.abs() > IMPULSE_SPEED * 0.5 {
             p.facing = p.vel.x.signum();
@@ -1468,6 +1531,82 @@ mod tests {
             .spawn(RAT, vec2(DEBUG_ELITE_RADIUS + 1.0, 0.0), 1.0);
         g.debug_make_elites();
         assert_eq!(g.enemies.elite, [true, false]);
+    }
+
+    /// 12x10 cells, Veyra on (2, 2); a wall across row 4 with a gap on the right, a river
+    /// along row 7.
+    const WALLED: &str = "size 12 10\nstart 2 2\ngrid\n\
+        ............\n............\n............\n............\n\
+        WWWWWWWWWW..\n............\n............\n~~~~~~~~~~~~\n\
+        ............\n............\nprops\n";
+
+    #[test]
+    fn veyra_stops_at_walls() {
+        let mut g = Game::on_map(WALLED);
+        g.spawn_acc = f32::NEG_INFINITY;
+        let down = InputState {
+            move_dir: vec2(0.0, 1.0),
+        };
+        for _ in 0..120 {
+            g.tick(&down);
+        }
+        let touching = g.map.origin.y + 4.0 * MAP_CELL - PLAYER_RADIUS;
+        assert!((g.player.pos.y - touching).abs() < 0.5, "{}", g.player.pos);
+    }
+
+    #[test]
+    fn walls_stop_stones_and_flames_and_walkers_go_round() {
+        let mut g = Game::on_map(WALLED);
+        g.spawn_acc = f32::NEG_INFINITY;
+        let behind = g.player.pos + vec2(0.0, 4.0 * MAP_CELL);
+        g.shots.push(Shot {
+            kind: ShotKind::Stone,
+            pos: behind,
+            vel: vec2(0.0, -STONE_SPEED),
+            to: g.player.pos,
+            t: 0.0,
+            damage: 10.0,
+        });
+        for _ in 0..60 {
+            g.tick(&InputState::default());
+        }
+        assert!(g.shots.is_empty());
+        assert_eq!(g.player.hp, g.player.max_hp);
+        // A rat behind the wall: the flames burst on the stones while it walks round
+        // through the gap, then they get it.
+        g.enemies.spawn(RAT, behind, 1.0);
+        for _ in 0..60 {
+            g.tick(&InputState::default());
+        }
+        assert_eq!(g.kills, 0);
+        assert!(g.enemies.x[0] > behind.x + MAP_CELL, "heads for the gap");
+        for _ in 0..900 {
+            g.tick(&InputState::default());
+        }
+        assert_eq!(g.kills, 1);
+    }
+
+    #[test]
+    fn ashford_spawns_land_on_open_ground_out_of_sight() {
+        macroquad::rand::srand(3);
+        let mut g = Game::on_map(ASHFORD_MAP);
+        let view = vec2(DEFAULT_VIEW_W, LOGICAL_H);
+        g.set_view(view);
+        // In the square, then pressed against the woods where the camera stops following.
+        for at in [Vec2::ZERO, vec2(-1150.0, 0.0)] {
+            g.player.pos = g.map.push_out(at, PLAYER_RADIUS);
+            g.map.update_flow(g.player.pos);
+            for _ in 0..60 {
+                g.map.update_flow(g.player.pos);
+            }
+            let centre = g.map.view_centre(g.player.pos, view);
+            for _ in 0..200 {
+                let p = g.spawn_point(gen_range(0.0, TAU)).expect("room to spawn");
+                assert!(g.map.reachable(p));
+                let off = (p - centre).abs();
+                assert!(off.x > view.x * 0.5 || off.y > view.y * 0.5, "{p} in view");
+            }
+        }
     }
 
     #[test]
@@ -2073,7 +2212,8 @@ mod tests {
     fn stress_at_enemy_cap_with_every_art_evolved() {
         const STRESS_HP: f32 = 100000.0;
         macroquad::rand::srand(7);
-        let mut g = Game::new();
+        // On Ashford: push-out, flow field and wall checks all in the loop.
+        let mut g = Game::on_map(ASHFORD_MAP);
         g.upgrades.arts = [ART_MAX_LEVEL; ARTS.len()];
         g.upgrades.evolved = [true; ARTS.len()];
         g.upgrades.united = [true; UNIONS.len()];
@@ -2086,6 +2226,9 @@ mod tests {
         g.player.max_hp = f32::INFINITY;
         while g.enemies.len() < MAX_ENEMIES {
             let p = Vec2::from_angle(gen_range(0.0, TAU)) * gen_range(50.0, g.spawn_ring);
+            if !g.map.reachable(p) {
+                continue;
+            }
             // Tough enough that the horde stays full under the maxed Arts.
             g.enemies
                 .spawn(gen_range(0, ENEMY_DEFS.len()), p, STRESS_HP);

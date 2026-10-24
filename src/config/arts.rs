@@ -100,6 +100,9 @@ pub struct ArtDef {
     pub gains: [ArtGain; ART_MAX_LEVEL as usize - 1],
     /// `None` for an Art that only grows through a union (see `UNIONS`).
     pub evolution: Option<Evolution>,
+    /// What it throws stops at walls, buildings, the ridge and the woods (design.md 7.14).
+    /// Sweeping, orbiting, falling and instant Arts pass over them.
+    pub walls: bool,
 }
 
 /// Two Arts at `ART_MAX_LEVEL` that an Abyssal Offering fuses into one (no Sin
@@ -130,6 +133,7 @@ pub const ARTS: [ArtDef; 14] = [
     // Fireballs at the nearest enemy (Magic Wand). Evolves into Kiss of Ruin.
     ArtDef {
         kind: ArtKind::Hellflare,
+        walls: true,
         name: Key::ArtHellflare,
         desc: Key::ArtHellflareDesc,
         amount_key: Key::ArtMoreFireballs,
@@ -182,6 +186,7 @@ pub const ARTS: [ArtDef; 14] = [
     // grows with area.
     ArtDef {
         kind: ArtKind::TailLash,
+        walls: false,
         name: Key::ArtTailLash,
         desc: Key::ArtTailLashDesc,
         amount_key: Key::ArtMoreLashes,
@@ -236,6 +241,7 @@ pub const ARTS: [ArtDef; 14] = [
     // One big flame circling her, then more, faster and resting less (King Bible).
     ArtDef {
         kind: ArtKind::BrimstoneHalo,
+        walls: false,
         name: Key::ArtBrimstoneHalo,
         desc: Key::ArtBrimstoneHaloDesc,
         amount_key: Key::ArtMoreEmbers,
@@ -290,6 +296,7 @@ pub const ARTS: [ArtDef; 14] = [
     // A pulse that burns and charms the nearest few; they turn on the horde.
     ArtDef {
         kind: ArtKind::Allure,
+        walls: false,
         name: Key::ArtAllure,
         desc: Key::ArtAllureDesc,
         amount_key: Key::ArtMoreCharmed,
@@ -344,6 +351,7 @@ pub const ARTS: [ArtDef; 14] = [
     // Burning pools opened under random enemies, wider every few levels (Santa Water).
     ArtDef {
         kind: ArtKind::Hellgate,
+        walls: false,
         name: Key::ArtHellgate,
         desc: Key::ArtHellgateDesc,
         amount_key: Key::ArtMorePools,
@@ -399,6 +407,7 @@ pub const ARTS: [ArtDef; 14] = [
     // A chain that bites one enemy and jumps from foe to foe (Lightning Ring).
     ArtDef {
         kind: ArtKind::WhipOfTorment,
+        walls: false,
         name: Key::ArtWhipOfTorment,
         desc: Key::ArtWhipOfTormentDesc,
         amount_key: Key::ArtMoreJumps,
@@ -453,6 +462,7 @@ pub const ARTS: [ArtDef; 14] = [
     // A pink haze around her that burns slowly and weakens what it touches (Garlic).
     ArtDef {
         kind: ArtKind::ScentOfSin,
+        walls: false,
         name: Key::ArtScentOfSin,
         desc: Key::ArtScentOfSinDesc,
         amount_key: Key::ArtGainArea,
@@ -507,6 +517,7 @@ pub const ARTS: [ArtDef; 14] = [
     // level.
     ArtDef {
         kind: ArtKind::ReapersScythe,
+        walls: false,
         name: Key::ArtReapersScythe,
         desc: Key::ArtReapersScytheDesc,
         amount_key: Key::ArtMoreScythes,
@@ -564,6 +575,7 @@ pub const ARTS: [ArtDef; 14] = [
     // (Cross). Speed carries it further.
     ArtDef {
         kind: ArtKind::ProfanedCross,
+        walls: false,
         name: Key::ArtProfanedCross,
         desc: Key::ArtProfanedCrossDesc,
         amount_key: Key::ArtMoreCrosses,
@@ -617,6 +629,7 @@ pub const ARTS: [ArtDef; 14] = [
     // Her sigil wandering the screen, bouncing off its edges (Runetracer).
     ArtDef {
         kind: ArtKind::WanderingSigil,
+        walls: false,
         name: Key::ArtWanderingSigil,
         desc: Key::ArtWanderingSigilDesc,
         amount_key: Key::ArtMoreSigils,
@@ -673,6 +686,7 @@ pub const ARTS: [ArtDef; 14] = [
     // Ebony Wings as one Art).
     ArtDef {
         kind: ArtKind::BatSwarm,
+        walls: false,
         name: Key::ArtBatSwarm,
         desc: Key::ArtBatSwarmDesc,
         amount_key: Key::ArtMoreBats,
@@ -728,6 +742,7 @@ pub const ARTS: [ArtDef; 14] = [
     // kill (Pentagram).
     ArtDef {
         kind: ArtKind::BlackMass,
+        walls: false,
         name: Key::ArtBlackMass,
         desc: Key::ArtBlackMassDesc,
         amount_key: Key::ArtGainArea,
@@ -779,6 +794,7 @@ pub const ARTS: [ArtDef; 14] = [
     // Her gaze: beams that freeze what they touch for a moment (Clock Lancet).
     ArtDef {
         kind: ArtKind::GazeOfDesire,
+        walls: false,
         name: Key::ArtGazeOfDesire,
         desc: Key::ArtGazeOfDesireDesc,
         amount_key: Key::ArtMoreGazes,
@@ -832,6 +848,7 @@ pub const ARTS: [ArtDef; 14] = [
     // Seduced villagers that rise at her side and fight on their own (a summon).
     ArtDef {
         kind: ArtKind::Thralls,
+        walls: false,
         name: Key::ArtThralls,
         desc: Key::ArtThrallsDesc,
         amount_key: Key::ArtMoreThralls,

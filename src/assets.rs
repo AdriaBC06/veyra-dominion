@@ -171,7 +171,7 @@ pub const ICON_SIZE: f32 = 16.0;
 pub const GROUND_VARIANTS: usize = 6;
 
 const ATLAS_W: u16 = 1024;
-const ATLAS_H: u16 = 1024;
+const ATLAS_H: u16 = 2048;
 
 /// Veyra's layers (`assets/veyra.px.js`) are 66x50 frames sharing one origin; the
 /// pivot sits under her hips and she faces left.
@@ -437,6 +437,70 @@ struct Atlas {
     rects: Vec<Rect>,
     /// (first rect index, frame count) per sprite id.
     ranges: [(usize, usize); SPRITE_COUNT],
+    /// Village props (`assets/sprites/village/village.idx`), looked up by name.
+    village: Vec<Named>,
+}
+
+/// Village props packed into the atlas, so the y-sorted world draws from one texture.
+const VILLAGE_PNG: &[u8] = include_bytes!("../assets/sprites/village/village.png");
+const VILLAGE_IDX: &str = include_str!("../assets/sprites/village/village.idx");
+/// Map terrain (ground, water, cobbles, paths, ridge, woods floor) in its own texture: the
+/// renderer lays it down before anything else.
+const TERRAIN_PNG: &[u8] = include_bytes!("../assets/sprites/village/terrain.png");
+const TERRAIN_IDX: &str = include_str!("../assets/sprites/village/terrain.idx");
+
+/// A sprite from a pxl sheet index (`assets/village_sheets.py`): its frames are `count` rects
+/// from `start`, `ms` long each (0 for a still one).
+#[derive(Clone, Copy)]
+pub struct Named {
+    pub name: &'static str,
+    start: usize,
+    count: usize,
+    ms: u16,
+}
+
+impl Named {
+    /// Frame index (into the rect list) `secs` into its loop.
+    fn frame(&self, secs: f32) -> usize {
+        if self.ms == 0 {
+            return self.start;
+        }
+        self.start + (secs * 1000.0 / self.ms as f32) as usize % self.count
+    }
+}
+
+/// Each index line: `name w h ms x,y x,y ...`; calls `frame` with every frame's rect.
+fn parse_idx(idx: &'static str, mut frame: impl FnMut(Rect)) -> Vec<Named> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    for line in idx.lines().filter(|l| !l.is_empty()) {
+        let mut w = line.split(' ');
+        let name = w.next().expect("idx name");
+        let mut num = || -> u16 { w.next().and_then(|v| v.parse().ok()).expect("idx number") };
+        let (fw, fh, ms) = (num(), num(), num());
+        let mut count = 0;
+        for xy in line.split(' ').skip(4) {
+            let (x, y) = xy.split_once(',').expect("idx frame");
+            let (x, y): (f32, f32) = (x.parse().unwrap(), y.parse().unwrap());
+            frame(Rect::new(x, y, fw as f32, fh as f32));
+            count += 1;
+        }
+        out.push(Named {
+            name,
+            start,
+            count,
+            ms,
+        });
+        start += count;
+    }
+    out
+}
+
+/// The terrain texture and its tiles.
+struct Terrain {
+    tex: Texture2D,
+    rects: Vec<Rect>,
+    tiles: Vec<Named>,
 }
 
 /// Gothic display face (Jacquard 24): crisp at 43 px.
@@ -739,6 +803,7 @@ thread_local! {
     static TITLE_ART: OnceCell<Vec<Texture2D>> = const { OnceCell::new() };
     static TITLE_PORTRAIT: OnceCell<TitlePortrait> = const { OnceCell::new() };
     static ATLAS: OnceCell<Atlas> = const { OnceCell::new() };
+    static TERRAIN: OnceCell<Terrain> = const { OnceCell::new() };
     static FONTS: OnceCell<Fonts> = const { OnceCell::new() };
 }
 
@@ -762,6 +827,21 @@ impl Packer {
         self.x += w + 1;
         self.shelf_h = self.shelf_h.max(h);
         pos
+    }
+
+    /// Copies the region `r` of `src`.
+    fn add_rect(&mut self, src: &Image, r: Rect) -> Rect {
+        let (w, h) = (r.w as u16, r.h as u16);
+        let (ox, oy) = self.place(w, h);
+        for y in 0..h as u32 {
+            for x in 0..w as u32 {
+                let c = src.get_pixel(r.x as u32 + x, r.y as u32 + y);
+                if c.a > 0.0 {
+                    self.image.set_pixel(ox as u32 + x, oy as u32 + y, c);
+                }
+            }
+        }
+        Rect::new(ox as f32, oy as f32, w as f32, h as f32)
     }
 
     /// Copies a `w`×`h` region of `src` at (`sx`, 0), optionally as a white silhouette.
@@ -798,8 +878,15 @@ pub fn ground_variant(ix: i32, iy: i32) -> usize {
     }
 }
 
+struct Built {
+    image: Image,
+    rects: Vec<Rect>,
+    ranges: [(usize, usize); SPRITE_COUNT],
+    village: Vec<Named>,
+}
+
 /// Decodes every sheet and packs it; CPU only, so tests can run it headless.
-fn build() -> (Image, Vec<Rect>, [(usize, usize); SPRITE_COUNT]) {
+fn build() -> Built {
     let mut packer = Packer {
         image: Image::gen_image_color(ATLAS_W, ATLAS_H, BLANK),
         x: 0,
@@ -827,7 +914,22 @@ fn build() -> (Image, Vec<Rect>, [(usize, usize); SPRITE_COUNT]) {
             }
         }
     }
-    (packer.image, rects, ranges)
+    let src = Image::from_file_with_format(VILLAGE_PNG, Some(ImageFormat::Png)).expect("village");
+    let mut frames = Vec::new();
+    let mut village = parse_idx(VILLAGE_IDX, |r| frames.push(r));
+    let base = rects.len();
+    for v in &mut village {
+        v.start += base;
+    }
+    for r in frames {
+        rects.push(packer.add_rect(&src, r));
+    }
+    Built {
+        image: packer.image,
+        rects,
+        ranges,
+        village,
+    }
 }
 
 /// Non-ASCII letters rasterised at init; `i18n` tests check every string against it.
@@ -835,11 +937,30 @@ pub const EXTRA_GLYPHS: &str = "áàéíóúüñÁÀÉÍÓÚÜÑ¿¡";
 
 /// Builds the atlas texture. Must run once after the window exists.
 pub fn init() {
-    let (image, rects, ranges) = build();
+    let Built {
+        image,
+        rects,
+        ranges,
+        village,
+    } = build();
     let tex = Texture2D::from_image(&image);
     tex.set_filter(FilterMode::Nearest);
     ATLAS.with(|a| {
-        let _ = a.set(Atlas { tex, rects, ranges });
+        let _ = a.set(Atlas {
+            tex,
+            rects,
+            ranges,
+            village,
+        });
+    });
+    let mut rects = Vec::new();
+    let tiles = parse_idx(TERRAIN_IDX, |r| rects.push(r));
+    TERRAIN.with(|t| {
+        let _ = t.set(Terrain {
+            tex: load_png(TERRAIN_PNG),
+            rects,
+            tiles,
+        });
     });
     let tex = Texture2D::from_file_with_format(TITLE_PORTRAIT_PNG, Some(ImageFormat::Png));
     tex.set_filter(FilterMode::Nearest);
@@ -955,6 +1076,43 @@ pub fn draw_title_art(art: TitleArt, frame: u32, pos: Vec2) {
     });
 }
 
+/// Index of the village prop `name` (for `village_frame`).
+pub fn village_id(name: &str) -> Option<usize> {
+    ATLAS.with(|a| {
+        let atlas = a.get().expect("assets::init not called");
+        atlas.village.iter().position(|v| v.name == name)
+    })
+}
+
+/// Atlas texture and source rect of village prop `id`, `secs` into its animation.
+pub fn village_frame(id: usize, secs: f32) -> (Texture2D, Rect) {
+    ATLAS.with(|a| {
+        let atlas = a.get().expect("assets::init not called");
+        (atlas.tex.clone(), atlas.rects[atlas.village[id].frame(secs)])
+    })
+}
+
+/// Index of the terrain tile `name` (for `terrain_frame`).
+pub fn terrain_id(name: &str) -> Option<usize> {
+    TERRAIN.with(|t| {
+        let t = t.get().expect("assets::init not called");
+        t.tiles.iter().position(|v| v.name == name)
+    })
+}
+
+/// The terrain texture.
+pub fn terrain_texture() -> Texture2D {
+    TERRAIN.with(|t| t.get().expect("assets::init not called").tex.clone())
+}
+
+/// Source rect of terrain tile `id`, `secs` into its animation.
+pub fn terrain_frame(id: usize, secs: f32) -> Rect {
+    TERRAIN.with(|t| {
+        let t = t.get().expect("assets::init not called");
+        t.rects[t.tiles[id].frame(secs)]
+    })
+}
+
 /// Texture and source rect for a sprite frame (frame wraps around).
 pub fn sprite(id: SpriteId, frame: usize) -> (Texture2D, Rect) {
     ATLAS.with(|a| {
@@ -1027,7 +1185,7 @@ mod tests {
 
     #[test]
     fn every_sprite_rect_exists_and_is_inside_the_atlas() {
-        let (_, rects, ranges) = build();
+        let Built { rects, ranges, .. } = build();
         for sheet in &SHEETS {
             let (start, count) = ranges[sheet.id as usize];
             let expected = sheet.frames * if sheet.flash { 2 } else { 1 };
@@ -1041,7 +1199,7 @@ mod tests {
 
     #[test]
     fn key_sprite_sizes() {
-        let (_, rects, ranges) = build();
+        let Built { rects, ranges, .. } = build();
         let size = |id: SpriteId| {
             let r = rects[ranges[id as usize].0];
             (r.w as u16, r.h as u16)
@@ -1235,7 +1393,7 @@ mod tests {
         assert_eq!(size_tier(2.2), 5);
         assert_eq!(size_tier(9.0), SIZE_TIERS - 1);
         // Each tier is bigger than the one before.
-        let (_, rects, ranges) = build();
+        let Built { rects, ranges, .. } = build();
         let size = |id: SpriteId| (rects[ranges[id as usize].0].w as u16, 0);
         for tiers in [
             SCYTHE_TIERS,
@@ -1266,7 +1424,12 @@ mod tests {
 
     #[test]
     fn flash_frames_are_white_silhouettes() {
-        let (image, rects, ranges) = build();
+        let Built {
+            image,
+            rects,
+            ranges,
+            ..
+        } = build();
         let (start, _) = ranges[SpriteId::Rat as usize];
         let (base, flash) = (rects[start], rects[start + FLASH_FRAME_OFFSET]);
         for y in 0..base.h as u32 {

@@ -29,6 +29,7 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 
 - `src/main.rs` window + loop · `scenes/` (`App`, `Nav`: title, run, settings, credits) · `screen.rs` layout/render target · `ui.rs` widgets/focus
 - Sim: `game.rs`, `enemies.rs` + `config/enemies.rs` (kinds, behaviours, timeline), `boss.rs` + `config/bosses.rs` (phase machine, body = one `Enemies` row), `spatial.rs`, `upgrades.rs` (Sins), `arts.rs` + `config/arts.rs`, `blood.rs`
+- Map (V19d): `map.rs` + `config/map.rs` (grid, push-out, flow field, spawns), `map_art.rs` (terrain tiles, y-sorted props); layout `docs/tools/ashford_layout.py` → `assets/maps/ashford.map`; village art `assets/village.px.js` → pxl build → `python3 assets/village_sheets.py <out>` → `assets/sprites/village/`
 - `balance.rs` (test only): kiting bot that plays whole runs, `cargo test --release balance -- --ignored --nocapture`; `BALANCE_ONLY=<art index>` runs one Art alone
 - `assets.rs` embedded PNG atlas (`assets/sprites/`), fonts in `assets/fonts/` · `audio/` own chip synth + tracker (`assets/music/*.vtrk`) · `save.rs` settings/save files · `i18n.rs`
 - Art as code: `assets/*.px.js` (enemy effects: `enemy_fx.px.js` → `assets/sprites/enemy_fx`; roster sheet: `python3 assets/bestiary_sheet.py` → `docs/art/ashford_bestiary.png`); title portrait: `assets/depixelize.py` + `assets/animate_portrait.py` (see docs/design.md, V14 phase 2)
@@ -37,7 +38,7 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 ## Running and debug keys
 
 - `cargo run` (dev profile is optimised enough). Use `XDG_DATA_HOME=<tmp dir>` for test runs so they don't land in the real lifetime stats.
-- F2 Arts/Sins panel (levels, slots, force evolutions) · F3 debug overlay · F4 spawn one of each enemy (Shift+F4 the boss) · F5 make elites · F6 kill visible · F7 level up Arts · F8 drop an Offering · F9 EN/ES · F10 scale mode · F11 fullscreen · F12 autopilot (off → smart bot → god bot).
+- F2 Arts/Sins panel (levels, slots, force evolutions) · F3 debug overlay · F4 spawn one of each enemy (Shift+F4 the boss) · F5 make elites · F6 kill visible · F7 level up Arts · F8 drop an Offering · F9 EN/ES · F10 scale mode · F11 fullscreen · F12 autopilot (off → smart bot → god bot) · Shift+F12 game speed ×1/×2/×4/×8 · Ctrl+F12 skip a minute (played by the smart bot; the run stops counting).
 
 ## Gotchas
 
@@ -51,4 +52,4 @@ Top-down survivors-like in Rust + macroquad (only dependency). Veyra, a succubus
 - pxl lives in `.claude/skills/pxl-pixel-art` (cloned from github.com/crsolver/claude-pxl, excluded in `.git/info/exclude`, not in the repo). Build with `--out assets/sprites/arts`, then delete the `_preview/` folder and the `.gif`s it writes next to the strips.
 - Area-grown Arts (Scythe, Cross, Sigil) are never scaled at runtime: `tiered()` in `assets/arts.px.js` bakes 6 sizes (`<name>_0..5`), picked with `assets::size_tier(area)`. A new sized sprite needs its `SpriteId`s, `frame_ms`, `SHEETS` rows and json test entries per tier; the atlas is 1024×1024.
 - The game segfaults on exit (exit 139), in capture runs and in normal runs closed by the user; harmless so far.
-- Stress test baseline on this PC: ~1.1 ms mean tick (`cargo test --release stress -- --nocapture`, `STRESS_HP` 100000 so the horde stays near full).
+- Stress test baseline on this PC: ~0.42 ms mean tick on Ashford (`cargo test --release stress -- --nocapture`, `STRESS_HP` 100000 so the horde stays near full).

@@ -6,6 +6,7 @@ use crate::config::*;
 use crate::game::Game;
 use crate::upgrades::Choice;
 use macroquad::math::Vec2;
+use std::f32::consts::TAU;
 
 /// Bot input: flee the nearby horde, circle around it, drift toward souls and Offerings.
 pub fn steer(g: &Game) -> Vec2 {
@@ -54,7 +55,63 @@ pub fn steer(g: &Game) -> Vec2 {
                 .min_by(|&a, &b| cost(a).total_cmp(&cost(b)))
         })
         .map_or(Vec2::ZERO, |q| (q - p).normalize_or_zero());
-    (away * urgency + tangent * 0.5 * urgency + goal * (1.2 - urgency * 0.6)).normalize_or_zero()
+    let want = (away * urgency + tangent * 0.5 * urgency + goal * (1.2 - urgency * 0.6))
+        .normalize_or_zero();
+    around_walls(g, want)
+}
+
+/// How far the autopilot looks for walls along each heading, how much it favours a free run
+/// ahead and open ground at the end of it (so the horde can't pin her against a wall), and
+/// how much enemies along a heading count against it.
+const BOT_LOOK: f32 = 96.0;
+const BOT_ROOM: f32 = 0.4;
+const BOT_OPEN: f32 = 0.8;
+const BOT_CROWD: f32 = 0.25;
+/// Enemies this close to a heading's path (out to `BOT_LOOK`) crowd it.
+const BOT_LANE: f32 = 20.0;
+const HEADINGS: usize = 16;
+
+/// The free heading closest to `want`: 16 rays out to `BOT_LOOK`, each scored by how well
+/// it agrees with `want`, how far it runs free, how open the ground is where it ends and
+/// how few enemies stand along it; a wall right ahead rules it out.
+fn around_walls(g: &Game, want: Vec2) -> Vec2 {
+    if g.map.is_open() || want == Vec2::ZERO {
+        return want;
+    }
+    let p = g.player.pos;
+    let dirs: [Vec2; HEADINGS] =
+        std::array::from_fn(|k| Vec2::from_angle(k as f32 * TAU / HEADINGS as f32));
+    let mut crowd = [0.0f32; HEADINGS];
+    let e = &g.enemies;
+    for i in 0..e.len() {
+        let d = e.pos(i) - p;
+        let l2 = d.length_squared();
+        if l2 > BOT_LOOK * BOT_LOOK {
+            continue;
+        }
+        for (k, dir) in dirs.iter().enumerate() {
+            let along = d.dot(*dir);
+            if along > 0.0 && d.perp_dot(*dir).abs() < BOT_LANE {
+                crowd[k] += 1.0 - along / BOT_LOOK;
+            }
+        }
+    }
+    let mut best = (f32::MIN, want);
+    for (k, &dir) in dirs.iter().enumerate() {
+        let mut free = 0.0;
+        while free < BOT_LOOK && !g.map.blocks_walk(p + dir * (free + PLAYER_RADIUS + 2.0)) {
+            free += 8.0;
+        }
+        let blocked = if free < 16.0 { 2.0 } else { 0.0 };
+        let open = g.map.clearance(p + dir * free) / 12.0;
+        let score = dir.dot(want) + BOT_ROOM * free / BOT_LOOK + BOT_OPEN * open
+            - BOT_CROWD * crowd[k]
+            - blocked;
+        if score > best.0 {
+            best = (score, dir);
+        }
+    }
+    best.1
 }
 
 /// Fights the boss like a player would: closes to `BOT_BOSS_RANGE` so her Arts reach it,

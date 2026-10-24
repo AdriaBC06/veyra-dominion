@@ -13,6 +13,8 @@ mod game;
 mod hud;
 mod i18n;
 mod kit;
+mod map;
+mod map_art;
 mod motion;
 mod save;
 mod scenes;
