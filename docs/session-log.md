@@ -178,3 +178,8 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Done: setup scene (language flags, blood, display rows applied on pick, volume), burn on pick via shared `src/burn.rs`, `BloodMode` in settings + Settings → Game row, gore filtered at draw time, ground layer rebaked live on a mid-run change (design.md 7.14).
   - Decisions: defaults Full / Fill / window; no descriptions on blood cards; no blood preview in Settings.
   - Gotchas: `cargo fmt` (and `rustfmt` on `scenes/mod.rs`, which follows `mod`s) reflows untouched files: format single leaf files and `git checkout` stray ones. `docs/tools/capture-hack.patch` no longer applies; a hand-made `VEYRA_SETUP_SHOT` hack was used and removed.
+- **S16c (2026-10-24)** — V19d started: plan agreed, art set approved; nothing wired in the game yet.
+  - Done: V19d split into V19d/V19h/V19i (+ V19e last), decisions in design.md 7.14 (rubble keeps blocking and can burn; thrown Arts/enemy shots stop at walls, Scythe/Cross/Sigil/orbits pass). `assets/village.px.js` art set approved through mockups (`docs/tools/village_mock.py`).
+  - Decisions: no round blotches on the ground; trees/bushes not animated; only square + round hay; fences without auto outline, one post rule. F2-forced fusions not in the Grimoire is by design (noted in PLAN).
+  - Next: water/river banks, bridges, walls, plaza cobbles, then the authored layout + solid grid + flow field.
+  - Gotchas: pxl `anim` takes no `rdelay` (that is a stamp option) and needs `w`/`h` as options; `shade` steps along the ramp down to `k`, so shading already-dark strands turns them black.
