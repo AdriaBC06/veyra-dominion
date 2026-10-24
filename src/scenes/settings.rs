@@ -5,9 +5,9 @@
 use super::Nav;
 use crate::assets::{measure_ui_text, TextStyle};
 use crate::hud::{self, Anchor};
-use crate::kit;
 use crate::i18n::{self, tr, trf, Key};
-use crate::save::{SaveData, Settings};
+use crate::kit;
+use crate::save::{BloodMode, SaveData, Settings};
 use crate::screen::{ScaleMode, Screen};
 use crate::ui::{self, Action, Button, Choice, Focus, Overlay, Slider, Tabs, Toggle, UiInput};
 use macroquad::prelude::*;
@@ -39,6 +39,7 @@ enum Row {
     Fullscreen,
     Scale,
     Language,
+    Blood,
     MouseMove,
     Reset,
 }
@@ -46,7 +47,7 @@ enum Row {
 const TABS: [(Key, &[Row]); 5] = [
     (Key::TabAudio, &[Row::Master, Row::Music, Row::Sfx]),
     (Key::TabVideo, &[Row::Fullscreen, Row::Scale]),
-    (Key::TabGame, &[Row::Language, Row::MouseMove]),
+    (Key::TabGame, &[Row::Language, Row::Blood, Row::MouseMove]),
     (Key::TabControls, &[]),
     (Key::TabData, &[Row::Reset]),
 ];
@@ -179,6 +180,12 @@ impl SettingsScene {
                 Row::Language if Choice::handle(i, action) != 0 => {
                     i18n::set_lang(i18n::lang().next());
                 }
+                Row::Blood => {
+                    let step = Choice::handle(i, action);
+                    if step != 0 {
+                        settings.blood = settings.blood.step(step);
+                    }
+                }
                 Row::MouseMove => {
                     let mut t = toggle(rect, settings.mouse_move);
                     if t.handle(i, action) {
@@ -253,6 +260,16 @@ impl SettingsScene {
                     rect,
                     label: tr(Key::SetLanguage),
                     value: i18n::lang().name(),
+                }
+                .draw(lit(i)),
+                Row::Blood => Choice {
+                    rect,
+                    label: tr(Key::SetBlood),
+                    value: tr(match settings.blood {
+                        BloodMode::Full => Key::BloodFull,
+                        BloodMode::Reduced => Key::BloodReduced,
+                        BloodMode::Off => Key::BloodOff,
+                    }),
                 }
                 .draw(lit(i)),
                 Row::MouseMove => Toggle {

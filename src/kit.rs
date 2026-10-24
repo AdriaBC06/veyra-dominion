@@ -82,6 +82,8 @@ type StoneTex = (Texture2D, Texture2D, Vec<Texture2D>);
 thread_local! {
     static SKIN: Cell<Skin> = const { Cell::new(Skin::Stone) };
     static BLOOD: Cell<f32> = const { Cell::new(0.0) };
+    /// Share of the blood the Blood setting shows (1 full, 0 off).
+    static GORE: Cell<f32> = const { Cell::new(1.0) };
     /// Generated stone frames by (w, h, thickness, seed): the stone and its glow frames.
     /// Stone frames by (w, h, thick, seed): base, relief and glow frames.
     static STONES: RefCell<HashMap<(u16, u16, u16, u32), StoneTex>> =
@@ -108,6 +110,15 @@ pub fn set_blood(level: f32) {
 
 pub fn blood_level() -> f32 {
     BLOOD.with(Cell::get)
+}
+
+/// The Blood setting's share of blood (UI, titles, gore, pools), 0..1.
+pub fn set_gore(share: f32) {
+    GORE.with(|g| g.set(share.clamp(0.0, 1.0)));
+}
+
+pub fn gore() -> f32 {
+    GORE.with(Cell::get)
 }
 
 /// The blood level for a run with `kills` kills.

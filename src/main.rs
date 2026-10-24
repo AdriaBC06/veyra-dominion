@@ -6,6 +6,7 @@ mod balance;
 mod blood;
 mod boss;
 mod bot;
+mod burn;
 mod config;
 mod enemies;
 mod game;

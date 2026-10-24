@@ -28,6 +28,15 @@ pub const WINDOW_H: i32 = 720;
 /// UI blood (design.md 7.14): frames and buttons gather blood as the run's kills climb,
 /// `1 - e^(-kills / UI_BLOOD_KILLS)` of the full amount.
 pub const UI_BLOOD_KILLS: f32 = 900.0;
+/// Blood setting (V19g): share of the blood shown on Reduced (UI blood, stained titles, gore
+/// bits, pools on the ground, which are also smaller).
+pub const REDUCED_BLOOD: f32 = 0.4;
+/// Pools on Reduced are this much of their size.
+pub const REDUCED_POOL: f32 = 0.6;
+/// Blood the setup's Blood page shows for each mode, so the choice can be seen.
+pub const SETUP_BLOOD_PREVIEW: [f32; 3] = [0.85, 0.4, 0.0];
+/// How fast the setup's preview blood follows the highlighted mode (per second).
+pub const SETUP_BLOOD_RATE: f32 = 1.6;
 
 /// Fixed simulation step (60 Hz).
 pub const TICK_DT: f32 = 1.0 / 60.0;

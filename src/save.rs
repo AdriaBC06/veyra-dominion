@@ -31,19 +31,62 @@ pub struct Settings {
     pub sfx: f32,
     /// Holding the left mouse button moves Veyra toward the cursor.
     pub mouse_move: bool,
+    pub blood: BloodMode,
+}
+
+/// How much blood the game shows: UI blood, stained titles, gore and the blood on the ground.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum BloodMode {
+    #[default]
+    Full,
+    Reduced,
+    Off,
+}
+
+impl BloodMode {
+    pub const ALL: [BloodMode; 3] = [BloodMode::Full, BloodMode::Reduced, BloodMode::Off];
+
+    /// Share of the blood that is shown, 0..1.
+    pub fn factor(self) -> f32 {
+        match self {
+            BloodMode::Full => 1.0,
+            BloodMode::Reduced => crate::config::REDUCED_BLOOD,
+            BloodMode::Off => 0.0,
+        }
+    }
+
+    /// Code used in the settings file.
+    fn code(self) -> &'static str {
+        match self {
+            BloodMode::Full => "full",
+            BloodMode::Reduced => "reduced",
+            BloodMode::Off => "off",
+        }
+    }
+
+    fn from_code(code: &str) -> Option<BloodMode> {
+        Self::ALL.into_iter().find(|m| m.code() == code)
+    }
+
+    /// The next mode, wrapping (`step` -1 or +1).
+    pub fn step(self, step: i32) -> BloodMode {
+        let i = Self::ALL.iter().position(|&m| m == self).unwrap_or(0) as i32;
+        Self::ALL[(i + step).rem_euclid(Self::ALL.len() as i32) as usize]
+    }
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             lang: Lang::En,
-            scale_mode: ScaleMode::PixelPerfect,
+            scale_mode: ScaleMode::Fill,
             fullscreen: false,
             window: (WINDOW_W as u32, WINDOW_H as u32),
             master: 1.0,
             music: 0.8,
             sfx: 0.8,
             mouse_move: false,
+            blood: BloodMode::Full,
         }
     }
 }
@@ -202,6 +245,7 @@ impl Settings {
         let _ = writeln!(s, "music_volume={}", self.music);
         let _ = writeln!(s, "sfx_volume={}", self.sfx);
         let _ = writeln!(s, "mouse_move={}", self.mouse_move);
+        let _ = writeln!(s, "blood={}", self.blood.code());
         s
     }
 
@@ -224,6 +268,7 @@ impl Settings {
                 "music_volume" => set_volume(&mut s.music, value),
                 "sfx_volume" => set_volume(&mut s.sfx, value),
                 "mouse_move" => set(&mut s.mouse_move, value),
+                "blood" => s.blood = BloodMode::from_code(value).unwrap_or(s.blood),
                 _ => {}
             }
         }
@@ -233,6 +278,12 @@ impl Settings {
 
     pub fn load() -> Self {
         read(SETTINGS_FILE).map_or_else(Self::default, |t| Self::from_text(&t))
+    }
+
+    /// False on the very first launch, before any settings were written (the first-time
+    /// setup shows then).
+    pub fn exist() -> bool {
+        data_dir().is_some_and(|d| d.join(SETTINGS_FILE).exists())
     }
 
     pub fn store(&self) {
@@ -348,10 +399,35 @@ mod tests {
             music: 0.25,
             sfx: 0.0,
             mouse_move: true,
+            blood: BloodMode::Reduced,
         };
         assert_eq!(Settings::from_text(&s.to_text()), s);
         let d = Settings::default();
         assert_eq!(Settings::from_text(&d.to_text()), d);
+    }
+
+    #[test]
+    fn first_launch_defaults_and_blood_modes() {
+        let d = Settings::default();
+        assert_eq!(
+            (d.scale_mode, d.fullscreen, d.blood),
+            (ScaleMode::Fill, false, BloodMode::Full)
+        );
+        for m in BloodMode::ALL {
+            let s = Settings {
+                blood: m,
+                ..Settings::default()
+            };
+            assert_eq!(Settings::from_text(&s.to_text()).blood, m);
+        }
+        // files from before the setting keep full blood
+        assert_eq!(Settings::from_text("lang=es\n").blood, BloodMode::Full);
+        assert_eq!(BloodMode::Full.factor(), 1.0);
+        assert_eq!(BloodMode::Off.factor(), 0.0);
+        let r = BloodMode::Reduced.factor();
+        assert!(r > 0.0 && r < 1.0);
+        assert_eq!(BloodMode::Full.step(-1), BloodMode::Off);
+        assert_eq!(BloodMode::Off.step(1), BloodMode::Full);
     }
 
     #[test]
@@ -366,12 +442,13 @@ mod tests {
     #[test]
     fn bad_lines_and_values_keep_defaults() {
         let text = "# comment\n\ngarbage\nlang=fr\nscale_mode=zoom\nfullscreen=maybe\n\
-                    window_w=10\nmaster_volume=7\nmusic_volume=NaN\nsfx_volume=-1\nunknown=1\n";
+                    window_w=10\nblood=gory\nmaster_volume=7\nmusic_volume=NaN\nsfx_volume=-1\nunknown=1\n";
         let s = Settings::from_text(text);
         let d = Settings::default();
         assert_eq!(s.lang, d.lang);
         assert_eq!(s.scale_mode, d.scale_mode);
         assert_eq!(s.fullscreen, d.fullscreen);
+        assert_eq!(s.blood, d.blood);
         assert_eq!(s.window, (MIN_WINDOW, d.window.1));
         assert_eq!((s.master, s.music, s.sfx), (1.0, d.music, 0.0));
         let save = SaveData::from_text("runs=-3\nbest_time=inf\ntotal_kills= 42 \n");

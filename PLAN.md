@@ -30,7 +30,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S16b — Interface** *(user approval)*
   - [x] V19b Premium UI kit + every menu and the HUD redone (7.14)
   - [x] V19c Grimoire of Evolutions (title + pause)
-  - [ ] V19g First-time setup (language, blood, display, volume) + Blood setting
+  - [x] V19g First-time setup (language, blood, display, volume) + Blood setting
 - **S16c — Living Ashford** *(user approval)*
   - [ ] V19d Coherent map: layout, houses, villagers who flee, breakables and drops, razing
   - [ ] V19e Minimap + full map (M)

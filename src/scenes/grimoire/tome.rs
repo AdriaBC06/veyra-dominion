@@ -17,6 +17,7 @@
 
 use super::{ingredients, ready, result, texts, GrimoireScene};
 use crate::assets::{draw_ui_text, measure_ui_text, TextStyle, ICON_SIZE};
+use crate::burn::{self, value_noise};
 use crate::hud::{self, Icon};
 use crate::i18n::{tr, trf, Key};
 use crate::kit;
@@ -24,13 +25,7 @@ use crate::motion;
 use crate::save::{Entry, SaveData};
 use crate::upgrades::Upgrades;
 use macroquad::prelude::*;
-use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, TAU};
-
-thread_local! {
-    /// The canvas the burning leaf is painted on.
-    static BURN_TARGET: RefCell<Option<RenderTarget>> = const { RefCell::new(None) };
-}
 
 /// Inner corners of a pentagram sit at this fraction of its tips' radius.
 const PENTAGON: f32 = 0.382;
@@ -56,8 +51,6 @@ const RIBBON_PAD: f32 = 9.0;
 /// Seconds the old leaf takes to burn off the new one; the name writes once it is mostly gone.
 const BURN: f32 = 0.6;
 const WRITE: f32 = 0.4;
-/// Size of a cell of the burn.
-const ASH_CELL: f32 = 2.0;
 
 const LEATHER: Color = Color::new(0.19, 0.055, 0.075, 1.0);
 const LEATHER_DARK: Color = Color::new(0.075, 0.02, 0.03, 1.0);
@@ -85,10 +78,6 @@ const RIBBON: Color = Color::new(0.55, 0.06, 0.09, 1.0);
 const RIBBON_DARK: Color = Color::new(0.33, 0.03, 0.06, 1.0);
 const RIBBON_LIT: Color = Color::new(0.8, 0.14, 0.15, 1.0);
 const HELLFIRE: Color = Color::new(1.0, 0.55, 0.15, 1.0);
-const CHARRED: Color = Color::new(0.1, 0.04, 0.02, 1.0);
-const SCORCH: Color = Color::new(0.42, 0.24, 0.11, 1.0);
-const EMBER: Color = Color::new(1.0, 0.42, 0.08, 1.0);
-const EMBER_HOT: Color = Color::new(1.0, 0.85, 0.4, 1.0);
 
 struct Book {
     rect: Rect,
@@ -169,6 +158,8 @@ pub(super) fn draw(g: &GrimoireScene, view: Vec2, save: &SaveData, build: Option
     let back = n;
     let lit = |i: usize| g.focus.is_highlighted(i);
     let level = kit::blood_level();
+    // a few stains always, none with the Blood setting off
+    let base = (kit::gore() > 0.0) as u32;
 
     ribbon(&b, g.ribbon, lit(back), t, alpha);
     cover(b.rect, alpha);
@@ -176,7 +167,7 @@ pub(super) fn draw(g: &GrimoireScene, view: Vec2, save: &SaveData, build: Option
     leaf(b.right, false, leaf_seed(g.page), alpha);
 
     circle(&b, g.spin, alpha);
-    stains(&b, Side::Left, 4 + (level * 8.0) as u32, alpha);
+    stains(&b, Side::Left, base * 4 + (level * 8.0) as u32, alpha);
     let revealed = g.entries.iter().filter(|&&e| save.has_evolved(e)).count();
     let c = b.centre;
     // the tally sits in the pentagon at the heart of the star
@@ -230,7 +221,7 @@ pub(super) fn draw(g: &GrimoireScene, view: Vec2, save: &SaveData, build: Option
     } else {
         g.page_t
     };
-    let leaf_stains = 3 + (level * 8.0) as u32;
+    let leaf_stains = base * 3 + (level * 8.0) as u32;
     stains(&b, Side::Right(g.page), leaf_stains, alpha);
     rite(&b, g.page, entry, state, ready, since.max(0.0), t, alpha);
     if let Some(old) = burning {
@@ -242,7 +233,7 @@ pub(super) fn draw(g: &GrimoireScene, view: Vec2, save: &SaveData, build: Option
             stains(&b, Side::Right(old), leaf_stains, 1.0);
             rite(&b, old, entry, state, old_ready, WRITE * 4.0, t, 1.0);
         };
-        burn(b.right, g.page_t / BURN, old as u32, draw_old, t, alpha);
+        burn::burn(b.right, g.page_t / BURN, old as u32, 0, draw_old, t, alpha);
     }
 }
 
@@ -508,105 +499,6 @@ fn rite(
     flourish(vec2(cx, l.tail_y), 40.0, 90 + idx as u32, c(RED_INK));
 }
 
-/// The old leaf burning off the new one: `draw_old` paints it (in page coordinates) onto an
-/// offscreen canvas, which is laid back only where the fire hasn't reached yet. From where it
-/// caught, a front of embers spreads; ahead of it the vellum chars brown, behind it the new
-/// leaf shows. `k` is 0..1 of the burn.
-fn burn(page: Rect, k: f32, seed: u32, draw_old: impl FnOnce(), t: f32, alpha: f32) {
-    let (w, h) = (page.w as u32, page.h as u32);
-    let target = BURN_TARGET.with(|cell| {
-        let mut cell = cell.borrow_mut();
-        if cell
-            .as_ref()
-            .is_none_or(|rt| rt.texture.size() != vec2(w as f32, h as f32))
-        {
-            let rt = render_target(w, h);
-            rt.texture.set_filter(FilterMode::Nearest);
-            *cell = Some(rt);
-        }
-        cell.clone().expect("just made")
-    });
-    push_camera_state();
-    let mut cam = Camera2D::from_display_rect(page);
-    cam.zoom.y = -cam.zoom.y;
-    cam.render_target = Some(target.clone());
-    set_camera(&cam);
-    clear_background(Color::new(0.0, 0.0, 0.0, 0.0));
-    draw_old();
-    pop_camera_state();
-
-    let front = k.clamp(0.0, 1.0) * 1.15;
-    const CHAR: f32 = 0.1;
-    let cols = (page.w / ASH_CELL).ceil() as i32;
-    let rows = (page.h / ASH_CELL).ceil() as i32;
-    let ignite = vec2(
-        0.2 + 0.6 * hash(seed * 3 + 1),
-        0.55 + 0.4 * hash(seed * 3 + 2),
-    );
-    let threshold = |col: i32, row: i32| {
-        let d = (vec2(col as f32 / cols as f32, row as f32 / rows as f32) - ignite).length() / 0.95;
-        let noise = value_noise(col as f32 / 8.0, row as f32 / 8.0, seed) * 0.7
-            + value_noise(col as f32 / 3.0, row as f32 / 3.0, seed + 77) * 0.3;
-        (0.6 * d + 0.4 * noise).clamp(0.0, 1.0)
-    };
-    for row in 0..rows {
-        let y = row as f32 * ASH_CELL;
-        let ch = ASH_CELL.min(page.h - y);
-        // runs of cells the fire hasn't reached are laid back in one piece
-        let mut run: Option<i32> = None;
-        for col in 0..=cols {
-            let unburnt = col < cols && threshold(col, row) > front;
-            match (unburnt, run) {
-                (true, None) => run = Some(col),
-                (false, Some(start)) => {
-                    let x = start as f32 * ASH_CELL;
-                    let rw = (col as f32 * ASH_CELL).min(page.w) - x;
-                    let params = DrawTextureParams {
-                        source: Some(Rect::new(x, y, rw, ch)),
-                        dest_size: Some(vec2(rw, ch)),
-                        ..Default::default()
-                    };
-                    draw_texture_ex(
-                        &target.texture,
-                        page.x + x,
-                        page.y + y,
-                        kit::fade(WHITE, alpha),
-                        params,
-                    );
-                    run = None;
-                }
-                _ => {}
-            }
-        }
-        // the scorch ahead of the front, the embers on it
-        for col in 0..cols {
-            let ahead = threshold(col, row) - front;
-            let color = if (-0.012..0.005).contains(&ahead) {
-                EMBER_HOT
-            } else if (0.005..0.018).contains(&ahead) {
-                EMBER
-            } else if (0.018..CHAR).contains(&ahead) {
-                // charred black at the flames, browning out to a faint scorch
-                let k = (ahead - 0.018) / (CHAR - 0.018);
-                let c = mix(CHARRED, SCORCH, k);
-                Color::new(c.r, c.g, c.b, 0.95 * (1.0 - k * k))
-            } else {
-                continue;
-            };
-            let x = col as f32 * ASH_CELL;
-            let cw = ASH_CELL.min(page.w - x);
-            draw_rectangle(
-                page.x + x,
-                page.y + y,
-                cw,
-                ch,
-                Color::new(color.r, color.g, color.b, color.a * alpha),
-            );
-        }
-    }
-    kit::sparks(page, t * 2.0, alpha);
-}
-
 /// The leather binding: shadow, grained and stitched cover, the crease and iron corners.
 fn cover(r: Rect, alpha: f32) {
     let c = |col: Color| kit::fade(col, alpha);
@@ -719,7 +611,13 @@ fn leaf(r: Rect, left: bool, seed: u32, alpha: f32) {
         while x < x1 {
             let len = 4.0 + (hash(seed + k * 71 + x as u32) * 8.0).round();
             if hash(seed * 7 + k + x as u32 * 5) > 0.12 {
-                draw_rectangle(x, r.bottom() + kf - 1.0, len.min(x1 - x), 1.0, c(shade, 1.0));
+                draw_rectangle(
+                    x,
+                    r.bottom() + kf - 1.0,
+                    len.min(x1 - x),
+                    1.0,
+                    c(shade, 1.0),
+                );
             }
             x += len;
         }
@@ -1373,21 +1271,6 @@ fn hash(n: u32) -> f32 {
     x = x.wrapping_mul(0x85EB_CA6B);
     x ^= x >> 13;
     (x & 0xFFFF) as f32 / 65535.0
-}
-
-/// Smooth value noise in 0..1 on a grid of hashed corners.
-fn value_noise(x: f32, y: f32, seed: u32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let (sx, sy) = (fx * fx * (3.0 - 2.0 * fx), fy * fy * (3.0 - 2.0 * fy));
-    let corner = |dx: i32, dy: i32| {
-        let ix = (x0 as i32 + dx) as u32;
-        let iy = (y0 as i32 + dy) as u32;
-        hash(ix.wrapping_mul(73_856_093) ^ iy.wrapping_mul(19_349_663) ^ seed)
-    };
-    let top = corner(0, 0) + (corner(1, 0) - corner(0, 0)) * sx;
-    let bottom = corner(0, 1) + (corner(1, 1) - corner(0, 1)) * sx;
-    top + (bottom - top) * sy
 }
 
 #[cfg(test)]

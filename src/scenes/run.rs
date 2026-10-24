@@ -11,9 +11,10 @@ use crate::boss::{Boss, BossMode};
 use crate::bot::{self, Autopilot};
 use crate::config::*;
 use crate::enemies::MODE_WINDUP;
-use crate::game::{Cue, Game, InputState, SimEvent};
+use crate::game::{BurstPixel, Cue, Game, InputState, SimEvent, Splat};
 use crate::hud::{self, HudFx};
 use crate::i18n::{tr, trf, Key};
+use crate::kit;
 use crate::screen::Screen;
 use crate::ui::{Action, Focus, Overlay, UiInput};
 use macroquad::prelude::*;
@@ -51,8 +52,12 @@ pub struct Run {
     heartbeat: f32,
     /// Time spent in the simulation last frame, for the debug overlay.
     pub update_ms: f32,
-    /// Every pool and splash of blood shed in this run.
+    /// Every pool and splash of blood shed in this run, as the Blood setting shows it.
     blood: BloodLayer,
+    /// Every splat of the run as the simulation shed it, to rebake `blood` when the setting
+    /// changes mid-run, and the gore share it was baked with.
+    shed: Vec<Splat>,
+    gore: f32,
     /// Motion of the open overlay (pause, level-up, Offering, ...).
     overlay: Overlay,
     /// Motion of the HUD (counting numbers, flashes, sparks).
@@ -83,6 +88,8 @@ impl Run {
             heartbeat: 0.0,
             update_ms: 0.0,
             blood: BloodLayer::default(),
+            shed: Vec::new(),
+            gore: 1.0,
             overlay: Overlay::default(),
             hud: HudFx::default(),
             autopilot: Autopilot::Off,
@@ -217,7 +224,8 @@ impl Run {
             self.accumulator = 0.0;
         }
         for s in self.game.splats.drain(..) {
-            self.blood.add(&s);
+            self.shed.push(s);
+            bake(&mut self.blood, s, self.gore);
         }
         self.blood.sync(self.game.player.pos - view * 0.5, view);
         for cue in self.game.cues.drain(..) {
@@ -387,6 +395,20 @@ impl Run {
             _ => return Some(Nav::Title),
         }
         None
+    }
+
+    /// Follows the Blood setting: a new gore share rebakes the ground from every splat of the
+    /// run, so the blood thins out or comes back at once, even from the pause menu.
+    pub fn set_gore(&mut self, gore: f32, view: Vec2) {
+        if gore == self.gore {
+            return;
+        }
+        self.gore = gore;
+        self.blood = BloodLayer::default();
+        for &s in &self.shed {
+            bake(&mut self.blood, s, gore);
+        }
+        self.blood.sync(self.game.player.pos - view * 0.5, view);
     }
 
     /// Draws the world around Veyra with the world camera.
@@ -751,6 +773,7 @@ fn draw_bleed_marks(game: &Game) {
     }
     let e = &game.enemies;
     let [fresh, dark] = BLEED_DROP_COLORS.map(Color::from_hex);
+    let drops = (BLEED_DROPS as f32 * kit::gore()).ceil() as u32;
     for i in (0..e.len()).filter(|&i| e.bleed_until[i] > game.time) {
         let def = &ENEMY_DEFS[e.kind[i] as usize];
         if !def.blood {
@@ -758,7 +781,7 @@ fn draw_bleed_marks(game: &Game) {
         }
         let h = def.size.1 as f32;
         let pos = e.pos(i).round();
-        for n in 0..BLEED_DROPS {
+        for n in 0..drops {
             let seed = jitter(e.uid[i].wrapping_mul(0x9e37_79b9) ^ n);
             let life = (game.time / BLEED_DROP_FALL + (seed & 0xff) as f32 / 256.0).fract();
             let dx = ((seed >> 8) % 7) as f32 - 3.0;
@@ -1022,10 +1045,33 @@ fn draw_elite_outline(id: SpriteId, frame: usize, corner: Vec2, flip: bool, t: f
     }
 }
 
+/// Bakes a splat as the Blood setting shows it: thinned out and shrunk, or not at all.
+fn bake(blood: &mut BloodLayer, mut s: Splat, gore: f32) {
+    if gore >= 1.0 {
+        blood.add(&s);
+    } else if kept(s.seed, gore) {
+        s.radius *= REDUCED_POOL;
+        blood.add(&s);
+    }
+}
+
+/// Whether the Blood setting shows the bit of gore numbered `n` (`gore` is its 0..1 share).
+fn kept(n: u32, gore: f32) -> bool {
+    gore >= 1.0 || (jitter(n ^ 0xb100_d5ed) % 1000) as f32 / 1000.0 < gore
+}
+
 /// Death-burst bits, standing on their point: the ones `landed` lie under the horde,
 /// the flying ones over it.
 fn draw_bursts(game: &Game, landed: bool) {
-    for b in game.bursts.iter().filter(|b| b.landed() == landed) {
+    let gore = kit::gore();
+    // a drop keeps its velocity's mantissa through its bounce: a steady id for the setting
+    let shown = |b: &&BurstPixel| !b.blood || kept(b.vel.x.to_bits() & 0x7f_ffff, gore);
+    for b in game
+        .bursts
+        .iter()
+        .filter(|b| b.landed() == landed)
+        .filter(shown)
+    {
         let mut color = Color::from_hex(b.color);
         color.a = b.alpha();
         let p = (b.pos - vec2(0.0, b.z)).round() - vec2(1.0, BURST_BIT);
@@ -1615,5 +1661,19 @@ fn draw_veyra(game: &Game, pos: Vec2, t: f32) {
     for (id, secs, looped, offset) in layers {
         let frame = assets::anim_frame(id, secs, looped);
         draw_sprite_tinted(id, frame, corner + offset.round(), flip, tint);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_blood_setting_keeps_its_share_of_gore() {
+        let shown = |gore| (0..10_000u32).filter(|&n| kept(n, gore)).count();
+        assert_eq!(shown(1.0), 10_000);
+        assert_eq!(shown(0.0), 0);
+        let reduced = shown(REDUCED_BLOOD) as f32 / 10_000.0;
+        assert!((reduced - REDUCED_BLOOD).abs() < 0.03, "{reduced}");
     }
 }

@@ -8,6 +8,7 @@ mod credits;
 mod grimoire;
 mod run;
 mod settings;
+mod setup;
 mod title;
 mod wipe;
 
@@ -25,6 +26,7 @@ use macroquad::prelude::*;
 use run::Run;
 pub use run::LOW_HP;
 use settings::SettingsScene;
+use setup::SetupScene;
 use title::Title;
 use wipe::Wipe;
 
@@ -47,6 +49,7 @@ enum Scene {
     Settings(SettingsScene),
     Grimoire(GrimoireScene),
     Credits(Credits),
+    Setup(SetupScene),
 }
 
 pub struct App {
@@ -69,13 +72,19 @@ impl App {
             settings.fullscreen,
             vec2(w as f32, h as f32),
         );
+        // the first launch (no settings written yet) opens on the setup
+        let scene = if Settings::exist() {
+            Scene::Title(Title::default())
+        } else {
+            Scene::Setup(SetupScene::new(&settings))
+        };
         Self {
             settings,
             audio,
             screen,
             save: SaveData::load(),
             run: Run::new(),
-            scene: Scene::Title(Title::default()),
+            scene,
             backdrop: Backdrop::default(),
             wipe: Wipe::new(),
             debug: false,
@@ -106,7 +115,10 @@ impl App {
     /// Saves everything before the app closes.
     pub fn shutdown(&mut self) {
         self.end_run();
-        self.store_settings();
+        // a setup left halfway shows again next time
+        if !matches!(self.scene, Scene::Setup(_)) {
+            self.store_settings();
+        }
     }
 
     /// Global developer and display keys, active in every scene.
@@ -146,7 +158,7 @@ impl App {
 
     fn navigate(&mut self, nav: Nav) {
         match self.scene {
-            Scene::Settings(_) => self.store_settings(),
+            Scene::Settings(_) | Scene::Setup(_) => self.store_settings(),
             Scene::Grimoire(_) if self.save.mark_seen() => self.save.store(),
             _ => {}
         }
@@ -179,7 +191,7 @@ impl App {
     /// The title backdrop shows behind every scene except a run (and its pause settings).
     fn on_backdrop(&self) -> bool {
         match &self.scene {
-            Scene::Title(_) | Scene::Credits(_) => true,
+            Scene::Title(_) | Scene::Credits(_) | Scene::Setup(_) => true,
             Scene::Settings(s) => !s.in_run(),
             Scene::Grimoire(g) => !g.in_run(),
             Scene::Run => false,
@@ -196,10 +208,13 @@ impl App {
             _ => false,
         };
         let kills = if in_run { self.run.game.kills } else { 0 };
-        kit::set_blood(kit::blood_for_kills(kills));
+        let gore = self.settings.blood.factor();
+        kit::set_gore(gore);
+        kit::set_blood(kit::blood_for_kills(kills) * gore);
         self.screen.update();
         let view = self.screen.view();
         self.run.game.set_view(view);
+        self.run.set_gore(gore, view);
         let input = UiInput::read(self.screen.layout);
         let dt = get_frame_time();
         self.backdrop.update(input.mouse, view, dt);
@@ -227,7 +242,9 @@ impl App {
         self.audio.set_volumes(s.master, s.music, s.sfx);
         // Settings and the Grimoire keep whatever was playing (title, or the paused run's theme).
         match self.scene {
-            Scene::Title(_) | Scene::Credits(_) => self.audio.play_music(Track::Title),
+            Scene::Title(_) | Scene::Credits(_) | Scene::Setup(_) => {
+                self.audio.play_music(Track::Title)
+            }
             Scene::Run => self.audio.play_music(Track::Ashford),
             Scene::Settings(_) | Scene::Grimoire(_) => {}
         }
@@ -250,6 +267,7 @@ impl App {
             ),
             Scene::Grimoire(g) => g.update(input, view),
             Scene::Credits(c) => c.update(input, view),
+            Scene::Setup(s) => s.update(input, view, &mut self.settings, &mut self.screen),
         }
     }
 
@@ -272,6 +290,7 @@ impl App {
                 g.draw(view, &self.save, build);
             }
             Scene::Credits(c) => c.draw(view),
+            Scene::Setup(s) => s.draw(view, &self.settings, &self.screen),
         }
         if self.debug {
             hud::draw_debug(&self.run.game, get_fps(), self.run.update_ms);
