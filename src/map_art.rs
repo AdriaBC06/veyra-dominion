@@ -2,9 +2,13 @@
 //! y-sorted together with the horde and Veyra, roofs and canopies fading while she is behind
 //! them. Renderer only; the simulation's `Map` holds the grid.
 
-use crate::assets::{terrain_frame, terrain_id, terrain_texture, village_frame, village_id};
+use crate::assets::{
+    terrain_frame, terrain_id, terrain_texture, village_anim, village_frame, village_frame_n,
+    village_id,
+};
 use crate::config::*;
 use crate::map::{props, Map};
+use crate::village::{Civilian, DropKind, PropKind, Village};
 use macroquad::prelude::*;
 
 /// Dual-grid terrain layers, drawn in this order: which layout characters count as the
@@ -21,6 +25,13 @@ const LAYERS: [(&str, &str, Option<i32>); 5] = [
 /// One water cell in this many (of those clear of the banks) carries a glint.
 const GLINT_ONE_IN: u32 = 2;
 const NONE: u16 = u16::MAX;
+const NO_ID: usize = usize::MAX;
+/// Per pixel walked, frames of a villager's run cycle.
+const STRIDE_FRAMES: f32 = 0.25;
+/// A drop's hop from where it broke out.
+const DROP_HOP: f32 = 8.0;
+/// Side of the buckets that index the props for `cover`, in pixels.
+const COVER_CELL: f32 = 32.0;
 
 /// A prop placed in the world.
 struct Prop {
@@ -31,6 +42,9 @@ struct Prop {
     /// Animation offset, so copies don't sway in step.
     phase: f32,
     shadow: bool,
+    /// Its index in `Village::props` (`NONE` for scenery) and the sprites of its states.
+    sim: u16,
+    looks: [usize; 5],
 }
 
 impl Prop {
@@ -51,6 +65,45 @@ pub struct MapArt {
     /// Lying on the ground (the bridges): drawn with the terrain, under everything.
     flat: Vec<Prop>,
     tallest: f32,
+    /// Props (indices into `props`) whose sprite reaches into each `COVER_CELL` bucket, row
+    /// by row from `cover_origin`.
+    cover: Vec<Vec<u16>>,
+    cover_origin: Vec2,
+    cover_cols: usize,
+    flames: [usize; 3],
+    folk: [usize; 5],
+    /// In `DropKind` order, then the opening coffer.
+    drops: [usize; 6],
+}
+
+/// Which of a prop's sprites to draw: its own, one of `looks` (cracked, burnt, burnt and
+/// cracked, rubble, burnt rubble), or none (smashed).
+fn look(p: &Prop, village: &Village) -> Option<usize> {
+    if p.sim == NONE {
+        return Some(p.id);
+    }
+    let q = &village.props[p.sim as usize];
+    let pick = |k: usize| {
+        Some(if p.looks[k] == NO_ID {
+            p.id
+        } else {
+            p.looks[k]
+        })
+    };
+    match q.kind {
+        PropKind::Building(_) => match (q.broken, q.burnt, q.cracked()) {
+            (true, false, _) => pick(3),
+            (true, true, _) => pick(4),
+            (false, true, true) => pick(2),
+            (false, true, false) => pick(1),
+            (false, false, true) => pick(0),
+            _ => Some(p.id),
+        },
+        PropKind::Breakable(_) if q.broken => None,
+        PropKind::Breakable(_) if q.cracked() => pick(0),
+        _ if q.burnt => pick(1),
+        _ => Some(p.id),
+    }
 }
 
 fn hash(x: i32, y: i32) -> u32 {
@@ -62,7 +115,7 @@ fn hash(x: i32, y: i32) -> u32 {
 
 impl MapArt {
     /// Builds the drawing of `map` from its layout text `src` (the same one it was parsed from).
-    pub fn new(map: &Map, src: &str) -> Self {
+    pub fn new(map: &Map, src: &str, village: &Village) -> Self {
         let (cols, rows) = (map.cols as i32, map.rows as i32);
         let at = |c: i32, r: i32| -> u8 {
             if c < 0 || r < 0 || c >= cols || r >= rows {
@@ -113,8 +166,21 @@ impl MapArt {
         }
 
         let mut list = Vec::new();
-        let mut place = |name: &str, bottom_left: Vec2, seed: usize| {
+        let stubble = village_id("stubble").unwrap_or(NO_ID);
+        let mut place = |name: &str, bottom_left: Vec2, seed: usize, sim: Option<usize>| {
             let Some(id) = village_id(name) else { return };
+            let state = |suffix: &str| village_id(&format!("{name}{suffix}")).unwrap_or(NO_ID);
+            let looks = match sim.map(|i| village.props[i].kind) {
+                Some(PropKind::Low) => [NO_ID, stubble, NO_ID, NO_ID, NO_ID],
+                Some(_) => [
+                    state("_cracked"),
+                    state("_burnt"),
+                    state("_burnt_cracked"),
+                    state("_rubble"),
+                    state("_rubble_burnt"),
+                ],
+                None => [NO_ID; 5],
+            };
             let (_, r) = village_frame(id, 0.0);
             let shadow = name.starts_with("tree")
                 || name.starts_with("bush")
@@ -136,10 +202,12 @@ impl MapArt {
                 size: vec2(r.w, r.h),
                 phase: (hash(seed as i32, 7) % 1000) as f32 / 1000.0 * 4.0,
                 shadow,
+                sim: sim.map_or(NONE, |i| i as u16),
+                looks,
             });
         };
         for (k, (name, p)) in props(src).enumerate() {
-            place(name, p, k);
+            place(name, p, k, village.of_layout(k));
         }
         // Dry-stone walls from the grid: a horizontal run shows cap and face, a vertical one
         // its cap, drawn over the piece it leaves from (see `wall_*` in village.px.js).
@@ -157,16 +225,17 @@ impl MapArt {
                         (false, true) => "wall_h_l",
                         _ => "wall_h_r",
                     };
-                    place(name, bl, 0);
+                    place(name, bl, 0, None);
                 }
                 if d {
                     place(
                         if u { "wall_v" } else { "wall_v_top" },
                         bl + vec2(0.0, 0.01),
                         0,
+                        None,
                     );
                 } else if u {
-                    place("wall_v_end", bl + vec2(0.0, 0.01), 0);
+                    place("wall_v_end", bl + vec2(0.0, 0.01), 0, None);
                 }
             }
         }
@@ -175,6 +244,21 @@ impl MapArt {
             .partition(|p| p.id == village_id("bridge").unwrap_or(usize::MAX));
         list.sort_by(|a, b| a.base().total_cmp(&b.base()));
         let tallest = list.iter().map(|p| p.size.y).fold(0.0, f32::max);
+        let cover_origin = map.origin - vec2(0.0, tallest);
+        let extent = vec2(cols as f32, rows as f32) * MAP_CELL + vec2(0.0, tallest);
+        let cover_cols = (extent.x / COVER_CELL).ceil() as usize + 1;
+        let cover_rows = (extent.y / COVER_CELL).ceil() as usize + 1;
+        let mut cover = vec![Vec::new(); cover_cols * cover_rows];
+        for (k, p) in list.iter().enumerate() {
+            let a = ((p.pos - cover_origin) / COVER_CELL).max(Vec2::ZERO);
+            let b = ((p.pos + p.size - cover_origin) / COVER_CELL).max(Vec2::ZERO);
+            for y in a.y as usize..=(b.y as usize).min(cover_rows - 1) {
+                for x in a.x as usize..=(b.x as usize).min(cover_cols - 1) {
+                    cover[y * cover_cols + x].push(k as u16);
+                }
+            }
+        }
+        let id = |n: &str| village_id(n).unwrap_or_else(|| panic!("village sprite {n}"));
         Self {
             layers,
             grass,
@@ -183,6 +267,12 @@ impl MapArt {
             props: list,
             flat,
             tallest,
+            cover,
+            cover_origin,
+            cover_cols,
+            flames: ["flame_s", "flame", "flame_l"].map(id),
+            folk: CIVILIAN_SPRITES.map(id),
+            drops: ["coin", "bread", "ham", "coffer", "relic", "coffer_open"].map(id),
         }
     }
 
@@ -246,19 +336,20 @@ impl MapArt {
         }
     }
 
-    /// Props in view, y-sorted with `units`: calls `unit(k)` for the k-th of `units` (base y
+    /// Props in view (`seen`, world pixels) and their flames, y-sorted with `units`: calls `unit(k)` for the k-th of `units` (base y
     /// per unit, ascending) at its place in the order. A prop in front of Veyra (base below
     /// her ground, `HOVER_HEIGHT` under her `body`) that covers her body fades, so she is
     /// never hidden.
     pub fn draw_sorted(
         &self,
-        origin: Vec2,
-        view: Vec2,
+        seen: Rect,
         t: f32,
         body: Rect,
+        village: &Village,
         units: &[f32],
         mut unit: impl FnMut(usize),
     ) {
+        let (origin, view) = (seen.point(), seen.size());
         let ground = body.bottom() + HOVER_HEIGHT;
         let top = origin.y;
         let bottom = origin.y + view.y + self.tallest;
@@ -275,6 +366,12 @@ impl MapArt {
             if p.pos.x > origin.x + view.x || p.pos.x + p.size.x < origin.x {
                 continue;
             }
+            let Some(id) = look(p, village) else {
+                continue;
+            };
+            let (tex, src) = village_frame(id, t + p.phase);
+            // States differ in height (rubble is low): all stand on the same base.
+            let top = p.base() - src.h;
             if p.shadow {
                 let w = p.size.x * 0.42;
                 draw_ellipse(
@@ -286,28 +383,176 @@ impl MapArt {
                     Color::new(0.0, 0.0, 0.0, 0.3),
                 );
             }
-            let behind = p.base() > ground
-                && Rect::new(p.pos.x, p.pos.y, p.size.x, p.size.y).overlaps(&body);
-            let (tex, src) = village_frame(p.id, t + p.phase);
+            let behind = p.base() > ground && Rect::new(p.pos.x, top, src.w, src.h).overlaps(&body);
             let tint = if behind {
                 Color::new(1.0, 1.0, 1.0, ROOF_FADE)
             } else {
                 WHITE
             };
+            // A blow just landed on it (the hit cooldown started): it shakes.
+            let struck = p.sim != NONE && {
+                let q = &village.props[p.sim as usize];
+                matches!(q.kind, PropKind::Building(_) | PropKind::Breakable(_))
+                    && !q.broken
+                    && q.hit_until - t > PROP_HIT_COOLDOWN - STRUCK_SHAKE
+            };
+            let shake = if struck {
+                if (t * 60.0) as i32 % 2 == 0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            } else {
+                0.0
+            };
             draw_texture_ex(
                 &tex,
-                p.pos.x.round(),
-                p.pos.y.round(),
+                p.pos.x.round() + shake,
+                top.round(),
                 tint,
                 DrawTextureParams {
                     source: Some(src),
                     ..Default::default()
                 },
             );
+            if p.sim != NONE {
+                let q = &village.props[p.sim as usize];
+                if q.burning > 0.0 {
+                    self.draw_flames(p, q.kind, top, src.h, t);
+                }
+            }
         }
         while k < units.len() {
             unit(k);
             k += 1;
         }
+    }
+
+    /// Flames over a burning prop: along a building's roof, in a tree's crown, at the foot
+    /// of anything smaller.
+    fn draw_flames(&self, p: &Prop, kind: PropKind, top: f32, h: f32, t: f32) {
+        let seed = hash(p.pos.x as i32, p.pos.y as i32);
+        let (size, n, y) = match kind {
+            PropKind::Building(_) => (2, (p.size.x / 18.0) as usize, top + h * 0.6),
+            PropKind::Charring => (1, 2, top + h * 0.55),
+            _ => (0, 1, p.base()),
+        };
+        let n = n.max(1);
+        for k in 0..n {
+            let s = seed.rotate_left(k as u32 * 7);
+            let size = if k % 2 == 1 { size.max(1) - 1 } else { size };
+            let (tex, src) = village_frame(self.flames[size], t + (s % 97) as f32 * 0.031);
+            let x = p.pos.x + p.size.x * (k as f32 + 0.5) / n as f32 + (s % 7) as f32 - 3.0;
+            let bottom = y + (s >> 8 & 7) as f32 - 3.0;
+            draw_texture_ex(
+                &tex,
+                (x - src.w * 0.5).round(),
+                (bottom - src.h).round(),
+                WHITE,
+                DrawTextureParams {
+                    source: Some(src),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
+    /// A villager on its ground point, running while it moves.
+    pub fn draw_civilian(&self, c: &Civilian) {
+        let id = self.folk[c.kind as usize];
+        let frame = if c.walking {
+            (c.stride * STRIDE_FRAMES) as usize % village_anim(id).0
+        } else {
+            0
+        };
+        let (tex, src) = village_frame_n(id, frame);
+        let p = c.pos.round();
+        draw_ellipse(
+            p.x,
+            p.y,
+            src.w * 0.35,
+            1.5,
+            0.0,
+            Color::new(0.0, 0.0, 0.0, 0.3),
+        );
+        draw_texture_ex(
+            &tex,
+            p.x - (src.w * 0.5).floor(),
+            p.y - src.h + 1.0,
+            WHITE,
+            DrawTextureParams {
+                source: Some(src),
+                flip_x: c.facing > 0.0,
+                ..Default::default()
+            },
+        );
+    }
+
+    /// What lies about to pick up: hopping out of the wreck, then on the ground; an opened
+    /// coffer plays its lid and fades.
+    /// The base line of the front-most prop drawn over `area` as it stands now, if any: a
+    /// soul or drop there is drawn just after it, so a house or a tree never hides one.
+    pub fn cover(&self, area: Rect, village: &Village) -> Option<f32> {
+        let a = ((area.point() - self.cover_origin) / COVER_CELL).max(Vec2::ZERO);
+        let b = ((area.point() + area.size() - self.cover_origin) / COVER_CELL).max(Vec2::ZERO);
+        let rows = self.cover.len() / self.cover_cols;
+        let mut front = None::<f32>;
+        for y in a.y as usize..=(b.y as usize).min(rows - 1) {
+            for x in a.x as usize..=(b.x as usize).min(self.cover_cols - 1) {
+                for &k in &self.cover[y * self.cover_cols + x] {
+                    let p = &self.props[k as usize];
+                    let Some(id) = look(p, village) else { continue };
+                    let h = village_frame(id, 0.0).1.h;
+                    let drawn = Rect::new(p.pos.x, p.base() - h, p.size.x, h);
+                    if drawn.overlaps(&area) && front.is_none_or(|f| p.base() > f) {
+                        front = Some(p.base());
+                    }
+                }
+            }
+        }
+        front
+    }
+
+    /// Where drop `i` is drawn, for `cover`.
+    pub fn drop_area(village: &Village, i: usize) -> Rect {
+        let p = village.drops[i].pos;
+        Rect::new(p.x - 6.0, p.y - 18.0, 12.0, 18.0)
+    }
+
+    pub fn draw_drop(&self, village: &Village, i: usize, t: f32) {
+        let d = &village.drops[i];
+        let k = (d.t / DROP_SETTLE).min(1.0);
+        let ground = d.from.lerp(d.pos, k).round();
+        let lift = (4.0 * DROP_HOP * k * (1.0 - k)).round();
+        let (frames, alpha) = match d.opened {
+            Some(o) => {
+                let id = self.drops[5];
+                let step = village_anim(id).1.max(0.01);
+                let fade = ((COFFER_LINGER - o) / 0.3).clamp(0.0, 1.0);
+                (village_frame_n(id, (o / step) as usize), fade)
+            }
+            None => (
+                village_frame(self.drops[d.kind as usize], t + i as f32 * 0.37),
+                1.0,
+            ),
+        };
+        let (tex, src) = frames;
+        let shade = Color::new(0.0, 0.0, 0.0, 0.3 * alpha);
+        draw_ellipse(ground.x, ground.y, src.w * 0.4, 1.5, 0.0, shade);
+        if d.kind == DropKind::Relic {
+            let glow = 0.18 + 0.08 * (t * 4.0).sin();
+            let c = Color::new(1.0, 0.55, 0.2, glow);
+            draw_circle(ground.x, ground.y - src.h * 0.5 - lift, src.w * 0.9, c);
+        }
+        draw_texture_ex(
+            &tex,
+            ground.x - (src.w * 0.5).floor(),
+            ground.y - src.h + 1.0 - lift,
+            Color::new(1.0, 1.0, 1.0, alpha),
+            DrawTextureParams {
+                source: Some(src),
+                ..Default::default()
+            },
+        );
     }
 }

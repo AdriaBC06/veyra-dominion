@@ -5,11 +5,12 @@ use crate::assets::{SpriteId, FLASH_FRAME_OFFSET};
 use crate::boss::Boss;
 use crate::config::*;
 use crate::enemies::{Action, Enemies};
-use crate::map::Map;
 #[cfg(test)]
 use crate::enemies::{MODE_DASH, MODE_WINDUP};
+use crate::map::Map;
 use crate::spatial::SpatialHash;
 use crate::upgrades::{Choice, PlayerStats, Upgrades};
+use crate::village::{DropKind, Happening, Village};
 use macroquad::math::{vec2, Vec2};
 use macroquad::rand::gen_range;
 use std::f32::consts::TAU;
@@ -230,6 +231,12 @@ pub struct Game {
     pub boss: Option<Boss>,
     /// The blocking grid and the walkers' flow field (open ground in tests).
     pub map: Map,
+    /// What the Arts break and burn, the villagers and the wreckage's drops (V19h).
+    pub village: Village,
+    /// Coins picked up (spent from V20).
+    pub coins: u32,
+    /// The relic hastens the Arts until then.
+    pub relic_until: f32,
     /// When endless mode began (the boss's death).
     endless_from: f32,
     /// Enemies released by dying Ratcatchers this tick: (kind, where, how many).
@@ -306,6 +313,9 @@ impl Game {
             blasts: Vec::with_capacity(MAX_BLASTS),
             boss: None,
             map: Map::open(),
+            village: Village::empty(),
+            coins: 0,
+            relic_until: 0.0,
             endless_from: 0.0,
             splits: Vec::with_capacity(MAX_SPLITS),
             reward: None,
@@ -336,6 +346,7 @@ impl Game {
     pub fn on_map(src: &str) -> Self {
         let mut g = Self::new();
         g.map = Map::parse(src);
+        g.village = Village::new(&g.map, src);
         g.map.update_flow(g.player.pos);
         g
     }
@@ -382,6 +393,7 @@ impl Game {
         self.use_arts(alive);
         self.drip_bleeding();
         self.update_shots(alive);
+        self.update_village(alive);
         if alive {
             self.regenerate();
             self.contact_damage();
@@ -688,6 +700,101 @@ impl Game {
         self.splits.clear();
     }
 
+    /// Spends the Arts' marks on the village, then answers what came of them: souls and
+    /// blood from the slain, splinters and dust from the wreckage, what she picked up.
+    fn update_village(&mut self, alive: bool) {
+        let v = &mut self.village;
+        v.update(&mut self.map, self.player.pos, self.time, alive);
+        for k in 0..v.happenings.len() {
+            match self.village.happenings[k] {
+                Happening::Slain { pos, folk } => {
+                    if folk {
+                        self.drop_soul(pos, CIVILIAN_SOUL_XP);
+                    }
+                    splat(&mut self.splats, pos, CIVILIAN_POOL);
+                    self.spawn_bits(pos, &BLOOD, CIVILIAN_BITS, 6.0, true);
+                }
+                Happening::Struck { pos, building } => {
+                    let colors = if building { &RUBBLE_BITS } else { &SPLINTERS };
+                    self.spawn_bits(pos, colors, STRUCK_BITS, 6.0, false)
+                }
+                Happening::Broke { pos } => {
+                    self.spawn_bits(pos, &SPLINTERS, SPLINTER_BITS, 8.0, false)
+                }
+                Happening::Collapsed { rect } => {
+                    for k in 0..COLLAPSE_PUFFS {
+                        let x = rect.x + rect.w * (k as f32 + 0.5) / COLLAPSE_PUFFS as f32;
+                        let at = vec2(x, rect.bottom() - gen_range(4.0, 14.0));
+                        self.puff(at, COLLAPSE_SMOKE_TIME);
+                        self.spawn_bits(at, &RUBBLE_BITS, 3, 16.0, false);
+                    }
+                }
+                Happening::Picked { kind, pos } => self.pick_up(kind, pos),
+            }
+        }
+        self.village.happenings.clear();
+    }
+
+    fn pick_up(&mut self, kind: DropKind, pos: Vec2) {
+        match kind {
+            DropKind::Coin => self.coins += 1,
+            DropKind::Bread => self.heal(BREAD_HEAL),
+            DropKind::Ham => self.heal(HAM_HEAL),
+            DropKind::Relic => self.relic_until = self.time + RELIC_TIME,
+            DropKind::Coffer => {
+                let r = gen_range(0.0, 1.0);
+                if r < COFFER_ROLL[0] {
+                    self.drop_soul(pos, COFFER_XP);
+                } else if r < COFFER_ROLL[0] + COFFER_ROLL[1] {
+                    for s in &mut self.souls {
+                        s.called = true;
+                    }
+                } else if self.offerings.len() < MAX_OFFERINGS {
+                    self.offerings.push(Offering {
+                        pos: pos + vec2(0.0, 10.0),
+                    });
+                }
+            }
+        }
+        self.cue(Cue::Soul);
+    }
+
+    /// `n` bits of `colors` thrown up from `pos` at about `h` pixels (blood ones splash).
+    fn spawn_bits(&mut self, pos: Vec2, colors: &[u32], n: usize, h: f32, blood: bool) {
+        for k in 0..n {
+            if self.bursts.len() >= MAX_BURST_PIXELS {
+                return;
+            }
+            let dir = Vec2::from_angle(gen_range(0.0, TAU));
+            let speed = gen_range(BURST_SPEED.0, BURST_SPEED.1);
+            self.bursts.push(BurstPixel {
+                pos,
+                vel: vec2(dir.x * speed, dir.y * speed * 0.5),
+                z: h * gen_range(0.3, 1.0),
+                vz: gen_range(BURST_JUMP.0, BURST_JUMP.1),
+                color: colors[k % colors.len()],
+                rest: -1.0,
+                blood,
+            });
+        }
+    }
+
+    fn puff(&mut self, pos: Vec2, duration: f32) {
+        if self.fades.len() < MAX_FADES {
+            self.fades.push(Fade {
+                pos,
+                vel: vec2(
+                    gen_range(-6.0, 6.0),
+                    -SMOKE_RISE_SPEED * gen_range(0.4, 0.9),
+                ),
+                sprite: SpriteId::Smoke,
+                frame: 0,
+                t: gen_range(-0.2, 0.0),
+                duration,
+            });
+        }
+    }
+
     fn spawn_death_smoke(&mut self) {
         // Where her body burns: she is drawn `VEYRA_DROP` below a figure on her hitbox.
         let center = self.player.pos + Vec2::Y * (VEYRA_DROP - PROJ_DRAW_HEIGHT);
@@ -715,6 +822,12 @@ impl Game {
             time: self.time,
             view: self.view,
             map: &self.map,
+            marks: &mut self.village.marks,
+            haste: if self.time < self.relic_until {
+                RELIC_HASTE
+            } else {
+                1.0
+            },
         };
         let cues = self.arts.update(&mut world, alive);
         for (on, cue) in [
@@ -2235,17 +2348,25 @@ mod tests {
         }
         let hp_before: f32 = g.enemies.hp.iter().sum();
         let mut input = InputState::default();
-        let (mut peak, mut total) = (0, 0);
+        let (mut peak, mut total, mut peak_folk) = (0, 0, 0);
         let ticks = 20_000;
         let started = std::time::Instant::now();
         for i in 0..ticks {
             if i % 30 == 0 {
                 input.move_dir = vec2(gen_range(-1.0, 1.0), gen_range(-1.0, 1.0));
             }
+            if i % 120 == 0 {
+                g.village.crowd(g.player.pos);
+                peak_folk = peak_folk.max(g.village.civilians.len());
+            }
             if g.tick(&input) == SimEvent::LevelUp {
                 g.choose_upgrade(0);
                 g.player.hp = f32::INFINITY; // healing clamps hp to max_hp
             }
+            let v = &g.village;
+            assert!(v.civilians.capacity() == MAX_CIVILIANS);
+            assert!(v.drops.capacity() == MAX_DROPS);
+            assert!(v.marks.capacity() == MAX_MARKS && v.happenings.capacity() == MAX_MARKS);
             assert!(g.dying.is_none());
             assert!(g.enemies.len() <= MAX_ENEMIES);
             assert!(g.arts.projectiles.len() <= MAX_PROJECTILES);
@@ -2272,10 +2393,13 @@ mod tests {
         }
         let mean_ms = started.elapsed().as_secs_f64() * 1000.0 / ticks as f64;
         println!(
-            "stress: mean tick {mean_ms:.3} ms, enemies peak {peak} mean {}, kills {}",
+            "stress: mean tick {mean_ms:.3} ms, enemies peak {peak} mean {}, kills {}, \
+             villagers peak {peak_folk}, wrecked {}",
             total / ticks,
-            g.kills
+            g.kills,
+            g.village.props.iter().filter(|p| p.broken).count()
         );
+        assert_eq!(peak_folk, MAX_CIVILIANS);
         assert_eq!(peak, MAX_ENEMIES);
         let hp_after: f32 = g.enemies.hp.iter().sum();
         assert!(hp_after < hp_before, "the Arts keep hitting the horde");

@@ -751,7 +751,367 @@ wall("wall_v", 0, 0, { v: true })
 wall("wall_v_top", 0, 0, { v: true, top: true })
 wall("wall_v_end", 0, 0, { v: true, end: true })
 
+// ================================================================== V19h: the raid
+// Villagers who flee, what breaks and what it drops, buildings cracked / fallen / burnt, burnt
+// plants, flames. New keys are symbols: every letter is taken.
+pal({
+  "%": "#b08a6e", "&": "#86644e",                          // skin
+  "=": "#a49c86", "-": "#787060",                          // linen
+  "<": "#a07c74", ">": "#76585a", "(": "#c49a8e",          // pig
+  "6": "#151318", "7": "#25211f", "8": "#38322e", "9": "#544b44",   // soot, char, ash
+  "0": "#7a2614", "J": "#b24a1a", "K": "#e08a2a", "+": "#f6c868", "@": "#fff0c0",  // ember to flame
+  "{": "#8a6a2a", "}": "#c49a3c", "^": "#e8cc78",          // gold
+})
+ramps("6789", "0JK+@", "&%", "-=", "><(", "{}^")
+
+// ------------------------------------------------------------------ villagers (flee, V19h)
+// Facing left like the horde (the game flips them). They run with their hands up in panic;
+// four frames, legs on the even ones, arms on the odd ones.
+const FOLK_LEGS = [
+  ".c...c.\nc.....c\nW.....W",
+  "..c.c..\n..cc...\n.WW....",
+  ".c...c.\nc.....c\nW.....W",
+  "...cc..\n..c.c..\n..W.WW.",
+]
+anim("folk_man", { w: 9, h: 15, outline: "k", fps: 10 }, `
+  %.......%
+  =..bbb..=
+  =.bbbbb.=
+  =.%%%bb.=
+  .=%k%&b=.
+  ..=%%&=..
+  ..====-..
+  ..===--..
+  ..===--..
+  ..nnnnn..
+  ..ccccc..
+  ..cc.cc..`,
+  ...FOLK_LEGS.map((g, i) => frame(grid(1, 12, g), ...(i % 2 ? [grid(0, 0, "_......._\n%.......%")] : []))))
+anim("folk_woman", { w: 9, h: 15, outline: "k", fps: 10 }, `
+  %.......%
+  =..===..=
+  =.=====.=
+  =.%%%==.=
+  .=%k%&=-.
+  ..=%%&=..
+  ..cc=cc..
+  ..c===c..
+  ..c===c..
+  .cc===cc.
+  .cc===cc.
+  .ccc=ccc.
+  ccccccccc`,
+  frame(grid(0, 13, ".W.....W.")), frame(grid(0, 0, "_......._\n%.......%"), grid(0, 12, "_ccccccc_"), grid(0, 13, "..WW.W...")),
+  frame(grid(0, 13, "W.....W..")), frame(grid(0, 0, "_......._\n%.......%"), grid(0, 12, "_ccccccc_"), grid(0, 13, "...W.WW..")))
+anim("folk_child", { w: 7, h: 11, outline: "k", fps: 12 }, `
+  ..aaa..
+  .aaaaa.
+  .%%%aa.
+  .%k%&a.
+  ..%%&..
+  %=yyy=%
+  ..yyy..
+  ..nnn..`,
+  ...[".n.n.\nW...W", "..nn.\n.WW..", ".n.n.\nW...W", "..n.n\n..W.W"].map((g, i) =>
+    frame(grid(1, 8, g), ...(i % 2 ? [grid(0, 5, "_=yyy=_\n%.....%")] : []))))
+anim("chicken", { w: 8, h: 7, outline: "k", fps: 12 }, `
+  .0......
+  K==.....
+  .=k....=
+  .====-==
+  ..=====.
+  ...--...`,
+  frame(grid(3, 6, "K.K")), frame(grid(2, 6, ".KK")), frame(grid(3, 6, "K..K")), frame(grid(2, 6, "KK.")))
+anim("pig", { w: 13, h: 8, outline: "k", fps: 10 }, `
+  ..>......>...
+  .<<<<<<<<<<<.
+  ((k<<<<<<<<<>
+  ((<<<<<<<<<<>
+  .<<<<<<<<<<>.
+  ..>>>>>>>>>..`,
+  frame(grid(2, 6, ">.>....>.>\n>.>....>.>")), frame(grid(2, 6, ".>>.....>>\n.>>.....>>")),
+  frame(grid(2, 6, ">..>..>..>\n>..>..>..>")), frame(grid(2, 6, ".>>.....>>\n.>>.....>>")))
+
+// ------------------------------------------------------------------ drops (V19h)
+// Coins (Tribute) spin; food heals; a coffer bursts open; a relic pulses.
+anim("coin", { w: 8, h: 8, outline: "k", frames: 8, fps: 10 }, (c) => {
+  // a full turn: face, narrowing, the milled edge, then the back widening again
+  const rx = [3.5, 2.6, 1.4, 0, 1.4, 2.6, 3.5, 3.5][c.frame]
+  if (rx === 0) { c.rect(3, 0, 2, 8, "{"); c.vline(3, 1, 6, "}"); c.px(3, 1, "^"); return }
+  c.ellipse(3.5, 3.5, rx, 3.5, "{")
+  c.ellipse(3.5, 3.5, Math.max(rx - 1, 0.5), 2.5, "}")
+  if (rx > 3) {                                               // stamped cross, lit on its left
+    c.vline(3, 2, 4, "{"); c.hline(2, 3, 4, "{"); c.px(2, 2, "^")
+  } else if (rx > 2) c.vline(3, 2, 4, "{")
+  c.light((x, y) => c.is(x, y, "}") && x + y < 6, 1)
+  if (c.frame === 7) { c.px(1, 1, "@"); c.px(6, 5, "^") }      // a glint as it faces her
+})
+sprite("bread", { w: 10, h: 6, outline: "k" }, (c) => {
+  c.ellipse(5, 3, 5, 3, "Y"); c.hline(2, 1, 6, "z"); c.hline(1, 5, 8, "y")
+  for (const x of [3, 5, 7]) c.line(x, 2, x + 1, 1, "y")
+})
+sprite("ham", { w: 11, h: 8, outline: "k" }, (c) => {
+  c.circ(7, 4, 3, "o"); c.ellipse(6, 4, 4, 3, "o"); c.light([4, 1, 3, 2])
+  c.px(6, 2, "<"); c.px(5, 3, "(")
+  c.line(0, 6, 3, 5, "r"); c.px(0, 7, "r"); c.px(1, 7, "D"); c.px(0, 5, "r")
+})
+sprite("coffer", { w: 13, h: 11, outline: "k" }, (c) => {
+  c.rect(0, 0, 13, 4, "x"); c.hline(1, 0, 11, "O")                     // lid
+  c.rect(0, 4, 13, 7, "w"); c.hline(0, 4, 13, "W")
+  for (const x of [2, 10]) { c.vline(x, 0, 11, "i"); c.px(x, 0, "I") }  // iron bands
+  c.rect(5, 3, 3, 3, "{"); c.px(6, 4, "6"); c.px(5, 3, "^")          // lock
+})
+anim("coffer_open", { w: 13, h: 15, outline: "k", fps: 12, loop: false, frames: 5 }, (c) => {
+  const k = c.frame
+  c.rect(0, 8, 13, 7, "w"); c.hline(0, 8, 13, "W")
+  for (const x of [2, 10]) c.vline(x, 8, 7, "i")
+  c.rect(0, 6, 13, 2, "6")                                              // open mouth
+  const lid = Math.min(k, 2)
+  c.rect(0, 6 - 2 * lid - 2, 13, 2 + lid, "x"); c.hline(0, 6 - 2 * lid - 2, 13, "O")
+  if (k >= 1) for (let i = 0; i < 3 + k * 2; i++) {                     // glow and sparks spill out
+    const x = 2 + ((i * 5 + k * 3) % 9), y = 6 - ((i * 3 + k) % (2 + k * 2))
+    c.px(x, y, i % 3 ? "^" : "+")
+  }
+})
+// A saint's skull under a gilt crown, profaned: its sockets pulse with her fire.
+anim("relic", { w: 11, h: 13, outline: "k", frames: 6, fps: 8 }, `
+  .^...^...^.
+  .}}.}}}.}}.
+  .{}}}}}}}{.
+  .{0{{{{{0{.
+  .=========.
+  .=========-
+  .=66===66--
+  .=66===66--
+  ..==-6-==-.
+  ..===6===-.
+  ...=-=-=-..
+  ...=6=6=...
+  ....---....`, (c) => {
+  const p = 0.5 + 0.5 * Math.sin(c.phase * Math.PI * 2)
+  c.light((x, y) => c.is(x, y, "=") && x < 4 && y < 7, 1)
+  for (const x of [3, 7]) {                                     // the sockets glow and pulse
+    c.px(x, 7, p > 0.66 ? "K" : p > 0.33 ? "J" : "0")
+    if (p > 0.5) c.px(x - 1, 6, "0")
+  }
+})
+
+// ------------------------------------------------------------------ damage (V19h)
+// Every mark has a cause: cracks run down from corners of openings and the eave, holes break
+// through the roof where a blow landed, soot climbs from every opening a fire came out of.
+const ROOF = { thatch: "tTHu", slate: "sSLv" }
+const WALLS = "PpQCDB"
+// Jagged cracks over `keys`, each with a lit lip on its left (the sun's side).
+function cracks(c, keys, n, seed, y0 = 0, y1 = c.h) {
+  const r = c.rng(seed)
+  for (let i = 0; i < n; i++) {
+    if (i % 3 === 1) {                                        // plaster fallen off: wattle shows
+      let x = 0, y = 0, t = 0
+      do { x = 3 + (r() * (c.w - 8) | 0); y = y0 + (r() * (y1 - y0) | 0) } while (!(c.is(x, y, "Pp") && c.is(x + 4, y + 3, "Pp")) && ++t < 60)
+      if (t < 60) {
+        c.ellipse(x + 2, y + 2, 3, 2, "W")
+        for (let k = 0; k < 5; k += 2) for (let i = -1; i <= 5; i++) if (c.is(x + i, y + k, "W")) c.px(x + i, y + k, "x")
+        c.shade((px, py) => c.is(px, py, "Pp") && (px - x - 2) ** 2 / 20 + (py - y - 3) ** 2 / 8 < 1 && py > y + 2, 1)
+      }
+    }
+    let x = 0, y = 0, t = 0
+    do { x = 2 + (r() * (c.w - 4) | 0); y = y0 + (r() * (y1 - y0) | 0) } while (!c.is(x, y, keys) && ++t < 60)
+    const dir = r() < 0.5 ? -1 : 1
+    for (let k = 0, len = 6 + (r() * 8 | 0); k < len && c.is(x, y, keys + "6"); k++) {
+      c.px(x, y, "6")
+      if (c.is(x + 1, y, keys)) c.px(x + 1, y, "W")             // 2 px wide: it reads at 1x
+      if (c.is(x - 1, y, keys)) c.light([x - 1, y, 1, 1])
+      y++
+      if (r() < 0.5) x += dir
+      if (r() < 0.2 && c.is(x + dir, y, keys)) c.px(x + dir, y, "6")   // a short branch
+    }
+  }
+}
+// Holes punched through a roof: dark inside, broken rafters across, a ragged lip.
+function holes(c, keys, n, seed) {
+  const r = c.rng(seed)
+  for (let i = 0; i < n; i++) {
+    let x = 0, y = 0, t = 0
+    do { x = 6 + (r() * (c.w - 12) | 0); y = 4 + (r() * (c.h - 8) | 0) } while (!(c.is(x, y, keys) && c.is(x - 4, y + 3, keys) && c.is(x + 4, y - 2, keys)) && ++t < 80)
+    if (t >= 80) continue
+    const rx = 3 + (r() * 2 | 0), ry = 2
+    c.ellipse(x, y, rx, ry, "6")
+    for (let k = -rx; k <= rx; k++) if (r() < 0.4) c.px(x + k, y + (r() < 0.5 ? -ry - 1 : ry + 1), "6")
+    c.line(x - rx, y + 1, x + rx - 1, y - 1, "W"); c.px(x - rx + 1, y, "w")   // a rafter across
+    c.light((px, py) => c.is(px, py, keys) && (px - x) ** 2 / (rx + 2) ** 2 + (py - y + 1) ** 2 / 9 < 1 && py < y, 1)
+  }
+}
+// Smashed window panes: glass gone dark, a shard left in a corner.
+function smash(c, seed) {
+  const r = c.rng(seed)
+  for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++)
+    if (c.is(x, y, "G") && r() < 0.7) { c.px(x, y, "6"); if (c.is(x + 1, y + 1, "g")) c.px(x + 1, y + 1, "I") }
+}
+const CHAR = { P: "8", p: "9", Q: "7", w: "6", W: "6", x: "7", B: "7", C: "8", D: "9", A: "6", g: "6", G: "7",
+  i: "6", I: "7", n: "6", y: "7", Y: "8", z: "8", O: "7", c: "7", L: "6", S: "7", s: "8", v: "8" }
+// A house after the fire: walls blackened, soot up from doors and windows, the thatch gone to a
+// skeleton of charred rafters over the dark inside, a few embers still glowing in it.
+function burnt(c, roofKeys, seed, thatched) {
+  const r = c.rng(seed)
+  const roof = (x, y) => c.is(x, y, roofKeys)
+  if (thatched) {
+    const mask = []
+    for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++) if (roof(x, y)) mask.push([x, y])
+    for (const [x, y] of mask) c.px(x, y, "6")
+    const inRoof = (x, y) => mask.some(([a, b]) => a === x && b === y)
+    let top = c.h, bot = 0
+    for (const [, y] of mask) { top = Math.min(top, y); bot = Math.max(bot, y) }
+    for (const [x, y] of mask) if (y > bot - 4 - ((x * 7 + seed) % 3) || y < top + 2) c.px(x, y, "7")   // charred thatch left at eave and ridge
+    for (let x = 4; x < c.w - 3; x += 7) {                    // rafters from the ridge down to the eave
+      const lean = x < c.w / 2 ? -1 : 1
+      for (let y = top; y <= bot; y++) {
+        const xx = x + Math.round(lean * (y - top) * 0.25)
+        if (inRoof(xx, y)) { c.px(xx, y, "8"); if (inRoof(xx + 1, y)) c.px(xx + 1, y, "7") }
+        if (r() < 0.04) break                                    // burnt through partway
+      }
+    }
+    for (let x = 0; x < c.w; x++) if (inRoof(x, top + 1)) c.px(x, top + 1, "8")   // ridge beam
+    for (let i = 0; i < mask.length / 120; i++) {               // embers in small clusters
+      const [x, y] = mask[r() * mask.length | 0]
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1]]) if (inRoof(x + dx, y + dy) && r() < 0.8) c.px(x + dx, y + dy, dx + dy ? "0" : "J")
+    }
+  } else {
+    for (let i = 0; i < 2; i++) holes(c, roofKeys, 1, seed + i)
+  }
+  for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++)  // soot rising from the openings
+    if (c.is(x, y, "gG") && !c.is(x, y - 1, "gG")) for (let k = 1; k < 4 + ((x + seed) % 3); k++) if (c.is(x, y - k, WALLS)) c.px(x, y - k, "7")
+  c.recolor(CHAR)
+}
+// Rubble of a fallen building, `w` wide and `h` tall: a heap of its own materials with a
+// standing corner post or stone stump and a slumped chimney.
+function rubble(name, w, h, o) {
+  sprite(name, { w, h, outline: "k" }, (c) => {
+    const r = c.rng(o.seed)
+    const base = h - 2, peak = h * 0.45
+    const heap = []
+    for (let x = 0; x < w; x++) {
+      const t = x / (w - 1), bump = Math.sin(t * Math.PI) ** 0.7
+      heap.push(Math.round(base - bump * (h - peak) * (0.75 + 0.25 * Math.sin(x * 0.7 + o.seed))))
+    }
+    for (let x = 0; x < w; x++) c.vline(x, heap[x], h - heap[x], o.fill)
+    for (let i = 0; i < w * h / 14; i++) {                    // chunks: stones / plaster / straw
+      const x = r() * w | 0, y = heap[x] + (r() * (h - heap[x]) | 0)
+      const k = o.bits[r() * o.bits.length | 0]
+      c.rect(x, y, 2 + (r() * 2 | 0), 1 + (r() < 0.5 ? 1 : 0), k)
+    }
+    for (let i = 0; i < w / 12; i++) {                        // broken beams lying across
+      const x = 2 + (r() * (w - 12) | 0), y = heap[x + 4] + 2
+      c.line(x, y, x + 8 + (r() * 6 | 0), y + (r() < 0.5 ? -2 : 2), "w", 2)
+      c.line(x, y - 1, x + 8, y - 2, "x")
+    }
+    if (o.post) { const x = o.post; c.rect(x, heap[x] - 10, 3, h - heap[x] + 10, "w"); c.vline(x, heap[x] - 10, 10, "x") }
+    if (o.stump) { const [x, sw, sh] = o.stump; stone(c, x, heap[x] - sh, sw, sh + 2); c.light([x, heap[x] - sh, 2, sh]) }
+    c.light((x, y) => y <= heap[x] + 1 && c.is(x, y, "*") && x < w * 0.6, 1)
+    c.shade((x, y) => y >= h - 2 && c.is(x, y, "*"), 1)
+  })
+}
+
+// The four buildings in every state: cracked, burnt (standing), burnt and cracked, rubble,
+// burnt rubble. Thatched roofs burn away; slate and stone only blacken.
+const BUILT = [
+  ["house_cottage", 52, ROOF.thatch, true, { fill: "8", bits: ["B", "C", "P", "p", "t", "T", "u"], post: 8, seed: 3 }],
+  ["house_long", 80, ROOF.thatch, true, { fill: "8", bits: ["B", "C", "P", "p", "t", "T", "u"], post: 60, seed: 7 }],
+  ["house_slate", 60, ROOF.slate, false, { fill: "8", bits: ["B", "C", "P", "p", "s", "S", "v"], post: 44, seed: 5 }],
+  ["chapel", 84, ROOF.slate, false, { fill: "B", bits: ["B", "C", "D", "s", "S", "v"], stump: [2, 14, 24], seed: 11 }],
+]
+for (const [name, w, roofKeys, thatched, rb] of BUILT) {
+  const seed = rb.seed
+  sprite(name + "_cracked", { base: name }, (c) => {
+    cracks(c, WALLS, Math.round(w / 9), seed); holes(c, roofKeys, Math.round(w / 26), seed + 1); smash(c, seed)
+  })
+  sprite(name + "_burnt", { base: name }, (c) => burnt(c, roofKeys, seed, thatched))
+  sprite(name + "_burnt_cracked", { base: name }, (c) => {
+    cracks(c, WALLS, Math.round(w / 9), seed); holes(c, roofKeys, Math.round(w / 26), seed + 1); burnt(c, roofKeys, seed, thatched)
+  })
+  rubble(name + "_rubble", w, name === "chapel" ? 40 : 26, rb)
+  sprite(name + "_rubble_burnt", { base: name + "_rubble" }, (c) => {
+    const r = c.rng(seed)
+    c.recolor(CHAR)
+    for (let y = 0; y < c.h; y++) for (let x = 0; x < c.w; x++) if (c.is(x, y, "utT")) c.px(x, y, "7")
+    for (let i = 0; i < w / 6; i++) { const x = r() * c.w | 0, y = (c.h * 0.5 + r() * c.h * 0.4) | 0; if (c.is(x, y, "6789")) c.px(x, y, r() < 0.6 ? "0" : "J") }
+  })
+}
+
+// Breakables one blow from going: split staves, a stove-in lid, burst twine, a broken wheel.
+sprite("barrel_cracked", { base: "barrel" }, grid(5, 3, "66\n66\n.6\n66\n6.\n66\n66\n.6\n66"), grid(1, 5, "x\nx"), (c) => { c.px(9, 5, "_"); c.px(9, 4, "k") })
+sprite("crate_cracked", { base: "crate" }, grid(2, 1, "66.666.\n.6..6..") , grid(9, 7, "6.\n.6\n6."))
+sprite("hay_bale_cracked", { base: "hay_bale" }, (c) => {
+  c.vline(5, 1, 12, "Y"); c.px(5, 0, "z")                             // a burst twine
+  for (const [x, y] of [[0, 3], [16, 5], [17, 9], [3, 13], [12, 13]]) c.px(x, y, "z")
+})
+sprite("hay_roll_cracked", { base: "hay_roll" }, (c) => { c.vline(15, 2, 13, "Y"); for (const [x, y] of [[20, 6], [19, 12], [14, 14]]) c.px(x, y, "z") })
+sprite("cart_cracked", { base: "cart" }, grid(19, 10, "6...6\n.666.\n6.6.6"), grid(11, 7, "6\n6\n.6"))
+
+// Burnt plants, on the same canvas as the living ones so they stand on the same spot.
+function bareTree(name, w, h, trunkX, crownY, seed, pine) {
+  sprite(name, { w, h, outline: "k" }, (c) => {
+    const r = c.rng(seed)
+    c.rect(trunkX - 2, crownY, 5, h - crownY, "7"); c.vline(trunkX - 2, crownY, h - crownY, "8")
+    c.px(trunkX - 3, h - 1, "7"); c.px(trunkX + 3, h - 1, "7")
+    const branch = (x, y, a, len, d) => {
+      const x1 = Math.round(x + Math.cos(a) * len), y1 = Math.round(y + Math.sin(a) * len)
+      c.line(x, y, x1, y1, d < 1 ? "7" : "6", d < 1 ? 2 : 1)
+      if (d < 2) for (const s of [-0.5, 0.45]) branch(x1, y1, a + s + (r() - 0.5) * 0.3, len * 0.6, d + 1)
+    }
+    if (pine) for (let y = 6; y < crownY + 4; y += 6) { const l = 2 + (y / h) * 12; c.line(trunkX, y, trunkX - l, y + 3, "6"); c.line(trunkX, y, trunkX + l, y + 3, "6") }
+    else {
+      c.vline(trunkX, crownY - 6, 7, "7")                        // the leader runs on up
+      for (const [a, dy] of [[-2.7, 4], [-2.15, 0], [-1.57, -5], [-1.0, 0], [-0.45, 4]]) branch(trunkX, crownY + dy, a, (w * 0.36) | 0, 0)
+    }
+    if (pine) c.vline(trunkX, 0, crownY, "7")
+    for (let i = 0; i < 3; i++) { const y = crownY + 3 + (r() * (h - crownY - 6) | 0); c.px(trunkX - 1 + (r() * 3 | 0), y, "0") }
+    c.light([trunkX - 2, crownY, 1, h - crownY])
+  })
+}
+bareTree("tree_oak_burnt", 32, 42, 15, 24, 2)
+bareTree("tree_oak_small_burnt", 24, 34, 11, 16, 9)
+bareTree("tree_birch_burnt", 22, 32, 10, 14, 17)
+bareTree("tree_pine_burnt", 32, 56, 16, 46, 4, true)
+function burntBush(name, w, h, seed) {
+  sprite(name, { w, h, outline: "k" }, (c) => {
+    const r = c.rng(seed)
+    for (let i = 0; i < 7; i++) c.line(w >> 1, h - 1, 2 + (r() * (w - 4) | 0), 2 + (r() * (h - 6) | 0), r() < 0.5 ? "6" : "7")
+    c.hline(2, h - 1, w - 4, "8")
+    c.px(w >> 1, h - 3, "0")
+  })
+}
+burntBush("bush_burnt", 22, 16, 21); burntBush("bush_berry_burnt", 18, 14, 33)
+// Small plants and crops burn down to stubble on scorched earth.
+sprite("stubble", { w: 16, h: 8 }, (c) => {
+  const r = c.rng(5)
+  c.ellipse(8, 6, 7, 2, "7")
+  for (let x = 2; x < 15; x += 2) { const h = 1 + (r() * 3 | 0); c.vline(x, 6 - h, h, r() < 0.5 ? "6" : "8") }
+  c.px(5, 6, "9"); c.px(11, 7, "9")
+})
+
+// Flames: tongues that lick up and split, white-hot at the root, smoke-dark tips. Three sizes:
+// small (plants, breakables), mid and large (buildings scatter several over the roof).
+function flame(name, w, h, seed) {
+  anim(name, { w, h, frames: 6, fps: 12 }, (c) => {
+    const k = c.phase * Math.PI * 2
+    for (let i = 0; i < 3; i++) {
+      const cx = w / 2 + (i - 1) * w * 0.22, ph = k + i * 2.1 + seed
+      const fh = h * (0.55 + 0.4 * (0.5 + 0.5 * Math.sin(ph))) * (i === 1 ? 1 : 0.75)
+      const sway = Math.round(Math.sin(ph * 2) * w * 0.08)
+      const hw = w * (i === 1 ? 0.3 : 0.2)
+      c.poly([cx - hw, h, cx + hw, h, cx + sway + 0.5, h - fh, cx + sway - 0.5, h - fh], "J")
+      c.poly([cx - hw * 0.6, h, cx + hw * 0.6, h, cx + sway * 0.6, h - fh * 0.7], "K")
+      c.poly([cx - hw * 0.3, h, cx + hw * 0.3, h, cx + sway * 0.3, h - fh * 0.4], "+")
+    }
+    c.hline(Math.round(w * 0.35), h - 1, Math.round(w * 0.3), "@")
+    c.recolor({ J: "0" }, (x, y) => y < h * 0.3)
+  })
+}
+flame("flame_s", 7, 10, 0); flame("flame", 11, 18, 1); flame("flame_l", 17, 28, 2)
+
 sheet("terrain", ["ground_*", "glint", "water_*", "cobble_*", "path_*", "ridge_*", "woods_*"], { pad: 1 })
-sheet("village", ["bridge", "wall_*", "house_*", "chapel", "well", "lamp", "brazier", "barrel", "crate", "hay_*", "cart",
+sheet("village", ["bridge", "wall_*", "house_*", "chapel", "chapel_*", "well", "lamp", "brazier", "barrel", "barrel_cracked",
+  "crate", "crate_cracked", "hay_*", "cart", "cart_cracked", "folk_*", "chicken", "pig", "coin", "bread", "ham", "coffer*",
+  "relic", "stubble", "flame*",
   "stall", "grave_*", "fence_*", "banner", "crop_*", "scarecrow", "trough", "bush*",
   "flowers_*", "grass_tall", "fern", "reeds", "tree_*", "rock*"], { pad: 1 })

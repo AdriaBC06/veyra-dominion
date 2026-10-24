@@ -4,7 +4,9 @@
 //! and sparks) in real seconds; the run only hands it the game each frame.
 
 use super::{draw_icon_alpha, format_time, Anchor, Icon};
-use crate::assets::{draw_ui_text, measure_ui_text, TextStyle, ICON_SIZE};
+use crate::assets::{
+    draw_ui_text, measure_ui_text, village_frame, village_id, TextStyle, ICON_SIZE,
+};
 use crate::config::*;
 use crate::game::Game;
 use crate::i18n::tr;
@@ -369,8 +371,7 @@ impl HudFx {
             self.slot_icon[n] = icon;
             let Some(i) = *art else { continue };
             let c = game.arts.charge(i);
-            if c >= 1.0 && self.charge[n] < 1.0 && game.arts.stats[i].cooldown >= READY_FLASH_FROM
-            {
+            if c >= 1.0 && self.charge[n] < 1.0 && game.arts.stats[i].cooldown >= READY_FLASH_FROM {
                 self.since_ready[n] = 0.0;
             }
             self.charge[n] = c;
@@ -434,7 +435,13 @@ fn fill(r: Rect, frac: f32, ramp: &Ramp, bright: f32, alpha: f32) {
     let band = (r.h * 0.3).round().max(1.0);
     draw_rectangle(r.x, r.y + r.h - band, w, band, lift(ramp.deep));
     draw_rectangle(r.x, r.y, w, 1.0, lift(ramp.hi));
-    draw_rectangle(r.x, r.y + 1.0, w, band - 1.0, lift(mix(ramp.body, ramp.hi, 0.45)));
+    draw_rectangle(
+        r.x,
+        r.y + 1.0,
+        w,
+        band - 1.0,
+        lift(mix(ramp.body, ramp.hi, 0.45)),
+    );
 }
 
 /// Light rippling along a fill (souls drifting inside the bar).
@@ -445,9 +452,21 @@ fn ripples(r: Rect, frac: f32, ramp: &Ramp, t: f32, alpha: f32) {
         let a = ((x * 0.19 - t * 3.2).sin() + (x * 0.071 + t * 1.3).sin()) * 0.5;
         if a > 0.25 {
             let k = (a - 0.25) / 0.75;
-            draw_rectangle(r.x + x, r.y, 2.0, r.h - 1.0, kit::fade(ramp.hi, k * 0.4 * alpha));
+            draw_rectangle(
+                r.x + x,
+                r.y,
+                2.0,
+                r.h - 1.0,
+                kit::fade(ramp.hi, k * 0.4 * alpha),
+            );
             let y = r.y + 1.0 + ((x * 0.37 + t * 5.0).sin() * 0.5 + 0.5) * (r.h - 3.0);
-            draw_rectangle(r.x + x, y.round(), 2.0, 1.0, kit::fade(WHITE, k * 0.55 * alpha));
+            draw_rectangle(
+                r.x + x,
+                y.round(),
+                2.0,
+                1.0,
+                kit::fade(WHITE, k * 0.55 * alpha),
+            );
         }
         x += 2.0;
     }
@@ -505,7 +524,13 @@ fn souls(r: Rect, frac: f32, t: f32) {
             let fade = 1.0 - j as f32 / 11.0;
             let h = if j <= 4 { 2.0 } else { 1.0 };
             let y = if j <= 4 { ty } else { ty + 0.5 };
-            draw_rectangle(r.x + tx, y.round(), 1.0, h, kit::fade(SOUL_RAMP.hi, a * fade * 0.75));
+            draw_rectangle(
+                r.x + tx,
+                y.round(),
+                1.0,
+                h,
+                kit::fade(SOUL_RAMP.hi, a * fade * 0.75),
+            );
         }
         let hy = wave(t, phase).round();
         let (hx, glow) = (r.x + head, kit::fade(SOUL_RAMP.hi, a * 0.35));
@@ -531,11 +556,23 @@ fn blood(r: Rect, frac: f32, pulse: f32, flow: f32, t: f32) {
         let e = ((u * 0.17).sin() + (u * 0.061 + 1.7).sin()) * 0.5;
         if e > 0.2 {
             let y = r.y + 2.0 + (((u * 0.09).sin() * 0.5 + 0.5) * (r.h - 5.0)).round();
-            draw_rectangle(r.x + x, y, 2.0, 2.0, kit::fade(HP_RAMP.deep, (e - 0.2) * 0.9));
+            draw_rectangle(
+                r.x + x,
+                y,
+                2.0,
+                2.0,
+                kit::fade(HP_RAMP.deep, (e - 0.2) * 0.9),
+            );
         }
         let k = pump((pulse - x / (r.w * 2.5)).rem_euclid(1.0));
         if k > 0.05 {
-            draw_rectangle(r.x + x, r.y + 1.0, 2.0, r.h - 2.0, kit::fade(CELL_RIM, k * 0.4));
+            draw_rectangle(
+                r.x + x,
+                r.y + 1.0,
+                2.0,
+                r.h - 2.0,
+                kit::fade(CELL_RIM, k * 0.4),
+            );
         }
         x += 2.0;
     }
@@ -583,7 +620,13 @@ fn blood(r: Rect, frac: f32, pulse: f32, flow: f32, t: f32) {
                 HP_RAMP.body
             };
             draw_rectangle(r.x + w, r.y + y, reach, 1.0, c);
-            draw_rectangle(r.x + w + reach - 1.0, r.y + y, 1.0, 1.0, kit::fade(HP_RAMP.hi, 0.4));
+            draw_rectangle(
+                r.x + w + reach - 1.0,
+                r.y + y,
+                1.0,
+                1.0,
+                kit::fade(HP_RAMP.hi, 0.4),
+            );
         }
     }
 }
@@ -598,7 +641,13 @@ fn tip(r: Rect, frac: f32, ramp: &Ramp, flare: f32, t: f32) {
     let glow = 2.0 + 4.0 * flare;
     draw_rectangle(x - glow, r.y, glow, r.h, kit::fade(ramp.hi, 0.25 * flicker));
     draw_rectangle(x - 2.0, r.y, 2.0, r.h, kit::fade(ramp.hi, 0.85 * flicker));
-    draw_rectangle(x - 1.0, r.y, 1.0, r.h, kit::fade(WHITE, 0.6 * flicker + 0.4 * flare));
+    draw_rectangle(
+        x - 1.0,
+        r.y,
+        1.0,
+        r.h,
+        kit::fade(WHITE, 0.6 * flicker + 0.4 * flare),
+    );
 }
 
 /// The whole in-run HUD.
@@ -609,6 +658,7 @@ pub fn draw(game: &Game, fx: &HudFx, view: Vec2) {
     hp_bar(game, fx);
     timer(game, fx, view);
     kills(fx, view);
+    loot(game, view);
     slots(game, fx);
     boss_bar(game, fx, view);
     for s in &fx.sparks {
@@ -678,7 +728,14 @@ fn medal(game: &Game, fx: &HudFx) {
         // a ring of light opening out of the medallion
         let grow = (1.0 - up) * 10.0;
         let ring = Rect::new(r.x - grow, r.y - grow, r.w + 2.0 * grow, r.h + 2.0 * grow);
-        draw_rectangle_lines(ring.x, ring.y, ring.w, ring.h, 1.0, kit::fade(p.gold_lit, up));
+        draw_rectangle_lines(
+            ring.x,
+            ring.y,
+            ring.w,
+            ring.h,
+            1.0,
+            kit::fade(p.gold_lit, up),
+        );
     }
 }
 
@@ -691,7 +748,13 @@ fn soul_bar(fx: &HudFx, view: Vec2) {
     let up = fresh(fx.since_level, 0.4);
     fill(i, fx.soul, &SOUL_RAMP, 0.0, 1.0);
     souls(i, fx.soul, fx.t);
-    tip(i, fx.soul, &SOUL_RAMP, fresh(fx.since_soul, SOUL_TIME), fx.t);
+    tip(
+        i,
+        fx.soul,
+        &SOUL_RAMP,
+        fresh(fx.since_soul, SOUL_TIME),
+        fx.t,
+    );
     if up > 0.0 {
         draw_rectangle(i.x, i.y, i.w, i.h, kit::fade(SOUL_RAMP.hi, up * up * 0.85));
     }
@@ -785,6 +848,48 @@ fn kills(fx: &HudFx, view: Vec2) {
     skull(x - 13.0, (r.center().y - 4.0).round(), mix(BONE, p.gold, k));
 }
 
+/// Under the kills: the coins she has picked up (once she has any), and while the relic
+/// hastens her Arts, the relic over the time it has left.
+fn loot(game: &Game, view: Vec2) {
+    let row = M + SOUL_H + 2.0 + 22.0;
+    let sprite = |name: &str, x: f32, y: f32, t: f32| {
+        let Some(id) = village_id(name) else { return };
+        let (tex, src) = village_frame(id, t);
+        let params = DrawTextureParams {
+            source: Some(src),
+            ..Default::default()
+        };
+        draw_texture_ex(&tex, x.round(), y.round(), WHITE, params);
+    };
+    let mut y = row;
+    if game.coins > 0 {
+        let s = game.coins.to_string();
+        let w = measure_ui_text(&s, TextStyle::Name).width;
+        let x = Anchor::Right.x(view, w, M);
+        let r = Rect::new(x, y, w, 18.0);
+        kit::text(
+            &s,
+            x,
+            kit::ink_baseline(&s, TextStyle::Name, r),
+            TextStyle::Name,
+            BONE,
+        );
+        sprite("coin", x - 13.0, r.center().y - 5.0, 0.0);
+        y += 18.0;
+    }
+    let left = game.relic_until - game.time;
+    if left > 0.0 {
+        let (w, h) = (30.0, 3.0);
+        let x = view.x - M - w;
+        sprite("relic", x - 16.0, y, game.time);
+        let k = (left / RELIC_TIME).clamp(0.0, 1.0);
+        let bar = Rect::new(x, y + 6.0, w, h);
+        let p = kit::pal();
+        draw_rectangle(bar.x - 1.0, bar.y - 1.0, bar.w + 2.0, bar.h + 2.0, p.shadow);
+        draw_rectangle(bar.x, bar.y, (bar.w * k).round(), bar.h, p.gold_lit);
+    }
+}
+
 /// `filled` of `total` level pips centred under a slot.
 fn slot_pips(slot: Rect, filled: u32, total: u32, color: Color) {
     let w = total as f32 * (PIP + 1.0) - 1.0;
@@ -830,7 +935,13 @@ fn slots(game: &Game, fx: &HudFx) {
             draw_rectangle(ix, iy, ICON_SIZE, ICON_SIZE, kit::fade(WHITE, ready * 0.55));
         }
         if pop > 0.0 {
-            draw_rectangle(ix, iy, ICON_SIZE, ICON_SIZE, kit::fade(p.gold_lit, pop * 0.5));
+            draw_rectangle(
+                ix,
+                iy,
+                ICON_SIZE,
+                ICON_SIZE,
+                kit::fade(p.gold_lit, pop * 0.5),
+            );
         }
         slot_pips(r, u.arts[i].into(), ART_MAX_LEVEL.into(), p.gold);
     }
@@ -842,7 +953,13 @@ fn slots(game: &Game, fx: &HudFx) {
         let iy = r.y + 3.0 - (pop * 2.0).round();
         draw_icon_alpha(Icon::Sin(i), r.x + 3.0, iy, 1.0, 1.0);
         if pop > 0.0 {
-            draw_rectangle(r.x + 3.0, iy, ICON_SIZE, ICON_SIZE, kit::fade(p.gold_lit, pop * 0.5));
+            draw_rectangle(
+                r.x + 3.0,
+                iy,
+                ICON_SIZE,
+                ICON_SIZE,
+                kit::fade(p.gold_lit, pop * 0.5),
+            );
         }
         slot_pips(r, u.sins[i].into(), SINS[i].max_level.into(), p.ruby);
     }
@@ -856,11 +973,22 @@ fn boss_bar(game: &Game, fx: &HudFx, view: Vec2) {
     };
     let intro = motion::ease_out_cubic((fx.since_boss / BOSS_INTRO).min(1.0));
     let w = BOSS_W.min(view.x - 60.0);
-    let r = Rect::new(Anchor::Center.x(view, w, 0.0), view.y - M - BOSS_H, w, BOSS_H);
+    let r = Rect::new(
+        Anchor::Center.x(view, w, 0.0),
+        view.y - M - BOSS_H,
+        w,
+        BOSS_H,
+    );
     let p = kit::pal();
     let name = tr(b.def.name);
     let ny = r.y - 4.0 + ((1.0 - intro) * 6.0).round();
-    kit::text_centered(name, r.center().x, ny, TextStyle::Name, kit::fade(p.gold, intro));
+    kit::text_centered(
+        name,
+        r.center().x,
+        ny,
+        TextStyle::Name,
+        kit::fade(p.gold, intro),
+    );
     kit::moulding(r, BAR_THICK as u16, false, intro, 0xb055);
     let i = inner(r);
     let health = fx.boss_hp.min(intro);
@@ -878,7 +1006,11 @@ fn boss_bar(game: &Game, fx: &HudFx, view: Vec2) {
     for phase in &b.def.phases[1..] {
         let x = (i.x + i.w * phase.below).round();
         let reached = b.health() <= phase.below;
-        let c = if reached { p.ruby } else { Color::new(0.2, 0.16, 0.18, 1.0) };
+        let c = if reached {
+            p.ruby
+        } else {
+            Color::new(0.2, 0.16, 0.18, 1.0)
+        };
         let y = r.y + 1.0;
         draw_rectangle(x, i.y, 1.0, i.h, kit::fade(p.shadow, intro));
         // a small diamond set into the top moulding

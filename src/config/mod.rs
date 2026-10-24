@@ -5,12 +5,14 @@ mod arts;
 mod bosses;
 mod enemies;
 mod map;
+mod village;
 
 pub use art_tuning::*;
 pub use arts::*;
 pub use bosses::*;
 pub use enemies::*;
 pub use map::*;
+pub use village::*;
 
 use crate::i18n::Key;
 

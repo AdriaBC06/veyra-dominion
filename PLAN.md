@@ -35,7 +35,7 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 - **S16c — Ashford map** *(user approval)*
   - [x] V19d Authored Ashford layout, village art, blocking grid, flow field, wall/projectile rules, y-sort
 - **S16h — Living village** *(user approval)*
-  - [ ] V19h Fleeing villagers, breakables + drops, building damage/collapse into rubble, fire
+  - [x] V19h Fleeing villagers, breakables + drops, building damage/collapse into rubble, fire
 - **S16i — Nightfall** *(user approval)*
   - [ ] V19i Dusk-to-night cycle over the 10:00, light map (fire, torches, lamps, windows), building shadows
 - **S16j — Minimap** *(user approval)*

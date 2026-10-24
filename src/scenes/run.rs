@@ -93,9 +93,9 @@ impl Run {
     pub fn new() -> Self {
         let game = Game::on_map(ASHFORD_MAP);
         Self {
-            map_art: MapArt::new(&game.map, ASHFORD_MAP),
-            order: RefCell::new(Vec::with_capacity(MAX_ENEMIES + 1)),
-            order_y: RefCell::new(Vec::with_capacity(MAX_ENEMIES + 1)),
+            map_art: MapArt::new(&game.map, ASHFORD_MAP, &game.village),
+            order: RefCell::new(Vec::with_capacity(ORDER)),
+            order_y: RefCell::new(Vec::with_capacity(ORDER)),
             game,
             state: State::Playing,
             accumulator: 0.0,
@@ -166,7 +166,9 @@ impl Run {
                 if is_key_pressed(KeyCode::F12) {
                     if is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift) {
                         self.speed = if self.speed >= 8 { 1 } else { self.speed * 2 };
-                    } else if is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl) {
+                    } else if is_key_down(KeyCode::LeftControl)
+                        || is_key_down(KeyCode::RightControl)
+                    {
                         // the skipped minute is the bot's: the run no longer counts
                         self.skip = 60.0;
                         self.autopiloted = true;
@@ -268,7 +270,10 @@ impl Run {
             self.shed.push(s);
             bake(&mut self.blood, s, self.gore);
         }
-        self.blood.sync(self.game.map.view_centre(self.game.player.pos, view) - view * 0.5, view);
+        self.blood.sync(
+            self.game.map.view_centre(self.game.player.pos, view) - view * 0.5,
+            view,
+        );
         for cue in self.game.cues.drain(..) {
             audio::cue(match cue {
                 Cue::Fire => Sfx::Fire,
@@ -449,7 +454,10 @@ impl Run {
         for &s in &self.shed {
             bake(&mut self.blood, s, gore);
         }
-        self.blood.sync(self.game.map.view_centre(self.game.player.pos, view) - view * 0.5, view);
+        self.blood.sync(
+            self.game.map.view_centre(self.game.player.pos, view) - view * 0.5,
+            view,
+        );
     }
 
     /// Draws the world around Veyra with the world camera.
@@ -464,13 +472,32 @@ impl Run {
         if game.map.is_open() {
             draw_ground(origin, view);
         } else {
-            self.map_art.draw_terrain(&game.map, origin, view, game.time);
+            self.map_art
+                .draw_terrain(&game.map, origin, view, game.time);
         }
         self.blood.draw(origin, view);
         draw_gates(game);
         draw_mass_circle(game, player_pos.round());
         draw_scent(game, player_pos.round());
-        draw_souls(game);
+        {
+            // Souls and drops lie under the horde; one a prop would hide joins the sorted
+            // pass right after that prop instead, so it always shows.
+            let mut order = self.order.borrow_mut();
+            order.clear();
+            for i in 0..game.souls.len() {
+                match self.map_art.cover(soul_area(game, i), &game.village) {
+                    Some(base) => order.push((base + LIFT, SOUL | i as u32)),
+                    None => draw_soul(game, i),
+                }
+            }
+            for i in 0..game.village.drops.len() {
+                let area = MapArt::drop_area(&game.village, i);
+                match self.map_art.cover(area, &game.village) {
+                    Some(base) => order.push((base + LIFT, DROP | i as u32)),
+                    None => self.map_art.draw_drop(&game.village, i, game.time),
+                }
+            }
+        }
         draw_offerings(game);
         draw_fires(game);
         draw_bursts(game, true);
@@ -482,10 +509,15 @@ impl Run {
             // Props, the horde and Veyra by their base line, so she walks behind houses.
             let mut order = self.order.borrow_mut();
             let mut ys = self.order_y.borrow_mut();
-            order.clear();
             ys.clear();
             let e = &game.enemies;
             order.extend((0..e.len()).map(|i| (e.y[i], i as u32)));
+            let folk = &game.village.civilians;
+            order.extend(
+                folk.iter()
+                    .enumerate()
+                    .map(|(i, c)| (c.pos.y, CIVILIAN | i as u32)),
+            );
             // she hovers: her place in the order is the ground under her, where her shadow is
             let ground = pos.y + VEYRA_DROP;
             order.push((ground, u32::MAX));
@@ -497,18 +529,28 @@ impl Run {
                 VEYRA_BODY.x,
                 VEYRA_BODY.y,
             );
-            self.map_art.draw_sorted(origin, view, game.time, body, &ys, |k| {
-                let i = order[k].1;
-                if i == u32::MAX {
-                    draw_embers(game, pos, false);
-                    draw_bats(game, pos, false);
-                    draw_veyra(game, pos, t);
-                    draw_embers(game, pos, true);
-                    draw_bats(game, pos, true);
-                } else {
-                    draw_enemy(game, i as usize);
-                }
-            });
+            let village = &game.village;
+            let seen = Rect::new(origin.x, origin.y, view.x, view.y);
+            self.map_art
+                .draw_sorted(seen, game.time, body, village, &ys, |k| {
+                    let i = order[k].1;
+                    if i == u32::MAX {
+                        draw_embers(game, pos, false);
+                        draw_bats(game, pos, false);
+                        draw_veyra(game, pos, t);
+                        draw_embers(game, pos, true);
+                        draw_bats(game, pos, true);
+                    } else if i & CIVILIAN != 0 {
+                        self.map_art.draw_civilian(&folk[(i & !CIVILIAN) as usize]);
+                    } else if i & SOUL != 0 {
+                        draw_soul(game, (i & !SOUL) as usize);
+                    } else if i & DROP != 0 {
+                        self.map_art
+                            .draw_drop(village, (i & !DROP) as usize, game.time);
+                    } else {
+                        draw_enemy(game, i as usize);
+                    }
+                });
         }
         draw_blesses(game);
         draw_thralls(game);
@@ -588,6 +630,17 @@ impl Run {
         }
     }
 }
+
+/// Marks a villager's place in the draw order (enemies are plain indices, Veyra `u32::MAX`).
+/// Everything the sorted pass can hold: the horde, the villagers, lifted souls and drops,
+/// and Veyra.
+const ORDER: usize = MAX_ENEMIES + MAX_CIVILIANS + MAX_SOULS + MAX_DROPS + 1;
+const CIVILIAN: u32 = 1 << 30;
+const SOUL: u32 = 1 << 29;
+const DROP: u32 = 1 << 28;
+/// How far past the prop's base line a lifted soul or drop sorts: after the prop, before
+/// anyone standing in front of it.
+const LIFT: f32 = 0.01;
 
 /// Real seconds since the last frame, for UI motion.
 fn ui_dt() -> f32 {
@@ -1154,22 +1207,27 @@ fn draw_bursts(game: &Game, landed: bool) {
     }
 }
 
-fn draw_souls(game: &Game) {
-    for (i, s) in game.souls.iter().enumerate() {
-        let bob = (TAU * SOUL_BOB_HZ * game.time + i as f32).sin();
-        draw_shadow(s.pos, 2.5, 1.0, 0.6);
-        // Each sprite centred on the soul, its bottom row 1 px above the ground point.
-        let (sprite, frame, w, h) = if s.xp < SOUL_FAINT_BELOW {
-            (SpriteId::SoulFaint, 0, 6.0, 6.0)
-        } else if s.xp < SOUL_RADIANT_FROM {
-            (SpriteId::Soul, 0, 8.0, 8.0)
-        } else {
-            let frame = assets::anim_frame(SpriteId::SoulRadiant, game.time, true);
-            (SpriteId::SoulRadiant, frame, 11.0, 13.0)
-        };
-        let corner = s.pos - vec2((w * 0.5_f32).floor(), h + 1.0 + bob);
-        draw_sprite(sprite, frame, corner, false);
-    }
+/// Where soul `i` is drawn (bob included), for `MapArt::cover`.
+fn soul_area(game: &Game, i: usize) -> Rect {
+    let p = game.souls[i].pos;
+    Rect::new(p.x - 6.0, p.y - 16.0, 12.0, 16.0)
+}
+
+fn draw_soul(game: &Game, i: usize) {
+    let s = &game.souls[i];
+    let bob = (TAU * SOUL_BOB_HZ * game.time + i as f32).sin();
+    draw_shadow(s.pos, 2.5, 1.0, 0.6);
+    // Each sprite centred on the soul, its bottom row 1 px above the ground point.
+    let (sprite, frame, w, h) = if s.xp < SOUL_FAINT_BELOW {
+        (SpriteId::SoulFaint, 0, 6.0, 6.0)
+    } else if s.xp < SOUL_RADIANT_FROM {
+        (SpriteId::Soul, 0, 8.0, 8.0)
+    } else {
+        let frame = assets::anim_frame(SpriteId::SoulRadiant, game.time, true);
+        (SpriteId::SoulRadiant, frame, 11.0, 13.0)
+    };
+    let corner = s.pos - vec2((w * 0.5_f32).floor(), h + 1.0 + bob);
+    draw_sprite(sprite, frame, corner, false);
 }
 
 /// A faint ring around each Curate: the reach of his blessing.

@@ -103,6 +103,8 @@ pub struct ArtDef {
     /// What it throws stops at walls, buildings, the ridge and the woods (design.md 7.14).
     /// Sweeping, orbiting, falling and instant Arts pass over them.
     pub walls: bool,
+    /// Its marks on the village set things alight (V19h); the others only break them.
+    pub fire: bool,
 }
 
 /// Two Arts at `ART_MAX_LEVEL` that an Abyssal Offering fuses into one (no Sin
@@ -134,6 +136,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::Hellflare,
         walls: true,
+        fire: true,
         name: Key::ArtHellflare,
         desc: Key::ArtHellflareDesc,
         amount_key: Key::ArtMoreFireballs,
@@ -187,6 +190,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::TailLash,
         walls: false,
+        fire: false,
         name: Key::ArtTailLash,
         desc: Key::ArtTailLashDesc,
         amount_key: Key::ArtMoreLashes,
@@ -242,6 +246,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::BrimstoneHalo,
         walls: false,
+        fire: true,
         name: Key::ArtBrimstoneHalo,
         desc: Key::ArtBrimstoneHaloDesc,
         amount_key: Key::ArtMoreEmbers,
@@ -297,6 +302,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::Allure,
         walls: false,
+        fire: false,
         name: Key::ArtAllure,
         desc: Key::ArtAllureDesc,
         amount_key: Key::ArtMoreCharmed,
@@ -352,6 +358,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::Hellgate,
         walls: false,
+        fire: true,
         name: Key::ArtHellgate,
         desc: Key::ArtHellgateDesc,
         amount_key: Key::ArtMorePools,
@@ -408,6 +415,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::WhipOfTorment,
         walls: false,
+        fire: false,
         name: Key::ArtWhipOfTorment,
         desc: Key::ArtWhipOfTormentDesc,
         amount_key: Key::ArtMoreJumps,
@@ -463,6 +471,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::ScentOfSin,
         walls: false,
+        fire: false,
         name: Key::ArtScentOfSin,
         desc: Key::ArtScentOfSinDesc,
         amount_key: Key::ArtGainArea,
@@ -518,6 +527,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::ReapersScythe,
         walls: false,
+        fire: false,
         name: Key::ArtReapersScythe,
         desc: Key::ArtReapersScytheDesc,
         amount_key: Key::ArtMoreScythes,
@@ -576,6 +586,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::ProfanedCross,
         walls: false,
+        fire: false,
         name: Key::ArtProfanedCross,
         desc: Key::ArtProfanedCrossDesc,
         amount_key: Key::ArtMoreCrosses,
@@ -630,6 +641,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::WanderingSigil,
         walls: false,
+        fire: false,
         name: Key::ArtWanderingSigil,
         desc: Key::ArtWanderingSigilDesc,
         amount_key: Key::ArtMoreSigils,
@@ -687,6 +699,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::BatSwarm,
         walls: false,
+        fire: true,
         name: Key::ArtBatSwarm,
         desc: Key::ArtBatSwarmDesc,
         amount_key: Key::ArtMoreBats,
@@ -743,6 +756,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::BlackMass,
         walls: false,
+        fire: false,
         name: Key::ArtBlackMass,
         desc: Key::ArtBlackMassDesc,
         amount_key: Key::ArtGainArea,
@@ -795,6 +809,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::GazeOfDesire,
         walls: false,
+        fire: false,
         name: Key::ArtGazeOfDesire,
         desc: Key::ArtGazeOfDesireDesc,
         amount_key: Key::ArtMoreGazes,
@@ -849,6 +864,7 @@ pub const ARTS: [ArtDef; 14] = [
     ArtDef {
         kind: ArtKind::Thralls,
         walls: false,
+        fire: false,
         name: Key::ArtThralls,
         desc: Key::ArtThrallsDesc,
         amount_key: Key::ArtMoreThralls,

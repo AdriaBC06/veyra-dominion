@@ -1088,7 +1088,28 @@ pub fn village_id(name: &str) -> Option<usize> {
 pub fn village_frame(id: usize, secs: f32) -> (Texture2D, Rect) {
     ATLAS.with(|a| {
         let atlas = a.get().expect("assets::init not called");
-        (atlas.tex.clone(), atlas.rects[atlas.village[id].frame(secs)])
+        (
+            atlas.tex.clone(),
+            atlas.rects[atlas.village[id].frame(secs)],
+        )
+    })
+}
+
+/// Atlas texture and source rect of frame `n` of village sprite `id` (the last one past
+/// its end).
+pub fn village_frame_n(id: usize, n: usize) -> (Texture2D, Rect) {
+    ATLAS.with(|a| {
+        let atlas = a.get().expect("assets::init not called");
+        let v = &atlas.village[id];
+        (atlas.tex.clone(), atlas.rects[v.start + n.min(v.count - 1)])
+    })
+}
+
+/// Frames in village sprite `id` and their length in seconds (0 for a still one).
+pub fn village_anim(id: usize) -> (usize, f32) {
+    ATLAS.with(|a| {
+        let v = &a.get().expect("assets::init not called").village[id];
+        (v.count, v.ms as f32 / 1000.0)
     })
 }
 

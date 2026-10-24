@@ -23,6 +23,7 @@ mod spatial;
 mod stone;
 mod ui;
 mod upgrades;
+mod village;
 
 use audio::Audio;
 use config::*;

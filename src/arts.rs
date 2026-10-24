@@ -7,6 +7,7 @@ use crate::game::Player;
 use crate::map::Map;
 use crate::spatial::SpatialHash;
 use crate::upgrades::{PlayerStats, Upgrades};
+use crate::village::{mark, Mark};
 use macroquad::math::{vec2, Vec2};
 use macroquad::rand::gen_range;
 use std::f32::consts::TAU;
@@ -317,6 +318,10 @@ pub struct World<'a> {
     pub view: Vec2,
     /// Walls stop what a `walls` Art throws; thralls are pushed out of them.
     pub map: &'a Map,
+    /// Where the Arts struck, for the village to break and burn (V19h).
+    pub marks: &'a mut Vec<Mark>,
+    /// Cooldowns run this many times as fast (the relic).
+    pub haste: f32,
 }
 
 pub struct Arts {
@@ -497,7 +502,7 @@ impl Arts {
                 if !self.owns(art) || art == BRIMSTONE_HALO {
                     continue;
                 }
-                self.cooldown[art] = (self.cooldown[art] - TICK_DT).max(0.0);
+                self.cooldown[art] = (self.cooldown[art] - TICK_DT * w.haste).max(0.0);
                 if self.cooldown[art] > 0.0 {
                     continue;
                 }
@@ -664,6 +669,7 @@ impl Arts {
                 strike(enemies, j, s.damage, time, &mut cues.hits);
             });
         if any {
+            mark(w.marks, ALLURE, center, radius, s.damage);
             self.allure.since_pulse = 0.0;
             self.allure.radius = radius;
             cues.charmed = true;
@@ -730,6 +736,13 @@ impl Arts {
             c.links[c.len] = enemies.pos(j);
             c.len += 1;
             strike(enemies, j, s.damage, w.time, &mut cues.hits);
+            mark(
+                w.marks,
+                WHIP_OF_TORMENT,
+                enemies.pos(j),
+                CHAIN_MARK,
+                s.damage,
+            );
             if c.len > bites {
                 break;
             }
@@ -768,6 +781,7 @@ impl Arts {
                     burned += 1;
                 }
             });
+        mark(w.marks, SCENT_OF_SIN, center, radius, s.damage);
         if self.evolved[SCENT_OF_SIN] && w.player.hp > 0.0 {
             let p = &mut *w.player;
             let heal = (burned as f32 * MUSK_HEAL).min(self.heal_budget);
@@ -906,6 +920,7 @@ impl Arts {
             let falling = !b.landed();
             b.t += TICK_DT;
             if falling && b.landed() {
+                mark(w.marks, BAT_SWARM, b.to, b.radius, s.damage);
                 w.hash.query_radius(b.to, b.radius + extra, |j, _| {
                     if touches(enemies, j, b.to, b.radius) {
                         strike(enemies, j, s.damage, time, &mut cues.hits);
@@ -1022,6 +1037,7 @@ impl Arts {
                 SCYTHE_RADIUS
             };
             let radius = base * s.area;
+            mark(w.marks, REAPERS_SCYTHE, sc.pos, radius, s.damage);
             let mut spent = false;
             w.hash.query_radius(sc.pos, radius + extra, |j, _| {
                 if spent || !touches(enemies, j, sc.pos, radius) || sc.hits.contains(enemies.uid[j])
@@ -1085,6 +1101,7 @@ impl Arts {
             }
             c.pos += c.vel * TICK_DT;
             c.life -= TICK_DT;
+            mark(w.marks, PROFANED_CROSS, c.pos, radius, s.damage);
             w.hash.query_radius(c.pos, query, |j, _| {
                 if touches(enemies, j, c.pos, radius) && !c.hits.contains(enemies.uid[j]) {
                     strike(enemies, j, s.damage, time, &mut cues.hits);
@@ -1153,6 +1170,7 @@ impl Arts {
                 g.hits.clear();
                 if seal {
                     let p = g.pos;
+                    mark(w.marks, WANDERING_SIGIL, p, blast_r, blast_dmg);
                     w.hash.query_radius(p, blast_r + extra, |j, _| {
                         if touches(enemies, j, p, blast_r) {
                             strike(enemies, j, blast_dmg, time, &mut cues.hits);
@@ -1168,6 +1186,7 @@ impl Arts {
                     cues.sealed = true;
                 }
             }
+            mark(w.marks, WANDERING_SIGIL, g.pos, radius, s.damage);
             w.hash.query_radius(g.pos, radius + extra, |j, _| {
                 if touches(enemies, j, g.pos, radius) && !g.hits.contains(enemies.uid[j]) {
                     strike(enemies, j, s.damage, time, &mut cues.hits);
@@ -1229,6 +1248,7 @@ impl Arts {
         let s = self.stats[ALLURE];
         let (radius, damage) = (SIREN_BURST_RADIUS * s.area, s.damage * SIREN_BURST_DAMAGE);
         let time = w.time;
+        mark(w.marks, ALLURE, p, radius, damage);
         let enemies = &mut *w.enemies;
         w.hash
             .query_radius(p, radius + enemies.max_radius(), |j, _| {
@@ -1430,6 +1450,7 @@ impl Arts {
             }
             if g.burn <= 0.0 {
                 g.burn += HELLGATE_TICK;
+                mark(w.marks, HELLGATE, g.pos, rx, damage);
                 w.hash.query_radius(g.pos, rx + extra, |j, _| {
                     let r = ENEMY_DEFS[enemies.kind[j] as usize].radius();
                     let d = enemies.pos(j) - g.pos;
@@ -1462,6 +1483,7 @@ impl Arts {
             }
             pr.pos += pr.vel * TICK_DT;
             pr.life -= TICK_DT;
+            mark(w.marks, HELLFLARE, pr.pos, PROJ_RADIUS, damage);
             if ARTS[HELLFLARE].walls && w.map.blocks_shot(pr.pos) {
                 pr.fade = SHOT_FADE;
                 continue;
@@ -1503,6 +1525,7 @@ impl Arts {
                 let half = vec2(LASH_REACH * s.area, LASH_DEPTH) * 0.5;
                 let mid = center + vec2(l.side * (LASH_NEAR + half.x), 0.0);
                 let query = half.length() + enemies.max_radius();
+                mark(w.marks, TAIL_LASH, mid, half.x, s.damage);
                 w.hash.query_radius(mid, query, |j, p| {
                     let r = ENEMY_DEFS[enemies.kind[j] as usize].radius();
                     let off = (p - mid).abs();
@@ -1531,6 +1554,7 @@ impl Arts {
             }
             b.pos += b.vel * TICK_DT;
             b.life -= TICK_DT;
+            mark(w.marks, HELLFLARE, b.pos, BOLT_RADIUS, damage);
             if ARTS[HELLFLARE].walls && w.map.blocks_shot(b.pos) {
                 b.fade = SHOT_FADE;
                 return true;
@@ -1587,6 +1611,13 @@ impl Arts {
         let enemies = &mut *w.enemies;
         let query = EMBER_RADIUS + enemies.max_radius();
         for off in ember_offsets(h.angle, &s) {
+            mark(
+                w.marks,
+                BRIMSTONE_HALO,
+                center + off,
+                EMBER_RADIUS,
+                s.damage,
+            );
             w.hash.query_radius(center + off, query, |j, p| {
                 if enemies.halo_until[j] > time || !touches(enemies, j, center + off, EMBER_RADIUS)
                 {

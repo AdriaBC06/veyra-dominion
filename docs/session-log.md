@@ -188,3 +188,9 @@ Append one entry per session (3–8 lines): date, tasks done, decisions, half-do
   - Fixes from review: bank/rock faces broke at tile edges (tiles now read the next cells), river repeated (64 px wobble, 16 variants, glints placed at run time), props drew over Veyra (sorted by her ground point, any prop covering her fades), bridge faded (now flat).
   - Numbers: stress 0.42 ms on the map; probe median 382 s on map vs 513 s open, boss never killed: retune after the user plays.
   - Gotchas: captures used a hand-made `VEYRA_MAPSHOT` hack (start in Run at a cell, optional fast-forward, save at frame 40), removed. Veyra's `player.pos` is her body; her ground is `VEYRA_DROP` lower.
+- **S16d (2026-10-24)** — V19h done and approved (`feat: living village`).
+  - Done: Art marks on the village, buildings intact → cracked → rubble (shots pass rubble), fire with heat/spread, breakables, fleeing villagers with tiny souls, drops (coins, food, coffers, chapel relic = Art cooldowns ×2), HUD coin counter + relic timer.
+  - Tuning from playtests: 140–420 HP was too frail, 1200–4000 too sturdy and silent; now 500–1600 with a 0.25 s per-prop hit cooldown, shake + bits on each blow; ignition 16 (houses) / 6 (rest).
+  - Fix: souls/drops were hidden under houses; `MapArt::cover` lifts them into the sorted pass after the covering prop.
+  - Open: no village sounds yet; Halo can burn large patches of woods; white blobs seen in captures are probably Zealot blasts (unconfirmed).
+  - Gotcha: an earlier `cargo fmt` reflowed untouched files (kit, stone, ui...); reverted them, the repo isn't fmt-clean.

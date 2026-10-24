@@ -208,6 +208,25 @@ impl Map {
         self.solid(cx, cy, SHOT)
     }
 
+    /// A building fell: its cells under `r` (world pixels) still stop walkers, but rubble
+    /// no longer stops thrown things (V19h).
+    pub fn open_shot(&mut self, r: Rect) {
+        if self.is_open() {
+            return;
+        }
+        let (c0, r0) = self.cell(r.point());
+        let (c1, r1) = self.cell(vec2(r.right(), r.bottom()) - 0.01);
+        for cy in r0..=r1 {
+            for cx in c0..=c1 {
+                if let Some(i) = self.index(cx, cy) {
+                    if self.terrain[i] == b'H' {
+                        self.flags[i] &= !SHOT;
+                    }
+                }
+            }
+        }
+    }
+
     /// `p` moved out of every solid cell a circle of radius `r` overlaps (the grid's edge
     /// counts as solid).
     pub fn push_out(&self, p: Vec2, r: f32) -> Vec2 {
