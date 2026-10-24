@@ -6,7 +6,8 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 
 - [x] MVP T1–T15, CP1–CP3
 - [x] V2 S1–S14b: V1–V17f (assets, fonts, resolution, input, i18n, saves, scenes, synth, SFX, music, Veyra, enemies, title, Arts, Sins, redesign), CP4–CP6
-  - Pending from S14b: in-game review of Thralls / Infernal Court (V17f, F2/F7/F8)
+  - S14b review: Thralls / Infernal Court tested in game by the user, working (2026-10-24)
+  - Note (user, 2026-10-24): fusions forced from F2 don't show up in the Grimoire. By design per 7.14 (`Run::forced` never unlocks); revisit only if the user wants otherwise
 
 ### V2 sessions
 
@@ -31,8 +32,13 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
   - [x] V19b Premium UI kit + every menu and the HUD redone (7.14)
   - [x] V19c Grimoire of Evolutions (title + pause)
   - [x] V19g First-time setup (language, blood, display, volume) + Blood setting
-- **S16c — Living Ashford** *(user approval)*
-  - [ ] V19d Coherent map: layout, houses, villagers who flee, breakables and drops, razing
+- **S16c — Ashford map** *(user approval)*
+  - [ ] V19d Authored Ashford layout, village art, blocking grid, flow field, wall/projectile rules, y-sort
+- **S16h — Living village** *(user approval)*
+  - [ ] V19h Fleeing villagers, breakables + drops, building damage/collapse into rubble, fire
+- **S16i — Nightfall** *(user approval)*
+  - [ ] V19i Dusk-to-night cycle over the 10:00, light map (fire, torches, lamps, windows), building shadows
+- **S16j — Minimap** *(user approval)*
   - [ ] V19e Minimap + full map (M)
 - **S16d — Veyra sprite** *(user approval)*
   - [ ] V19f In-game Veyra sprite redone to match the title portrait
@@ -80,7 +86,9 @@ Task order and progress. Working rules are in `CLAUDE.md`; design in `docs/desig
 | V19b | UI kit (`assets/ui.px.js`: frames, buttons, sliders, tabs, slots) + motion/easing helpers; pause, level-up, Offering, game over, victory, settings, credits and HUD redone (7.14) | User approves captures of every screen | `feat: premium ui pass` |
 | V19c | Grimoire of Evolutions: every evolution/union with recipe icons, silhouettes until fused once, `evolved=`/`seen=` in the save, from title and pause | Save tests green + user approves | `feat: grimoire of evolutions` |
 | V19g | First-time setup on the first launch (no settings file): language, **blood** (full / reduced / off: UI blood, stained titles, in-game gore and the permanent blood layer), scale mode + fullscreen, master volume; skippable, each step reachable later in Settings, where Blood gets its own row | Save tests green + user approves | `feat: first-time setup and blood setting` |
-| V19d | Authored, irregular Ashford layout that blocks (houses, walls, river + bridges, ridges, dense woods; small props never block): solid grid, push-out, flow-field chasers, bot navigation; y-sorted baked props; fleeing civilians pool; breakables with drop table (coins, food heal, coffers, relics); burning houses | Stress test with full map green + user approves | `feat: living ashford` |
+| V19d | Finite authored Ashford (square, chapel, houses, river + bridges, ridge, woods border) drawn with pxl (sheet approved first); solid 16 px grid, push-out, flow-field chasers, spawns outside walls, bot navigation; thrown Arts and enemy shots stop at walls, sweeping ones pass; y-sort, roofs fade | Stress test on the map green + user approves | `feat: ashford map` |
+| V19h | Civilians pool (flee, tiny souls), breakables + drop table, building structure HP → cracked → collapse into blocking rubble, heat from fire hits → burning → burnt (rubble can still burn) | Sim tests + stress green + user approves | `feat: living village` |
+| V19i | Time-of-day over 0:00–10:00 (afternoon → golden → dusk → night), low-res light map (fires, fireballs, torches, lamps, windows, souls, Veyra), sun shadows that lengthen and fade; night stays readable | Stress tick unchanged + user approves | `feat: nightfall and lighting` |
 | V19e | Minimap (baked landmarks, density-grid enemy dots, boss icon + edge arrow) and full map on M (pauses) | Stress tick unchanged + user approves | `feat: minimap and full map` |
 | V19f | New in-game Veyra sprite (all layers and animations) matching the title portrait; method agreed with the user first (7.6) | User approves | `feat: new veyra sprite` |
 | V20 | Tribute currency, end-of-run payout screen, Altar + Pacts (refund) | Meta tests green | `feat: tribute and infernal pacts` |
